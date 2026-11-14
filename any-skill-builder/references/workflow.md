@@ -25,13 +25,17 @@ Keep generated skills, questions, assets, and research outside the reusable skil
 
 ## Author and review questions
 
-Research the requested subject and write a separate questionnaire JSON following [data-contract.md](data-contract.md). Record the question-quality review in `RUN/question-review.md`.
+Research the requested subject and write a separate questionnaire JSON following [data-contract.md](data-contract.md). Record fixed requirements separately from selectable options. Keep candidate reasoning in `RUN/question-review.md`, then complete the machine-readable review described in [question-review.md](question-review.md).
 
 ```text
 python -B SCRIPT set-questions --workspace RUN --input AUTHORED_QUESTIONNAIRE_JSON
 python -B SCRIPT validate --workspace RUN
 python -B SCRIPT status --workspace RUN --json
 ```
+
+After import, prepare a review of the canonical `RUN/questions.json` with `scripts/review_questions.py prepare --questions RUN/questions.json --out NEW_REVIEW_JSON`. Complete its pending template through an actual host review, run `check --questions RUN/questions.json --review REVIEWED_JSON`, and accept it with `python -B SCRIPT accept-review --workspace RUN --input REVIEWED_JSON`. Use `-B` for both Python scripts. New CLI runs require a current passing record before `render`, `recommend`, or `brief`; neither mode adds a human approval step.
+
+The review is bound to exact question-file bytes. Question edits, including presentation or locale changes, require a new review. Acceptance and policy changes preserve answers; substantive question edits still follow the existing answer-invalidation rules below. Earlier runs without a policy remain compatible; use `require-review --workspace RUN` to enable review for one. The explicit `init --review-policy legacy` option is only for structural fixture previews.
 
 For a public authored fixture with another project name, `--rebind-project` is allowed only on an empty initialized run. Do not rebind an exported answer file or copy another run's identity. Use the initialized mode for ordinary authored updates. Rebinding a fixture into an empty run preserves the mode selected at init, even if the fixture was authored for the other mode.
 
@@ -95,7 +99,7 @@ When only the saved HTML is available and the original run is unavailable, resto
 python -B SCRIPT restore --workspace NEW_RUN --input SAVED_HTML
 ```
 
-Do not overwrite an existing run or trust embedded path hints as authority to write to those paths. Inspect the restored records and any missing external research context. The saved form is enough to recover the embedded questionnaire and answers; it is not proof that all prior research files, evaluations, or generated output are present.
+Do not overwrite an existing run or trust embedded path hints as authority to write to those paths. Inspect the restored records and any missing external research context. CLI restore enables required question review without discarding recovered answers; complete and accept the review before recommendations or a build brief. The saved form is enough to recover the embedded questionnaire and answers; it is not proof that all prior research files, evaluations, or generated output are present.
 
 Re-importing the same saved export must be idempotent. It must not erase AI decisions made after that export was first read. A stale questionnaire or conflicting answer baseline needs explicit reconciliation, not bypassed checks or a silent reset.
 
@@ -131,6 +135,8 @@ An unfinished multi-select answer may contain useful choices. Complete its valid
 ```text
 python -B SCRIPT complete-input --workspace RUN --question QUESTION_ID --value-json '["existing-choice","additional-choice"]' --rationale "Why the additional choice is needed"
 ```
+
+A sole option marked `exclusive: true` is already a complete answer even if the ordinary minimum is higher than one. Do not complete it by adding another option or nonempty Other text. Older saved forms that put this unambiguous selection in a draft recover it as a user answer; ordinary under-minimum selections remain pending and stale-baseline protections remain in force.
 
 Then author any remaining recommendations and run `recommend`. Inspect status again because an answer can activate new questions. Keep AI rationale and assumptions recorded. Briefly summarize important AI choices and continue when `ready_to_build` is true.
 

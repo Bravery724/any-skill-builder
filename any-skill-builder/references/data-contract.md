@@ -70,6 +70,8 @@ Each ordinary option has an ID, label, behavioral effect, and optional descripti
 {"id": "none", "label": "No extra sections", "effect": "Return only the required output", "exclusive": true}
 ```
 
+A sole explicitly exclusive option is a complete ordinary answer even when `min_choices` exceeds one. It cannot be combined with any other option or nonempty Other text. Ordinary selections still obey their minimum and maximum; the word "none" without `exclusive: true` has no special validation behavior.
+
 Image options include `image: "assets/filename.png"` and optional `traits`. Use real run-owned files and meaningful captions. The helper records `image_sha256`; changing image bytes requires a new `set-questions` import so obsolete choices are invalidated. Do not forge image hashes or use arbitrary absolute paths.
 
 ## Ordinary and custom values
@@ -83,6 +85,8 @@ Image options include `image: "assets/filename.png"` and optional `traits`. Use 
 Every choice/image question has a built-in **Other — describe** control. Do not add a fake image or a second conditional text question solely to create that control. An explicit ordinary "none" option remains a meaningful answer; a blank is different and is left for AI.
 
 A multi-select custom value retains ordinary selections alongside the text. Respect selection limits and exclusive options. Incomplete choices remain inspectable rather than being silently discarded or counted as a completed valid decision. Use the supported `complete-input` workflow when AI must finish a partial selection while retaining human choices.
+
+Older HTML files may have stored a sole exclusive selection as an incomplete draft. Import and reopening recover that unambiguous selection as a user answer. Conflicting answer records, invalid combinations, and stale answer baselines remain protected; this recovery does not replace a newer cleared answer. A valid exclusive answer is not pending work for `complete-input`.
 
 The browser records text without deciding whether it is sensible. The host reviews meaning after import. Do not use text length or punctuation alone to reject it. Meaningful "none", `0`, specialist terms, unusual preferences, and rejection of the displayed choices must be honored.
 

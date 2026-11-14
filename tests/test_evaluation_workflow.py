@@ -111,6 +111,60 @@ class WorkflowTests(unittest.TestCase):
             preparation.prepare(self.plan_path, self.skill, self.out)
         self.assertEqual(self.manifest_path.read_bytes(), before)
 
+    def test_linked_inputs_preserve_original_tree_bytes_and_packet_mapping(self):
+        html = self.write("plan/site/index.html", '<link rel="stylesheet" href="./style.css"><img src="../media/cover.svg">')
+        css = self.write("plan/site/style.css", "body { color: #123456 }")
+        image = self.write("plan/media/cover.svg", '<svg xmlns="http://www.w3.org/2000/svg"/>')
+        self.write("plan/site/private.txt", "An unrelated file must not be copied.")
+        relative = ["site/index.html", "site/style.css", "media/cover.svg"]
+        self.plan["cases"][0]["input_files"] = relative
+        self.plan_path.write_text(json.dumps(self.plan), encoding="utf-8")
+        self.prepare()
+        self.assertEqual(self.document["cases"][0]["input_files"], ["inputs/" + name for name in relative])
+        self.assertEqual(self.document["cases"][0]["input_mapping"],
+                         [{"original": name, "snapshot": "inputs/" + name} for name in relative])
+        for source, name in zip((html, css, image), relative):
+            self.assertEqual(source.read_bytes(), (self.out / "inputs" / name).read_bytes())
+        copied_html = self.out / "inputs/site/index.html"
+        self.assertTrue((copied_html.parent / "./style.css").is_file())
+        self.assertTrue((copied_html.parent / "../media/cover.svg").is_file())
+        self.assertFalse((copied_html.parent / "private.txt").exists())
+        packet = (self.out / "tasks/execute-candidate-001.md").read_text(encoding="utf-8")
+        self.assertIn(f"site/index.html -> {copied_html}", packet)
+        self.assertEqual(self.document["runs"][0]["skill_snapshot"], "candidate")
+
+    def test_repeated_inputs_share_one_snapshot_without_renaming_equal_basenames(self):
+        self.write("plan/other/notes.md", "A different note.")
+        self.plan["cases"][1]["input_files"].append("other/notes.md")
+        self.plan_path.write_text(json.dumps(self.plan), encoding="utf-8")
+        self.prepare()
+        inventory = next(item for item in self.document["snapshots"] if item["id"] == "inputs")
+        self.assertEqual(len(inventory["files"]), 2)
+        self.assertEqual(self.document["cases"][0]["input_files"][0], "inputs/inputs/notes.md")
+        self.assertEqual(self.document["cases"][1]["input_files"], ["inputs/inputs/notes.md", "inputs/other/notes.md"])
+
+    def test_noncanonical_input_aliases_and_case_collisions_are_rejected(self):
+        for alias in ("./inputs/notes.md", "inputs//notes.md", "inputs/./notes.md",
+                      "INPUTS/notes.md", "inputs/NOTES.md", "inputs/notes.md:stream"):
+            with self.subTest(alias=alias):
+                self.plan["cases"][0]["input_files"] = ["inputs/notes.md", alias]
+                self.plan_path.write_text(json.dumps(self.plan), encoding="utf-8")
+                with self.assertRaises(evaluation.EvaluationError):
+                    preparation.prepare(self.plan_path, self.skill, self.out)
+                self.assertFalse(self.out.exists())
+
+    def test_input_symlink_is_rejected_without_copying_its_target(self):
+        link = self.root / "plan/linked.md"
+        try:
+            link.symlink_to(self.root / "plan/inputs/notes.md")
+        except OSError:
+            self.skipTest("Creating symlinks requires platform support or permission.")
+        self.plan["cases"][0]["input_files"] = ["linked.md"]
+        self.plan_path.write_text(json.dumps(self.plan), encoding="utf-8")
+        with self.assertRaisesRegex(evaluation.EvaluationError, "symbolic links"):
+            preparation.prepare(self.plan_path, self.skill, self.out)
+        self.assertFalse(self.out.exists())
+
     def test_preparation_rejects_nested_targets_and_escaping_inputs_without_creating_output(self):
         for output in (self.skill / "iteration", self.root / "plan/inputs/iteration"):
             with self.subTest(output=output), self.assertRaisesRegex(evaluation.EvaluationError, "outside"):

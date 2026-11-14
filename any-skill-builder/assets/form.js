@@ -45,12 +45,14 @@
   const selectedIds = value => value && typeof value === 'object' && !Array.isArray(value)
     ? value.selected || [] : Array.isArray(value) ? value : typeof value === 'string' ? [value] : [];
   const customValue = value => value && typeof value === 'object' && !Array.isArray(value);
+  const exclusiveSelection = (q, selected) => selected.length === 1
+    && q.options.some(o => o.exclusive && o.id === selected[0]);
 
   function validSelected(q, selected, minimum = true) {
     const ids = q.options.map(o => o.id);
     return Array.isArray(selected) && selected.every(id => ids.includes(id))
       && new Set(selected).size === selected.length && selected.length <= (q.max_choices || ids.length)
-      && (!minimum || selected.length >= (q.min_choices || 1))
+      && (!minimum || exclusiveSelection(q, selected) || selected.length >= (q.min_choices || 1))
       && !(selected.length > 1 && q.options.some(o => o.exclusive && selected.includes(o.id)));
   }
 
@@ -136,7 +138,7 @@
     for (const q of questionnaire.questions) {
       const state = ui[q.id];
       if (q.type !== 'multi' || !state || answers.answers[q.id] || !state.selected.length
-        || state.selected.length >= (q.min_choices || 1) || !validSelected(q, state.selected, false)) continue;
+        || validSelected(q, state.selected) || !validSelected(q, state.selected, false)) continue;
       pending[q.id] = { selected: copy(state.selected), other_enabled: state.other_enabled, other_text: '', question_version: q.version };
     }
     if (Object.keys(pending).length) answers.pending_inputs = pending;
@@ -542,7 +544,13 @@
       ui[q.id] = stateFor(q, record);
       const draft = boot.drafts?.[q.id];
       if (draft && q.type !== 'text' && validSelected(q, draft.selected || [], false)
-        && typeof draft.other_enabled === 'boolean' && typeof draft.other_text === 'string') ui[q.id] = copy(draft);
+        && typeof draft.other_enabled === 'boolean' && typeof draft.other_text === 'string'
+        && (!record || JSON.stringify(selectedIds(record.value)) === JSON.stringify(draft.selected || []))) {
+        ui[q.id] = copy(draft);
+        if (!record && q.type === 'multi' && exclusiveSelection(q, draft.selected) && !draft.other_text.trim()) {
+          answers.answers[q.id] = answerFromState(q);
+        }
+      }
     }
     project();
     pages = makePages();

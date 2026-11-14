@@ -15,7 +15,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 ALLOWLIST = "tools/release-files.json"
 VERSION_PATTERN = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*)?")
-FORBIDDEN_PARTS = {".git", ".agents", ".codex", ".venv", "__pycache__", "node_modules", "dist", "runs", "demo-runs", "verification", "test-results", ".pending-state.json", "ai-request.json", "submission-history.json", "submission.json", "handoff.json", "progress.json", "imports.json", "questionnaire-export.json", "answers.json", "questions.json"}
+FORBIDDEN_PARTS = {".git", ".agents", ".codex", ".venv", "__pycache__", "node_modules", "dist", "runs", "demo-runs", "verification", "test-results", ".pending-state.json", "ai-request.json", "submission-history.json", "submission.json", "handoff.json", "progress.json", "imports.json", "questionnaire-export.json", "answers.json", "questions.json", "review-policy.json", "question-review.json", "delivery.json"}
 
 
 class ReleaseError(ValueError):

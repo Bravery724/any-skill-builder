@@ -69,6 +69,34 @@ test('Exclusive options cannot be combined with ordinary choices or Other', t =>
   assert.deepEqual(copy(env.api.answers.answers.gate.value), ['c']);
 });
 
+test('A sole exclusive choice completes a minimum-two question and switching back restores its minimum', t => {
+  const boot = makeBoot(), q = boot.view.questionnaire.questions[0];
+  q.min_choices = 2; q.options[2].exclusive = true;
+  const env = envFor(t, boot);
+  select(env.input('gate', 'c'));
+  assert.deepEqual(copy(env.api.answers.answers.gate.value), ['c']);
+  assert.equal(env.card('gate').dataset.status, 'answered');
+  assert.equal(env.api.answers.pending_inputs, undefined);
+  assert.equal(env.api.pendingDrafts().gate, undefined);
+  assert.equal(env.api.view.ready_to_build, true);
+  assert.equal(env.api.valueValid(q, ['a', 'c']), false);
+  assert.equal(env.api.valueValid(q, { other: 'Additional instructions', selected: ['c'] }), false);
+  select(env.input('gate', 'a'));
+  assert.deepEqual(copy(env.api.ui.gate.selected), ['a']);
+  assert.equal(env.api.answers.answers.gate, undefined);
+  assert.equal(env.api.view.ready_to_build, false);
+  assert.deepEqual(copy(env.api.answers.pending_inputs.gate.selected), ['a']);
+});
+
+test('A none label without an explicit exclusive flag still requires the ordinary minimum', t => {
+  const boot = makeBoot(), q = boot.view.questionnaire.questions[0];
+  q.min_choices = 2; q.options[2].label = 'None';
+  const env = envFor(t, boot); env.api.clearAnswer('gate');
+  select(env.input('gate', 'c'));
+  assert.equal(env.api.answers.answers.gate, undefined);
+  assert.equal(env.api.valueValid(q, ['c']), false);
+});
+
 test('The selection maximum refuses only the excess selection and preserves accepted choices', t => {
   const boot = makeBoot(); boot.view.questionnaire.questions[0].max_choices = 2;
   const env = envFor(t, boot);

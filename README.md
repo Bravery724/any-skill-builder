@@ -23,6 +23,8 @@ If your request makes the mode clear, the agent starts directly. Otherwise it of
 
 The questionnaire works as a standalone file. There is no local server, background model connection, or special defer state. For a different direction, use **Other — describe**. To let AI decide, leave the question blank.
 
+Both modes report actual verification and leave a result **provisional** when material findings remain. Research, execution, and repeated review can take tens of minutes, as observed in the [v0.4.1 trials](docs/review-fixes-validation.md). Keep the reported scope and remaining issues with the delivered skill.
+
 ## Quick start
 
 You need an agent that reads skill files, accesses local files, and runs Python. Python **3.10+** is supported; use a maintained **3.13+** release for a new installation. Check `python --version`; substitute `python3` if that is your command.
@@ -39,11 +41,11 @@ Choose your host when prompted. Add `-g` for a shared installation. Keep `--skil
 
 ### Install with Python
 
-1. Download `any-skill-builder-0.4.0-source.zip` from [Releases](https://github.com/Bravery724/any-skill-builder/releases) and extract it.
+1. Download `any-skill-builder-0.4.1-source.zip` from [Releases](https://github.com/Bravery724/any-skill-builder/releases) and extract it.
 2. Enter the extracted source folder containing `README.md` and `tools/`, then run:
 
    ```sh
-   cd any-skill-builder-0.4.0-source
+   cd any-skill-builder-0.4.1-source
    python -B tools/install_skill.py --dest "~/.agents/skills"
    ```
 
@@ -56,7 +58,7 @@ The agent should show its stage, research the topic, resolve useful design choic
 
 For the smaller runtime ZIP, host paths, troubleshooting, safe updates, rollback, and removal, see [installation](docs/installation.md). The runtime ZIP contains the skill; the source ZIP adds tests, examples, and the installer.
 
-**Host evidence has a version boundary.** Supervised Claude Code CLI and Antigravity CLI questionnaire-to-skill runs were recorded for v0.2.3. They are [historical evidence](docs/host-validation.md), not verification of later workflows or either IDE extension. See the [v0.3.0 offline validation](docs/offline-validation.md), [two recorded workflow examples](examples/offline-workflows/README.md), and CI for the checks actually run.
+**Host evidence has a version boundary.** The [v0.4.1 validation](docs/review-fixes-validation.md) records actual Claude Code CLI trials, browser save/reopen checks, feedback-driven corrections, and their limits. Earlier native-discovery and Antigravity CLI runs are [historical evidence](docs/host-validation.md), not verification of later workflows or either IDE extension. See also the [v0.3.0 offline validation](docs/offline-validation.md), [recorded workflow examples](examples/offline-workflows/README.md), and the current commit's CI.
 
 ## Example requests
 
@@ -157,10 +159,12 @@ Reusable instructions, references, README files, comments, and metadata default 
 
 ## Try the helper directly
 
+This structural preview uses the published fixture and explicitly selects legacy review policy. It demonstrates the form, not a newly performed semantic review. For real authoring, omit that flag: new runs require a recorded review. See the [question review workflow](any-skill-builder/references/question-review.md).
+
 From the source root, choose a fresh workspace outside the repository:
 
 ```sh
-python -B any-skill-builder/scripts/skill_builder.py init --workspace ../builder-runs/my-example --goal "Build a weekly update skill" --mode questionnaire
+python -B any-skill-builder/scripts/skill_builder.py init --workspace ../builder-runs/my-example --goal "Build a weekly update skill" --mode questionnaire --review-policy legacy
 python -B any-skill-builder/scripts/skill_builder.py set-questions --workspace ../builder-runs/my-example --input examples/questionnaire.json --rebind-project
 python -B any-skill-builder/scripts/skill_builder.py validate --workspace ../builder-runs/my-example
 python -B any-skill-builder/scripts/skill_builder.py render --workspace ../builder-runs/my-example
@@ -182,6 +186,8 @@ The host reviews the imported answers and authors recommendations before running
 
 ## Evaluation and related tools
 
+New authoring includes a version-bound question review before HTML rendering or AI recommendations: fixed requirements apply to every option, recommended and contrasting answer combinations are checked, and visible explanations follow the conversation language. The host performs those judgments; the helper checks coverage and recorded outcomes. A pass is not proof of perfect questions. Existing saved runs keep their data and can enable the policy with `require-review`.
+
 Check three different things: helper correctness, question quality, and the created skill's real task behavior. Tests of the first do not prove the other two. The [evaluation helper](any-skill-builder/references/evaluation.md) checks existing artifacts, aggregates evidence-backed reviews, and compares runs only when recorded conditions match. It does not execute a model, invent review results, or optimize descriptions automatically.
 
 The [execution and improvement loop](any-skill-builder/references/evaluation-loop.md) makes the last stage concrete:
@@ -192,6 +198,8 @@ The [execution and improvement loop](any-skill-builder/references/evaluation-loo
 4. Correct supported failures and run the affected tasks again in a new iteration. Compare against no skill or the preserved old version when that comparison matters.
 5. Inspect actual execution records for repeated operations. Extract a reusable helper only when the observed repetition justifies it, then test the helper and rerun the affected skill tasks.
 
+6. Freeze the final runtime, including its README, before the last execution. Verify the delivered folder against that tested snapshot; edits after testing require a new matching iteration. For ZIP delivery, also compare the archive and extracted runtime.
+
 Python prepares snapshots, task packets, and pending records; the host performs the actual model work and judgments. Earlier results remain available. Missing evidence stays untested, and weak-check findings remain visible even when individual assertions pass. The loop uses ordinary files and Markdown reports: Full Auto still creates no HTML, and Questionnaire still resumes from saved answers without a server or another approval round. A tie or insufficient evidence is an acceptable comparison result.
 
 To prepare the public example's two task cases in a fresh directory:
@@ -200,9 +208,19 @@ To prepare the public example's two task cases in a fresh directory:
 python -B any-skill-builder/scripts/prepare_evaluation.py --plan examples/evaluation-plan.json --skill examples/complete/weekly-team-update --out ../builder-runs/update-evaluation/iteration-1
 ```
 
+Input snapshots retain their plan-relative directory tree, so declared HTML/CSS, document/image and configuration/data relationships remain intact. Executor packets show original-to-snapshot mappings; unrelated files are not copied.
+
 This creates pending work, not test results. Give the reported executor packets to your host; record actual outputs and reviews before running `evaluate_skill.py`. See the [record format](any-skill-builder/references/evaluation.md) for evidence and review fields.
 
-The [v0.4.0 validation notes](docs/evaluation-validation.md) distinguish mechanical checks, actual host execution, and untested comparisons. A [recorded two-iteration example](examples/evaluation-loop/README.md) shows passing outputs whose evaluation still needed correction, followed by a fresh rerun.
+After execution and review, use:
+
+```sh
+python -B any-skill-builder/scripts/verify_delivery.py --skill /path/to/final-skill --evaluation /path/to/final-iteration/evaluation.json
+```
+
+The verifier requires an executed candidate snapshot, passing checks and recorded reviews without unresolved findings, and exact delivered file hashes. Add `--archive /path/to/skill.zip --extracted /path/to/extracted/skill-name` for ZIP delivery. It does not authenticate agent isolation or replace semantic review.
+
+The [v0.4.1 review-fix validation](docs/review-fixes-validation.md) records the current fixes and their scope. Historical [v0.4.0 validation notes](docs/evaluation-validation.md) distinguish mechanical checks, actual host execution, and untested comparisons. A [recorded two-iteration example](examples/evaluation-loop/README.md) shows passing outputs whose evaluation still needed correction, followed by a fresh rerun.
 
 | Tool | Emphasis |
 | --- | --- |

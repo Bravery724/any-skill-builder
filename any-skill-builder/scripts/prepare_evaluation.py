@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import copy
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import shutil
 import sys
 import tempfile
@@ -17,6 +17,34 @@ MAX_FILES = 2048
 FORBIDDEN = {".git", ".agents", ".codex", ".claude", ".gemini", ".venv", "venv", "node_modules", "__pycache__",
              "dist", "runs", "demo-runs", "test-results", ".builder.lock", "answers.json", "questions.json",
              "imports.json", "questionnaire-export.json", ".pending-state.json", "progress.json"}
+
+
+def portable_relative(relative):
+    """Require one unambiguous relative spelling on Windows and POSIX."""
+    evaluation.text(relative, "File path")
+    path = PurePosixPath(relative)
+    evaluation.require(not path.is_absolute() and path.as_posix() == relative
+                       and ".." not in path.parts and bool(path.parts),
+                       f"Use a canonical relative path without traversal or aliases: {relative}")
+    for part in path.parts:
+        stem = part.split(".", 1)[0].rstrip(" ").upper()
+        reserved = stem in {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"} or stem in {
+            f"{prefix}{number}" for prefix in ("COM", "LPT") for number in "123456789¹²³"}
+        evaluation.require(not reserved and not part.endswith((".", " "))
+                           and not any(character in '<>:"\\|?*' or ord(character) < 32 for character in part),
+                           f"Use a portable relative file path: {relative}")
+    return path
+
+
+def register_path(relative, spellings):
+    """Reject case aliases in both filenames and their parent directories."""
+    parts = portable_relative(relative).parts
+    for index in range(1, len(parts) + 1):
+        prefix = "/".join(parts[:index])
+        key = prefix.casefold()
+        evaluation.require(key not in spellings or spellings[key] == prefix,
+                           f"Prepared file paths have a case collision: {relative}")
+        spellings[key] = prefix
 
 
 def safe_source(path):
@@ -44,7 +72,7 @@ def prepare(plan_path, skill_path, output, baseline_skill=None, without_skill=Fa
     out = safe_source(output)
     evaluation.require(not out.exists(), "The iteration directory already exists; choose a fresh location.")
     roots = [skill] + ([baseline] if baseline else [])
-    inputs = {}
+    inputs, input_spellings = {}, {}
     input_bytes = len(plan_blob)
     for case in cases.values():
         evaluation.text(case.get("prompt"), "Case prompt")
@@ -52,6 +80,7 @@ def prepare(plan_path, skill_path, output, baseline_skill=None, without_skill=Fa
             evaluation.check_definition(check)
         for relative in evaluation.sequence(case.get("input_files", []), "Case inputs", allow_empty=True):
             evaluation.local_file(plan_path.parent, relative)
+            register_path(relative, input_spellings)
             path = safe_source(plan_path.parent / relative)
             if relative not in inputs:
                 evaluation.require(len(inputs) < MAX_FILES and input_bytes + path.stat().st_size <= MAX_TOTAL_BYTES,
@@ -67,7 +96,10 @@ def prepare(plan_path, skill_path, output, baseline_skill=None, without_skill=Fa
     payloads = {"plan.json": plan_blob}
     inventories = [{"id": "plan", "files": [{"path": "plan.json", "sha256": evaluation.fingerprint(plan_blob)}]}]
 
+    payload_spellings = {}
+
     def add(relative, blob):
+        register_path(relative, payload_spellings)
         evaluation.require(relative not in payloads, "Prepared file paths collide.")
         payloads[relative] = blob
         evaluation.require(len(payloads) <= MAX_FILES and sum(map(len, payloads.values())) <= MAX_TOTAL_BYTES,
@@ -102,8 +134,8 @@ def prepare(plan_path, skill_path, output, baseline_skill=None, without_skill=Fa
         inventories.append({"id": label, "files": files})
     copied_inputs = {}
     input_inventory = []
-    for index, (relative, (source, blob)) in enumerate(inputs.items(), 1):
-        destination = f"inputs/{index:03d}-{source.name}"
+    for relative, (source, blob) in inputs.items():
+        destination = f"inputs/{relative}"
         add(destination, blob)
         copied_inputs[relative] = destination
         input_inventory.append({"path": destination, "sha256": evaluation.fingerprint(blob)})
@@ -111,6 +143,8 @@ def prepare(plan_path, skill_path, output, baseline_skill=None, without_skill=Fa
         inventories.append({"id": "inputs", "files": input_inventory})
     copied_cases = copy.deepcopy(list(cases.values()))
     for case in copied_cases:
+        case["input_mapping"] = [{"original": path, "snapshot": copied_inputs[path]}
+                                 for path in case.get("input_files", [])]
         case["input_files"] = [copied_inputs[path] for path in case.get("input_files", [])]
     variants = [("candidate", "with_skill", "snapshots/candidate")]
     if baseline or without_skill:
@@ -122,7 +156,8 @@ def prepare(plan_path, skill_path, output, baseline_skill=None, without_skill=Fa
             directory = f"results/{run_id}/case-{index:03d}"
             records.append({"case_id": case["id"], "status": "not_run", "reason": "Execution is pending.",
                             "eval_feedback": {"status": "not_run", "reason": "A reviewer has not inspected this execution or its checks."}})
-            input_lines = "\n".join(f"- {out / path}" for path in case["input_files"]) or "- No input files."
+            input_lines = "\n".join(f"- {item['original']} -> {out / item['snapshot']}"
+                                    for item in case["input_mapping"]) or "- No input files."
             skill_line = f"Use the skill snapshot at {out / snapshot}." if snapshot else "Perform the task without consulting the candidate skill or its snapshots."
             packet = (f"# Execute case {case['id']}\n\n{skill_line}\n\n"
                       f"## User task\n\n{case['prompt']}\n\n## Raw inputs\n\n{input_lines}\n\n"
@@ -139,7 +174,10 @@ def prepare(plan_path, skill_path, output, baseline_skill=None, without_skill=Fa
                       "honestly. Do not infer success from an absent output or a well-written execution summary. "
                       "Do not alter the skill or old records while reviewing.\n")
             add(f"tasks/review-{run_id}-{index:03d}.md", review.encode("utf-8"))
-        runs.append({"id": run_id, "variant": variant, "context": {"model": None, "effort": None, "tools": None, "budget": None}, "cases": records})
+        run = {"id": run_id, "variant": variant, "context": {"model": None, "effort": None, "tools": None, "budget": None}, "cases": records}
+        if snapshot:
+            run["skill_snapshot"] = run_id
+        runs.append(run)
     manifest = {"schema_version": 1, "name": plan["name"], "cases": copied_cases, "runs": runs, "snapshots": inventories,
                 "reuse_review": {"status": "not_run", "reason": "Actual execution logs have not been reviewed for useful repeated work."}}
     add("evaluation.json", (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))

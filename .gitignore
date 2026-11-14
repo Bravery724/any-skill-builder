@@ -46,3 +46,7 @@ coverage/
 /results/
 /iteration-*/
 *.log
+/review-policy.json
+/question-review.json
+/authored-review*.json
+/delivery.json

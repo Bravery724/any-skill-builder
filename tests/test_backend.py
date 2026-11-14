@@ -389,10 +389,18 @@ class BackendTests(unittest.TestCase):
         self.install()
         core.recommend(self.root)
         before = core.status(self.root)
+        canonical_before = {name: (self.root / name).read_bytes() for name in ("questions.json", "answers.json")}
         incoming = copy.deepcopy(before["questionnaire"])
         del incoming["locale"]
         after = core.set_questions(self.root, incoming)
-        self.assertEqual(after, before)
+        self.assertEqual(after["questionnaire"], before["questionnaire"])
+        self.assertEqual(after["answers"], before["answers"])
+        self.assertTrue(after["ready_to_build"])
+        self.assertEqual(core.status(self.root), before)
+        self.assertFalse(before["question_review"]["required"])
+        self.assertFalse(before["question_review"]["passed"])
+        self.assertEqual(before["question_review"]["status"], "legacy")
+        self.assertEqual(canonical_before, {name: (self.root / name).read_bytes() for name in canonical_before})
         self.assertIn('<html lang="ko" dir="ltr">', core.render_html(self.root))
         self.assertIn("다음", core.render_html(self.root))
 
@@ -406,7 +414,14 @@ class BackendTests(unittest.TestCase):
         view = core.status(self.root)
         self.assertNotIn("locale", view["questionnaire"])
         self.assertIn('<html lang="ko" dir="ltr">', core.render_html(self.root))
-        self.assertEqual(core.set_questions(self.root, copy.deepcopy(legacy)), view)
+        after = core.set_questions(self.root, copy.deepcopy(legacy))
+        self.assertEqual(after["questionnaire"], view["questionnaire"])
+        self.assertEqual(after["answers"], view["answers"])
+        self.assertTrue(after["ready_to_build"])
+        self.assertEqual(core.status(self.root), view)
+        self.assertFalse(view["question_review"]["required"])
+        self.assertFalse(view["question_review"]["passed"])
+        self.assertEqual(view["question_review"]["status"], "legacy")
         self.assertEqual(before, {name: (self.root / name).read_bytes() for name in before})
 
     def test_legacy_null_locale_keeps_korean(self):

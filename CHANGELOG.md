@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.1 — 2026-11-15
+
+- Require version-bound question-review records for new CLI authoring, with fixed requirement coverage, contrasting applicable answer combinations, fair alternatives, private-fact handling and complete visible-text localization.
+- Resolve conflicting choices in their actual wording or conditions, with explicit output-count units; review prose cannot invent hidden overrides.
+- Preserve existing saved answers and legacy runs; stale or incomplete reviews block rendering, recommendations and build briefs without adding human approval or HTML to Full Auto.
+- Verify delivered runtime bytes against a completed reviewed execution snapshot, including README, optional ZIP and extracted files; do not treat post-test edits as tested.
+- Preserve evaluation inputs' relative directory structure and record original-to-snapshot path mappings.
+- Accept a sole explicit exclusive choice even when ordinary options require several selections; recover that choice from older saved drafts without resurrecting cleared/newer answers.
+- Keep render metadata and embedded HTML bound to the same captured state.
+- Preserve skill identifiers on improvements and distinguish separate-agent evidence from unverified blind-context claims.
+
 ## 0.4.0 — 2026-11-15
 
 - Make execution, separate assessment, correction, and re-execution a concrete part of the existing seven-stage build workflow.

@@ -258,6 +258,10 @@ def image_digest(path):
     return digest.hexdigest()
 
 
+def is_exclusive_selection(question, selected):
+    return len(selected) == 1 and any(o.get("exclusive") and o["id"] == selected[0] for o in question["options"])
+
+
 def validate_value(question, value):
     kind, qid = question["type"], question["id"]
     if kind == "text":
@@ -284,7 +288,8 @@ def validate_value(question, value):
         return
     require(isinstance(value, list) and all(isinstance(v, str) for v in value), f"Answer for {qid} must be an option list.")
     require(len(value) == len(set(value)) and set(value) <= option_ids, f"Invalid or duplicate options for {qid}.")
-    require(question.get("min_choices", 1) <= len(value) <= question.get("max_choices", len(option_ids)),
+    require((is_exclusive_selection(question, value) or len(value) >= question.get("min_choices", 1))
+            and len(value) <= question.get("max_choices", len(option_ids)),
             f"Invalid number of selected options for {qid}.")
     exclusive = {o["id"] for o in question["options"] if o.get("exclusive")}
     require(not (set(value) & exclusive) or len(value) == 1, f"Exclusive option for {qid} cannot be combined.")
@@ -637,11 +642,40 @@ def init_workspace(workspace, goal, mode="questionnaire"):
     return {"workspace": str(root), "project_id": slug, "run_id": questionnaire["run_id"], "event": "initialized"}
 
 
+def question_review_state(workspace, questionnaire):
+    """Read a run-local review policy while the caller holds the workspace lock."""
+    root = Path(workspace)
+    path = root / "review-policy.json"
+    if not path.exists():
+        return {"required": False, "status": "legacy", "passed": False,
+                "note": "Structural checks do not establish semantic question quality."}
+    policy = read_json(path)
+    require(isinstance(policy, dict) and type(policy.get("schema_version")) is int and policy["schema_version"] == 1
+            and policy.get("run_id") == questionnaire["run_id"] and policy.get("required") is True,
+            "Invalid question review policy or run identity.", "invalid_review_policy")
+    if not questionnaire["questions"]:
+        return {"required": True, "status": "pending", "passed": False,
+                "note": "Author questions before preparing their review."}
+    import review_questions
+    return {"required": True, **review_questions.check(root / "questions.json", root / "question-review.json")}
+
+
+def require_question_review(workspace, questionnaire):
+    review = question_review_state(workspace, questionnaire)
+    require(not review["required"] or review["passed"],
+            "Review the current questions and use accept-review before rendering, recommending, or building.",
+            "question_review_required", 409)
+    return review
+
+
 def status(workspace, require_questions=False, *, include_workflow=False):
     with workspace_lock(workspace):
         recover_workspace(workspace)
         questionnaire, answers = load_workspace(workspace, require_questions)
         view = make_view(questionnaire, answers)
+        view["question_review"] = question_review_state(workspace, questionnaire)
+        if view["question_review"]["required"] and not view["question_review"]["passed"]:
+            view["ready_to_build"] = False
         if include_workflow:
             view["workflow"] = workflow_status(workspace, questionnaire, answers)
         return view
@@ -950,6 +984,7 @@ def recommend(workspace):
     with workspace_lock(workspace):
         recover_workspace(workspace)
         questionnaire, answers = load_workspace(workspace, True)
+        require_question_review(workspace, questionnaire)
         filled = []
         while True:
             states = states_for(questionnaire, answers)
@@ -1193,6 +1228,7 @@ def read_saved_html(path, *, require_saved=True):
 
 
 def pending_from_saved(questionnaire, incoming, drafts):
+    """Classify drafts, promoting legacy exclusive selections into incoming answers."""
     by_id = {q["id"]: q for q in questionnaire["questions"]}
     pending = {}
     for qid, draft in drafts.items():
@@ -1213,7 +1249,10 @@ def pending_from_saved(questionnaire, incoming, drafts):
             require(selected == actual, "Saved draft conflicts with its answer.")
         elif selected:
             require(q["type"] == "multi", "Only an incomplete multi-choice answer may be stored as a draft.")
-            pending[qid] = {"selected": selected, "other_enabled": draft.get("other_enabled", False), "other_text": "", "question_version": q["version"]}
+            if is_exclusive_selection(q, selected):
+                incoming["answers"][qid] = normalize_record(q, {"status": "answered", "actor": "user", "value": selected})
+            else:
+                pending[qid] = {"selected": selected, "other_enabled": draft.get("other_enabled", False), "other_text": "", "question_version": q["version"]}
     validate_pending_inputs(questionnaire, pending)
     state_input = {**incoming, "pending_inputs": pending}
     states = states_for(questionnaire, state_input)
@@ -1435,6 +1474,14 @@ def restore_html(workspace, input_path):
 
 def render_html(workspace, *, html_path=None):
     view = status(workspace, True)
+    return _render_html(workspace, view, html_path=html_path)
+
+
+def _render_html(workspace, view, *, html_path=None):
+    """Render one reviewed state; metadata must describe this same snapshot."""
+    review = view["question_review"]
+    require(not review["required"] or review["passed"], "A current question review is required before rendering.",
+            "question_review_required", 409)
     require(view["questionnaire"]["mode"] == "questionnaire", "Full Auto does not generate HTML. Continue from recorded decisions and build the skill.", "auto_no_html")
     assets = Path(__file__).resolve().parent.parent / "assets"
     try:
@@ -1473,7 +1520,11 @@ def render_html(workspace, *, html_path=None):
             total_asset_bytes += size
             require(0 < size <= MAX_ASSET_BYTES, "Candidate images must contain data and be at most 20 MiB each.")
             require(total_asset_bytes <= MAX_HTML_BYTES // 2, "Candidate images exceed the standalone file size limit; optimize them before rendering.")
-            encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+            content = path.read_bytes()
+            if option.get("image_sha256"):
+                require(hashlib.sha256(content).hexdigest() == option["image_sha256"],
+                        "Candidate image changed while rendering; review and import the updated asset.", "stale_asset")
+            encoded = base64.b64encode(content).decode("ascii")
             embedded[option["image"]] = f"data:{image_mimes[path.suffix.lower()]};base64,{encoded}"
     boot_data = {"format": HTML_FORMAT, "format_version": 1, "saved_at": None, "export_id": None,
                 "base_answer_revision": view["answers"]["answer_revision"],
@@ -1510,7 +1561,7 @@ def render(workspace):
             if path.exists():
                 path = root / f"questionnaire-{uuid.uuid4().hex[:12]}.html"
     # The returned path is authoritative; source-file path hints are never used as write destinations.
-    html = render_html(root, html_path=path)
+    html = _render_html(root, view, html_path=path)
     atomic_text(path, html)
     metadata = {"path": str(path), **workflow_position(view["questionnaire"], view["answers"]),
                 "questionnaire_sha256": questionnaire_digest(view["questionnaire"]), "rendered_at": timestamp()}

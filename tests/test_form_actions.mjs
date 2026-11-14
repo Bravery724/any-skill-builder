@@ -85,6 +85,51 @@ test('Below-minimum selections survive save and reopen as selections rather than
   assert.equal(reopened.api.answers.answers.text.value, 'Initial answer');
 });
 
+test('Minimum-two exclusive answers save and reopen as complete answers, and clearing stays cleared', async t => {
+  const boot = makeBoot(), q = boot.view.questionnaire.questions[0];
+  q.min_choices = 2; q.options[2].exclusive = true;
+  const env = envFor(t, boot); select(env.input('gate', 'c')); env.api.saveAnswers();
+  const saved = await downloadedBoot(env.downloads[0]);
+  assert.deepEqual(saved.boot.view.answers.answers.gate.value, ['c']);
+  assert.equal(saved.boot.drafts.gate, undefined);
+  assert.equal(saved.boot.view.answers.pending_inputs, undefined);
+  const reopened = envFor(t, saved.boot);
+  assert.equal(reopened.input('gate', 'c').checked, true);
+  assert.equal(reopened.card('gate').dataset.status, 'answered');
+  assert.equal(reopened.api.view.ready_to_build, true);
+  reopened.api.clearAnswer('gate'); reopened.api.saveAnswers();
+  const cleared = envFor(t, (await downloadedBoot(reopened.downloads[0])).boot);
+  assert.equal(cleared.api.answers.answers.gate, undefined);
+  assert.equal(cleared.api.answers.pending_inputs, undefined);
+  assert.equal(cleared.input('gate', 'c').checked, false);
+});
+
+test('A legacy sole-exclusive draft reopens and resaves as a user answer', async t => {
+  const boot = makeBoot(), q = boot.view.questionnaire.questions[0];
+  q.min_choices = 2; q.options[2].exclusive = true;
+  delete boot.view.answers.answers.gate; delete boot.view.answers.answers.text;
+  boot.drafts = { gate: { selected: ['c'], other_enabled: false, other_text: '' } };
+  const env = envFor(t, boot);
+  assert.deepEqual(copy(env.api.answers.answers.gate.value), ['c']);
+  assert.equal(env.api.answers.answers.gate.actor, 'user');
+  assert.equal(env.api.answers.pending_inputs, undefined);
+  assert.equal(env.api.view.ready_to_build, true);
+  env.api.saveAnswers();
+  const saved = await downloadedBoot(env.downloads[0]);
+  assert.deepEqual(saved.boot.view.answers.answers.gate.value, ['c']);
+  assert.equal(saved.boot.drafts.gate, undefined);
+});
+
+test('A conflicting legacy exclusive draft cannot replace an embedded answer on reopen', t => {
+  const boot = makeBoot(), q = boot.view.questionnaire.questions[0];
+  q.min_choices = 2; q.options[2].exclusive = true;
+  boot.drafts = { gate: { selected: ['c'], other_enabled: false, other_text: '' } };
+  const env = envFor(t, boot);
+  assert.deepEqual(copy(env.api.answers.answers.gate.value), ['a', 'b']);
+  assert.deepEqual(copy(env.api.ui.gate.selected), ['a', 'b']);
+  assert.equal(env.input('gate', 'c').checked, false);
+});
+
 test('A child answered under a pending parent is saved alongside its incomplete selections', async t => {
   const boot = makeBoot(); boot.view.questionnaire.questions[0].min_choices = 2;
   boot.view.answers.answers = {};

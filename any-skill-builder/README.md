@@ -39,15 +39,19 @@ Brief but meaningful answers such as "none" or "0" are respected. Clearly unusab
 
 ## Improve or resume
 
-Provide the existing skill folder and describe what should improve. The agent preserves working behavior as a baseline and compares the revision on suitable cases. For an unfinished build, provide its saved run folder or continue in the existing conversation; it reuses valid decisions instead of starting over.
+Provide the existing skill folder and describe what should improve. The agent preserves its identifier unless you request a rename, keeps working behavior as a baseline, and compares the revision on suitable cases. For an unfinished build, provide its saved run folder or continue in the existing conversation; it reuses valid decisions instead of starting over.
 
 To request only a questionnaire, say so. The agent stops after delivering it and waits for your continuation.
 
 ## What you receive
 
-A completed build includes the reusable skill, a concise usage guide, a starting request, and the checks and limits actually observed. Source files default to English; questions, chat, and task outputs follow your language unless you request otherwise.
+A completed build includes the reusable skill, a concise usage guide, a starting request, and the checks and limits actually observed. Reusable source files default to English; questions, chat, task outputs, and explanatory run records follow your language unless you request otherwise.
 
-Before testing, the agent records suitable tasks and what a useful result must demonstrate. It then runs the skill, asks a separate evaluator to inspect the results when the host supports one, corrects observed problems, and reruns affected cases. The evaluator also looks for weak checks that could pass an incorrect result. Self-review and unperformed checks are identified honestly.
+Before presenting or automatically answering new questions, the agent records a review of every question and option, fixed requirements, combinations, and displayed language. The helper checks that the record matches the current questions and has complete coverage; it cannot certify the reviewer's judgment. This adds no human approval round. See the [question review procedure](references/question-review.md).
+
+Before testing, the agent records suitable tasks and what a useful result must demonstrate. It then runs the skill, asks a separate evaluator to inspect the results when the host supports one, corrects observed problems, and reruns affected cases. The evaluator also looks for weak checks that could pass an incorrect result. A separate Agent call alone does not prove a fresh or blind context. Self-review and unperformed checks are identified honestly.
+
+Final verification compares every delivered runtime file, including the guide, with the snapshot used in the selected execution. Later edits require another relevant run before the edited package is called tested. Archives are optional unless distribution is requested; folder-only delivery is identified as such. Unavailable execution or unresolved limits leave a provisional result with the remaining work stated.
 
 If several actual tasks recreate the same useful operation, the agent considers adding a shared helper and tests its integration. This does not add code merely to make the package larger. Full Auto continues without HTML or mandatory feedback rounds; Questionnaire still waits only for your saved answers and continuation.
 

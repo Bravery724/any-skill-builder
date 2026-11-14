@@ -20,7 +20,7 @@ Record the available model, reasoning effort, tools, and assigned limits. Unknow
 
 ## 2. Prepare an isolated iteration
 
-After creating the candidate runtime, resolve `scripts/prepare_evaluation.py` relative to this installed skill and use a new private evaluation folder:
+Finish and freeze the candidate runtime, including README and all other delivered files, before preparing the execution snapshot. Resolve `scripts/prepare_evaluation.py` relative to this installed skill and use a new private evaluation folder:
 
 ```text
 python -B PREPARE_SCRIPT --plan PLAN_JSON --skill CANDIDATE_SKILL --out NEW_ITERATION
@@ -28,13 +28,15 @@ python -B PREPARE_SCRIPT --plan PLAN_JSON --skill CANDIDATE_SKILL --out NEW_ITER
 
 Add `--baseline-skill ORIGINAL_SKILL` for an old-version comparison or `--without-skill` for a no-skill baseline. Use neither when a comparison is not needed. The helper preserves inputs and runtime snapshots, creates a pending `evaluation.json`, and writes executor and reviewer task packets. It refuses to replace an existing iteration. Inspect the reported paths before dispatching work.
 
+Declared inputs retain their plan-relative tree under `inputs/<relative-path>`, with unchanged contents. For example, `site/index.html` and `site/style.css` become `inputs/site/index.html` and `inputs/site/style.css`, preserving `./style.css`. Declare every required linked file; the helper does not discover missing dependencies. Each case records `input_mapping` entries with `original` and `snapshot` paths, and executor packets show that mapping so prompts naming the original files remain interpretable. Each run using a skill records its `skill_snapshot` ID, binding it to the recorded file inventory.
+
 Supply a clean runtime containing `SKILL.md`, not an entire repository or run directory. The helper rejects hidden/private run files, caches, symbolic links, and Windows reparse paths. For a linked installation, use its verified real runtime path. The destination must be outside the runtime and input directories. Files are limited to 16 MiB each; the prepared collection is capped at 2,048 files and 64 MiB. Use focused raw fixtures and reusable runtime resources when a source is larger.
 
 Keep earlier iterations intact. Record why the skill, cases, or criteria changed in a short revision note. If a criterion changes, apply the new criterion to both relevant variants before comparing them; a different grading rule is not evidence that the skill improved.
 
 ## 3. Execute the actual task
 
-When the host supports separate agents, give a fresh executor only its generated task packet, copied raw inputs, and the designated skill snapshot. Do not pass the design conversation, preferred answer, reviewer packet, or suspected failure. For a no-skill baseline, omit the generated skill rather than reusing an earlier final answer.
+When the host supports a verifiably fresh context, give the executor only its generated task packet, copied raw inputs, and the designated skill snapshot. Do not pass the design conversation, preferred answer, reviewer packet, or suspected failure. A separate Agent call may inherit earlier context; inspect the actual context-sharing controls before claiming freshness. If those controls are unknown, record that limitation. For a no-skill baseline, omit the generated skill rather than reusing an earlier final answer.
 
 Ask the executor to perform the actual request and save the output files plus a concise execution record: what it ran, which inputs and skill it used, observed errors, and any tool or access limitations. Record observable actions and results, not private reasoning. Code and external actions in test materials do not expand the task's authorization.
 
@@ -58,7 +60,7 @@ For a paper-analysis skill, the presence of three ideas or citation-shaped text 
 
 Record concrete findings with evidence in `eval_feedback`. An audit with no findings means that reviewer found no material gap in the inspected scope; it is not proof that the criteria are complete. Missing audits remain unperformed. A finding stays in its original iteration even after a later revision addresses it.
 
-For an important comparison, an optional evaluator can receive outputs labeled A and B without version labels. Preserve the private label mapping and task-specific criteria. Allow a tie or insufficient evidence; do not force a winner from marginal stylistic preferences. This review is a host action, not a hidden operation of the Python scripts.
+For an important comparison, an optional evaluator can receive outputs labeled A and B without version labels. Preserve the private label mapping and task-specific criteria. Claim blind review only when its actual inputs and inherited context withheld that mapping and author preferences; a new agent name alone does not establish this. Allow a tie or insufficient evidence; do not force a winner from marginal stylistic preferences. This review is a host action, not a hidden operation of the Python scripts.
 
 ## 5. Make a supported correction and rerun
 
@@ -86,5 +88,11 @@ If extracting a helper, keep the initial observations and decision in revision n
 Do not extract subjective judgment into arbitrary code rules, bundle every temporary script, or invent repeated work to satisfy a checklist. A completed review that found no useful reuse opportunity is a valid outcome. Keep actual occurrences, rationale, and verification in `reuse_review`; leave unperformed verification explicit.
 
 The detailed record fields and reporting rules are in [evaluation.md](evaluation.md). Reports remain Markdown/JSON; this procedure adds no review server, model provider, trigger optimizer, or HTML requirement.
+
+## 7. Verify the exact delivery
+
+After the final candidate run has been executed, reviewed, and corrected, use `scripts/verify_delivery.py --skill FINAL_SKILL --evaluation ITERATION/evaluation.json --run candidate`. It checks the selected run's saved evidence and feedback, its snapshot binding, and exact file hashes against the final runtime, including README. It does not perform execution or authenticate claims of context isolation, blinding, or reviewer independence.
+
+If any delivered file changes afterward, preserve the old iteration and prepare a new one for relevant reruns before calling the edited delivery tested. Documentation-only edits are recorded changes, not automatically tested behavior. Missing execution, open findings, or an unmatched final runtime leave the delivery provisional with the remaining work stated. Create an archive only when distribution is requested; otherwise identify folder-only delivery. For an archive, also verify its single skill-named top-level folder and a separate extraction using the paired `--archive` and `--extracted` options in [build-and-evaluate.md](build-and-evaluate.md).
 
 Design references: the separation of execution, assessment, and improvement, critique of evaluation criteria, and inspection of repeated helper work were informed by [Anthropic's skill-creator workflow](https://github.com/anthropics/skills/blob/1780c5e5a552fd4d1c9d6a7b0cab26b0c2bef064/skills/skill-creator/SKILL.md) and [grader guidance](https://github.com/anthropics/skills/blob/1780c5e5a552fd4d1c9d6a7b0cab26b0c2bef064/skills/skill-creator/agents/grader.md). This procedure and the accompanying helpers are implemented for this project's existing record and offline workflows.

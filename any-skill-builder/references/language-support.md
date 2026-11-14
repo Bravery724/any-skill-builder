@@ -2,7 +2,7 @@
 
 The builder accepts Unicode subject material, questions, and answers. Reusable package files default to English: instructions, references, README files, comments, and metadata. Newly generated skills follow that default unless the user explicitly requests another file language. Preserve original user text, intentional translations, and multilingual test material.
 
-Questionnaires, chat replies, and the generated skill's task outputs naturally follow the conversation's language. An explicit output-language request takes precedence. Do not ask the user to select a language or translate a dictionary. Localization is the host's responsibility; source prose language does not dictate the programming language of generated helpers.
+Questionnaires, chat replies, the generated skill's task outputs, and explanatory text in run-local JSON naturally follow the conversation's language. This includes review requirement statements, reasons, finding descriptions, resolutions, and AI answer rationale or assumptions. Preserve schema keys, IDs, enum values, and the exact goal invariant. An explicit output-language request takes precedence. Do not ask the user to select a language or translate a dictionary. Localization is the host's responsibility; source prose language does not dictate the programming language of generated helpers.
 
 ## Set the questionnaire locale
 
@@ -26,7 +26,9 @@ Keep the request summary in the conversation language and display it as text. Us
 
 The download notice must say what actually happened. It should explain that the answered HTML is being downloaded, the browser may choose another location or filename, and the user should return to chat. Do not translate this into a claim that the original file was overwritten or that an AI has already received it.
 
-Use the same language for questions, options, help, recommendation reasons, and completion guidance. Preserve exact paths and IDs when they are necessary, but do not expose them as decorative interface content.
+Use the same language for the goal, group labels, question `title`, `help`, `decision`, and custom `placeholder`; option `label`, `description`, `effect`, and `traits`; source `notes`; recommendation `rationale`, `assumptions`, and any text/custom answer value; and completion guidance. Translating only titles and buttons leaves the questionnaire partly untranslated. Source titles and exact quotations may keep their original language; do not treat authored explanations as quotations to avoid translating them. Preserve exact paths and IDs when necessary, without exposing them as decorative interface content.
+
+Use the generated field inventory in [question-review.md](question-review.md) to inspect each canonical text location and record permitted original-language fields. It also includes source `accessed_at`: preserve precise dates and timestamps and check their displayed context. Built-in or overridden UI messages need the selected language. The helper checks inventory coverage and placeholder syntax, not translation quality. Any localization edit changes the reviewed questionnaire bytes and needs a new review; it does not authorize deleting user answers.
 
 ## Research across languages
 

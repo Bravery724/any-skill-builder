@@ -19,7 +19,10 @@
     "any-skill-builder/scripts/evaluate_skill.py",
     "any-skill-builder/scripts/skill_builder.py",
     "any-skill-builder/references/evaluation-loop.md",
-    "any-skill-builder/scripts/prepare_evaluation.py"
+    "any-skill-builder/scripts/prepare_evaluation.py",
+    "any-skill-builder/scripts/review_questions.py",
+    "any-skill-builder/scripts/verify_delivery.py",
+    "any-skill-builder/references/question-review.md"
   ],
   "source": [
     "docs/assets/demo.gif",
@@ -115,7 +118,12 @@
     "examples/evaluation-loop/iteration-1/conflicting.md",
     "examples/evaluation-loop/iteration-2/report.md",
     "examples/evaluation-loop/iteration-2/routine.md",
-    "examples/evaluation-loop/iteration-2/conflicting.md"
+    "examples/evaluation-loop/iteration-2/conflicting.md",
+    "tests/test_exclusive_minimum.py",
+    "tests/test_question_review.py",
+    "tests/test_review_policy.py",
+    "tests/test_delivery.py",
+    "docs/review-fixes-validation.md"
   ],
   "optional": []
 }

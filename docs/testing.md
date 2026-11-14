@@ -28,6 +28,10 @@ The redesigned workflow needs behavioral checks for:
 - Contextual custom-answer interpretation and retained raw input when unusable text is replaced.
 - Locale keys, Unicode text, RTL presentation, and safe JSON/HTML embedding.
 - Checkpoints, build readiness, installation preservation, explicit package contents, and evaluation evidence.
+- Required question review, complete option/requirement/localization coverage, coherent alternative scenarios, and stale-review rejection without lost answers.
+- Exclusive multi-select answers with an ordinary minimum, including legacy saved drafts and explicit clears.
+- Evaluation input trees retaining relative links, with traversal and colliding paths rejected.
+- Final delivery matching a completed reviewed snapshot, including added/deleted/changed files and optional ZIP/extracted-directory equality.
 
 Form tests must execute the shipped JavaScript rather than a separate reimplementation. Exercise both common composition/input event orders, cancelled composition, middle edits, caret/focus retention, navigation, and saving the last typed characters. An empty Other input must remain unanswered. A saved file reopened after clearing an answer must not revive a stale browser draft.
 

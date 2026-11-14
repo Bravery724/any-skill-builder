@@ -8,7 +8,7 @@ At this planning stage, declare the evaluation tasks, actual inputs, and meaning
 
 ## Design the smallest adequate package
 
-Use `RUN/output/<skill-name>/`. Name the folder and skill consistently with lowercase letters, digits, and hyphens. The required `SKILL.md` has YAML `name` and `description` followed by instructions. Its description must explain the actual capability and when it applies.
+Use `RUN/output/<skill-name>/`. Name the folder and skill consistently with lowercase letters, digits, and hyphens. When improving an existing skill, retain its identifier and matching folder/frontmatter name unless the user requests a rename; a separate revision directory does not require a new skill name. The required `SKILL.md` has YAML `name` and `description` followed by instructions. Its description must explain the actual capability and when it applies.
 
 - Put purpose, important decisions, essential workflow, and links to conditional material in `SKILL.md`.
 - Include a concise user-facing `README.md` with every newly created skill, following the checklist below. This guide is part of the installable runtime, not maintainer documentation.
@@ -23,7 +23,7 @@ The references used while building do not all belong in the final skill. Keep fu
 
 Write reusable instructions, reference documents, README files, code comments, and package metadata in English by default. An explicit request for a different file language overrides this default. Keep original-language input, quotations, translation dictionaries, and multilingual regression fixtures intact. The generated skill's user-facing behavior still follows the conversation or explicitly requested output language.
 
-When preparing a skill for distribution, use relative resource references, document actual runtime requirements, and remove personal paths and assumptions. Exclude run records, answers, generated user material, credentials, caches, and machine-specific verification output. Package runtime files separately from maintainer tests and documentation. Include the chosen license and verify both the archive contents and an extracted-package smoke test. Do not publish externally unless publication is authorized.
+When preparing a skill for distribution, use relative resource references, document actual runtime requirements, and remove personal paths and assumptions. Exclude run records, answers, generated user material, credentials, caches, and machine-specific verification output. Package runtime files separately from maintainer tests and documentation. Include the chosen license. An archive is optional unless distribution is requested; if supplied, verify its exact contents and a separately extracted copy as described below. Do not publish externally unless publication is authorized.
 
 ## Provide usage guidance at the right moment
 
@@ -94,6 +94,24 @@ For subjective outputs such as design or writing, inspect fitness to the goal, f
 
 Record `RUN/evaluation.md` with the tested tasks, observed results, corrections, and untested limitations. Include the model/effort only if exposed by the host; do not guess them. More files, higher star counts, more questions, or a self-rating are not proof of quality.
 
-The deliverable is complete when the selected behavior is implemented, relevant checks pass, and material unresolved limitations are honestly reported. If execution or access is blocked, explain exactly what was verified and what remains. Preserve the run for continuation. Do not automatically publish, send to third parties, or claim installation without carrying out an authorized install.
+Freeze the complete final runtime, including `README.md`, references, metadata, and license, before preparing its final evaluation snapshot. After actual execution and review, resolve `VERIFY_SCRIPT` to `scripts/verify_delivery.py` and run:
+
+```text
+python -B VERIFY_SCRIPT --skill FINAL_SKILL --evaluation ITERATION/evaluation.json --run candidate
+```
+
+Use the actual evaluated `with_skill` run ID; `candidate` is the default. The selected run must identify its `skill_snapshot`, have completed execution records and passing checks, completed feedback with no unresolved findings, and a completed reuse review covering that run. The helper compares the exact full file inventory and SHA-256 hashes of the frozen snapshot and final runtime, including the guide. A passing older run cannot stand in for an unexecuted final version. See [evaluation.md](evaluation.md) for record semantics and the check's limits.
+
+Any delivered runtime change after that snapshot, including documentation, requires a new snapshot and relevant execution before claiming that exact edited package was tested. A documentation-only change may be recorded separately as untested; it does not inherit a behavior-tested claim from earlier bytes. Preserve previous executions and findings rather than editing their history. If the work stops before the final state is verified, deliver it as provisional with the remaining check identified.
+
+For a requested archive, create a ZIP with one top-level folder exactly matching `FINAL_SKILL`'s folder name. Extract it into a separate location, then provide the extracted skill folder containing `SKILL.md`:
+
+```text
+python -B VERIFY_SCRIPT --skill FINAL_SKILL --evaluation ITERATION/evaluation.json --run candidate --archive PACKAGE_ZIP --extracted EXTRACTED_SKILL
+```
+
+`--archive` and `--extracted` must be supplied together. The archive and extracted folder must contain exactly the final runtime's files and bytes; the extracted path cannot be the source runtime. Keep the ZIP and extraction outside the final runtime to avoid bundling them recursively. When neither is supplied, report folder-only verification; no archive or extraction was checked. This byte check does not replace any relevant extracted-package execution or host smoke test.
+
+The deliverable is complete when the selected behavior is implemented and relevant final-state checks pass. If execution, source access, review, or final verification is blocked, explain what was actually verified and deliver a provisional result with material limits. Preserve the run for continuation. Do not automatically publish, send to third parties, or claim installation without carrying out an authorized install.
 
 Package format reference: [Agent Skills specification](https://agentskills.io/specification). The host's existing skill-creation instructions may add environment-specific metadata or validation conventions.
