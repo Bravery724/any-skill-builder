@@ -4,6 +4,8 @@ Turn an idea into a reusable skill through subject research and guided design qu
 
 [Project and installation](https://github.com/Bravery724/any-skill-builder) · [Releases](https://github.com/Bravery724/any-skill-builder/releases)
 
+For Claude Code or Antigravity CLI, see the [host-specific installation paths and permissions](https://github.com/Bravery724/any-skill-builder/blob/main/docs/installation.md#claude-code-and-antigravity). The host must read local files and run Python; installing the folder alone does not grant those permissions.
+
 > **For complex builds:** a capable reasoning model and a higher reasoning-effort setting can help with research, question design, and difficult decisions. Choose these in your host when available. This is a practical recommendation, not a guarantee or a measured success rate for this builder; sources, examples, and actual testing still matter.
 
 ## Start with your task

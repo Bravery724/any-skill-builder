@@ -8,9 +8,9 @@ Open [GitHub Releases](https://github.com/Bravery724/any-skill-builder/releases)
 
 | File | Use |
 | --- | --- |
-| `any-skill-builder-0.2.2-source.zip` | Recommended for the verified installer; includes tests, examples, and maintainer tools |
-| `any-skill-builder-0.2.2.zip` | Smaller runtime for manual installation; contains `any-skill-builder/` and all its resources |
-| `any-skill-builder-0.2.2-manifest.json` | File sizes and SHA-256 hashes for release verification |
+| `any-skill-builder-0.2.3-source.zip` | Recommended for the verified installer; includes tests, examples, and maintainer tools |
+| `any-skill-builder-0.2.3.zip` | Smaller runtime for manual installation; contains `any-skill-builder/` and all its resources |
+| `any-skill-builder-0.2.3-manifest.json` | File sizes and SHA-256 hashes for release verification |
 
 You can also use **Code → Download ZIP** or clone [the repository](https://github.com/Bravery724/any-skill-builder). That download is source, not the runtime-only ZIP. Extract it into a normal working directory with enough space, outside the host's skills directory and existing questionnaire runs.
 
@@ -33,7 +33,7 @@ npx skills add Bravery724/any-skill-builder --skill any-skill-builder --agent co
 The default source follows the repository's default branch. To install the published release instead:
 
 ```sh
-npx skills add Bravery724/any-skill-builder@v0.2.2 --skill any-skill-builder
+npx skills add Bravery724/any-skill-builder@v0.2.3 --skill any-skill-builder
 ```
 
 Keep the explicit skill name: this repository also contains an example generated skill. Add `-g` only if you want a global installation. The CLI chooses paths according to its supported hosts; confirm the reported path and refresh the host before using the skill. Installing files does not certify another host's behavior.
@@ -42,12 +42,12 @@ The CLI has its own update and removal commands; see its [command reference](htt
 
 ## Install from source
 
-The source root is the extracted directory containing `README.md`, `tools/`, and `any-skill-builder/`. The named source release creates `any-skill-builder-0.2.2-source/`; a GitHub source download uses the repository/branch name instead.
+The source root is the extracted directory containing `README.md`, `tools/`, and `any-skill-builder/`. The named source release creates `any-skill-builder-0.2.3-source/`; a GitHub source download uses the repository/branch name instead.
 
 Open a terminal in its parent folder. For the named source release, these commands work in PowerShell and common POSIX shells. If the terminal already opens inside the source root, omit the `cd` line:
 
 ```sh
-cd any-skill-builder-0.2.2-source
+cd any-skill-builder-0.2.3-source
 python -B tools/install_skill.py --dest "~/.agents/skills"
 ```
 
@@ -60,6 +60,23 @@ python3 -B tools/install_skill.py --dest "~/.agents/skills"
 ```
 
 The installer reports JSON containing `installed`, `changed`, `version`, and the absolute `path`. It verifies copied files and does not alter host settings. An identical repeated installation returns `changed: false`. A different installation is preserved and installation stops; use the update procedure below.
+
+### Claude Code and Antigravity
+
+From the extracted source root, choose the host and installation scope:
+
+| Host | In one project | Across your projects |
+| --- | --- | --- |
+| Claude Code | `python -B tools/install_skill.py --dest "PROJECT/.claude/skills"` | `python -B tools/install_skill.py --dest "~/.claude/skills"` |
+| Antigravity CLI | `python -B tools/install_skill.py --dest "PROJECT/.agents/skills"` | `python -B tools/install_skill.py --dest "~/.gemini/config/skills"` |
+
+Replace `PROJECT` with the intended project's absolute path. The installer copies the complete runtime, not just `SKILL.md`. Open that project in the host afterward.
+
+Claude Code supports `/any-skill-builder`; refresh with `/reload-skills` or start a new session if needed. Antigravity CLI also exposes skills as slash commands; use `/skills reload` or a new conversation. These paths and commands follow the [Claude Code skill documentation](https://code.claude.com/docs/en/skills) and [Antigravity skill documentation](https://antigravity.google/docs/skills). The latter also documents IDE and legacy locations; CLI testing does not certify the IDE interface.
+
+An interactive first run is the easiest way to approve the required local Python commands and file access. The host needs permission to research, write its chosen run directory, render the form, and run the local submission server. Keep the host task and server active while answering. A successful install does not grant those execution permissions.
+
+For headless automation, configure the necessary project-scoped permissions explicitly. Claude Code's `--permission-mode acceptEdits` and Antigravity CLI's `--mode=accept-edits` are different flags; neither promises approval of every command. Antigravity's `auto` mode also depends on a supported terminal sandbox and account. If it is unavailable on Windows, it can fall back to a mode that still needs approvals, which a headless run cannot display. Follow the host's [Claude Code permission modes](https://code.claude.com/docs/en/permission-modes) or [Antigravity execution modes](https://antigravity.google/docs/cli/modes/) instead of disabling protections globally.
 
 ## Install the runtime ZIP manually
 
@@ -135,9 +152,11 @@ These observations were recorded on 2026-11-14. They are separate from compatibi
 | Windows, Node 25.2.1 | Form regression suite executed; Node is optional for end users choosing the Skills CLI route |
 | Windows, Python 3.15.2 | Installer, runtime ZIP commands, fresh-source checks, and reproducible packaging exercised |
 | Existing Codex desktop session | Installed skill is exposed in its skill catalog; this does not prove every host or every fresh-session discovery flow |
+| Claude Code 2.1.322, Windows | Actual native discovery, authored questionnaire, live browser handoff, revisioned repairs, generated skill, and three fresh-context task cases; see [host validation](host-validation.md) |
+| Antigravity CLI 1.5.9, Windows | Actual authored questionnaire, browser submission, supervised CLI resume/receipt, generated skill, and three fresh-context regression cases after readability refinement; the IDE was not tested; see [host validation](host-validation.md) |
 | Chrome, Windows | Recorded checks cover 320/390/768/1100px layouts and live submission; native OS input methods and every language were not certified |
 | GitHub Actions | [All four Ubuntu/Windows and Python 3.10/3.13 jobs passed with Node 24](https://github.com/Bravery724/any-skill-builder/actions/runs/43591884294), including Python tests, form tests, release checks, example evidence, and packaging; consult current runs for later commits |
 | Skills CLI 1.8.1, Windows | Installed from the public repository with explicit `--skill any-skill-builder --agent codex --copy --yes`; all 18 runtime source files matched, only the builder was installed, and init/import/validation/render commands passed |
-| Other hosts and installer modes | Host discovery, global installs, and other host-specific behavior were not exercised by these isolated installation checks |
+| Other hosts and installer modes | These observations do not cover other host variants, every global installation path, or every host-specific behavior |
 
 The host may use the browser workflow, a chat-only questionnaire, or offline HTML according to its available tools. See [testing](testing.md) for detailed test boundaries.

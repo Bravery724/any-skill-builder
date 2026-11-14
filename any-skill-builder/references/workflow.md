@@ -2,6 +2,10 @@
 
 Paths below are examples. Resolve `SCRIPT` to this skill's `scripts/skill_builder.py`; pass paths as proper tool arguments or shell-quoted literals. Python 3.10 or newer with its standard library is sufficient. The normal sequence is:
 
+Use the host's actual shell and permission system. On Windows, quote the resolved interpreter, helper, and workspace paths consistently; a permission rule for a different quoting form or a shell variable may not match the executed command. A headless host cannot necessarily display an approval prompt. If a command is denied, inspect its exact error and configure only the necessary project-scoped permissions, or use the host's interactive approval flow. Do not treat a host permission denial as a questionnaire failure, weaken global protections, or report an unexecuted step as passed.
+
+Keep the host task active while the live server waits. For automation, use the host's supported background-process and bounded-polling tools, or deliberately stop at the offline export/import boundary. A quiet stream can mean buffered output or ongoing model generation; inspect process and artifact progress before declaring a hang or restarting a session.
+
 ```text
 python -B SCRIPT init --workspace RUN --goal "Create a skill for ..." --mode user
 python -B SCRIPT set-questions --workspace RUN --input AUTHORED_QUESTIONS_JSON

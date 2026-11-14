@@ -72,7 +72,26 @@
     "tools/check_example.py",
     "tools/install_skill.py",
     "tools/package_release.py",
-    "tools/release-files.json"
+    "tools/release-files.json",
+    "examples/host-validation/inputs/normal.md",
+    "examples/host-validation/claude/outputs/normal.md",
+    "examples/host-validation/inputs/missing.md",
+    "examples/host-validation/claude/outputs/missing.md",
+    "examples/host-validation/inputs/conflicting.md",
+    "examples/host-validation/claude/outputs/conflicting.md",
+    "examples/host-validation/claude/meeting-action-list/SKILL.md",
+    "examples/host-validation/claude/meeting-action-list/README.md",
+    "examples/host-validation/claude/meeting-action-list/references/export-schema.md",
+    "examples/host-validation/criteria.md",
+    "docs/host-validation.md",
+    "examples/host-validation/README.md",
+    "examples/host-validation/antigravity/meeting-action-list/SKILL.md",
+    "examples/host-validation/antigravity/meeting-action-list/README.md",
+    "examples/host-validation/antigravity/outputs/normal.md",
+    "examples/host-validation/antigravity/outputs/missing.md",
+    "examples/host-validation/antigravity/outputs/conflicting.md",
+    "examples/host-validation/antigravity/before-readability/missing.md",
+    "examples/host-validation/antigravity/before-readability/conflicting.md"
   ],
   "optional": []
 }

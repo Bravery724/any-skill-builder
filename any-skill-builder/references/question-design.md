@@ -26,7 +26,11 @@ Before writing cards, classify each candidate in the existing decision map:
 
 Importance expresses impact, not answer ownership. Every unanswered core and detail question can be delegated, including all core questions together. A choice that AI could recommend must still wait for the user's selected mode or explicit delegation. User deferrals remain separate. Avoid marking every question core; explain the material effect in the decision map.
 
+Treat explicit requirements as fixed constraints, not undecided preferences. Every ordinary option must respect them. For example, if the user requires owners to come only from supplied meeting notes, offer ways to represent missing owners; do not offer guessing an owner from the topic. If changing a constraint would materially help, explain the proposed change separately and obtain that specific decision before offering choices that depend on it. AI delegation does not authorize relaxing the original goal. Keep required basic verification in the build plan instead of asking whether to perform it.
+
 When predefined text choices cannot reasonably cover the answer space, include an "Other — describe" option with a conditional text follow-up using the existing option ID and `when` fields. Preserve the free response in the design rather than squeezing it into the closest preset. For image candidates, use deferral and new visual candidates rather than a fake "Other" image. An explicit "none" and deferral have different meanings. A deferral reason is useful but optional; retain it from the form or chat as answer rationale, and never demand a reason before allowing deferral.
+
+For multi-select questions, mark a "none" or other stand-alone choice with `exclusive: true`, as specified in [data-contract.md](data-contract.md). Review both each choice and plausible combinations. Do not assume the renderer recognizes a label's meaning. For other incompatible combinations, revise the question structure or use conditions so the form cannot present contradictory decisions as an ordinary valid configuration.
 
 ## Research the domain
 
@@ -49,6 +53,8 @@ Do not promise to inspect "all related material." Look for enough evidence to ex
 
 For each question, write the decision it resolves and the expected effect of each meaningful option. A free-text question may uncover new directions; explain how the answer will change the design instead of forcing prewritten choices.
 
+Separate presentation choices from factual meaning. Choosing a compact layout or omitting a companion section must not discard supplied conditions, dependencies, contradictions, or uncertainty needed to interpret the result. Likewise, sorting a conflicting statement first does not make it authoritative. If an option transforms an input, describe the evidence required for that transformation and how ambiguous cases remain unresolved.
+
 Review these criteria with short reasons:
 
 | Criterion | Check |
@@ -62,6 +68,7 @@ Review these criteria with short reasons:
 | Redundancy | Has the user or reliable existing context already answered it? |
 | Answerability | Are explanations/examples/candidates sufficient, and can the user write another answer or defer? |
 | Applicability | Is this question relevant to the currently selected scope? |
+| Constraints and combinations | Does every option preserve explicit requirements, and are stand-alone multi-select choices marked exclusive? Can jointly selected choices be implemented consistently? |
 | Implementation | Can the decision be reflected in the generated skill and tested? |
 
 Classify each reviewed candidate as adopt, revise, merge, or omit and explain why when the choice is non-obvious. A self-assigned score is not a quality gate. Important omissions cannot be averaged away by strong wording elsewhere.

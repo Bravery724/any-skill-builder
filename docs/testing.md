@@ -53,6 +53,8 @@ Record the browser, OS, languages, and input methods actually exercised. Passing
 
 The [complete public example](../examples/complete/README.md) includes actual independent forward outputs and separately reviewed criteria. Reproduce it with fresh task outputs before making claims about a changed skill. Inspect question coverage and selected-answer-to-behavior mapping as well as final prose. The [evaluation helper](../any-skill-builder/references/evaluation.md) preserves artifact hashes and explicit untested results; it does not replace running the task or reviewing the evidence.
 
+The [host validation report](host-validation.md) records actual Claude Code and Antigravity CLI runs, with [published inputs, generated skills, and outputs](../examples/host-validation/README.md). It separates browser acceptance from host receipt, author self-evaluation from independent AI review, and initial trials from repeated readability regressions. CI does not call either host model or regenerate these responses. Repeat the actual tasks and review their evidence before claiming that a changed generated skill has been behaviorally validated.
+
 Run the supported minimum Python version, not only the locally newest interpreter. An Actions matrix is a plan until its jobs actually execute. Host discovery, operating-system input methods, and a repository-URL installer also need their own observed checks.
 
 ## Published example consistency

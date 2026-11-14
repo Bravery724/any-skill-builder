@@ -32,11 +32,11 @@ After installation, refresh your host's skills and use the starting request belo
 
 ### Install with Python
 
-1. Open [Releases](https://github.com/Bravery724/any-skill-builder/releases) and download `any-skill-builder-0.2.2-source.zip`. Extract it. You can also use **Code → Download ZIP** and open its extracted root folder.
+1. Open [Releases](https://github.com/Bravery724/any-skill-builder/releases) and download `any-skill-builder-0.2.3-source.zip`. Extract it. You can also use **Code → Download ZIP** and open its extracted root folder.
 2. In a terminal, enter the extracted source folder containing `README.md` and `tools/`, then run the installer. From the parent of the named release folder:
 
    ```sh
-   cd any-skill-builder-0.2.2-source
+   cd any-skill-builder-0.2.3-source
    python -B tools/install_skill.py --dest "~/.agents/skills"
    ```
 
@@ -49,6 +49,10 @@ After installation, refresh your host's skills and use the starting request belo
    The agent should show its current stage, research the subject, prepare decisions, and create a skill with verification results. To answer the questions yourself, say so in your request. Use `$any-skill-builder` if your host supports that syntax.
 
 For the smaller runtime ZIP, troubleshooting, and safe **updates, rollback, and removal**, see [installation](docs/installation.md). The runtime ZIP contains the skill; the source ZIP also contains the installer, tests, and examples.
+
+Using **Claude Code or Antigravity CLI**? Follow the [host-specific paths and permission guidance](docs/installation.md#claude-code-and-antigravity). Their installation locations and command-approval modes differ.
+
+**Actually exercised on Windows:** Claude Code 2.1.322 and Antigravity CLI 1.5.9 completed supervised questionnaire-to-skill workflows. Generated skills were then run on normal, missing-detail, and conflicting-detail cases. Read the [results, repairs, and exact limits](docs/host-validation.md), including Antigravity's supervised resume and the final outputs. This does not certify the Antigravity IDE.
 
 ## Example requests
 

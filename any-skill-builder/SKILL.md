@@ -57,6 +57,7 @@ Author the questionnaire following [references/data-contract.md](references/data
 
 - Research broadly enough to find important choices; never impose an arbitrary maximum question count.
 - Review for missing decisions, redundant questions, leading wording, multiple decisions hidden in one question, implausible options, and facts already supplied.
+- Keep explicit user requirements fixed across ordinary options. Mark stand-alone multi-select choices such as "none" with `exclusive: true`; review combinations as well as individual recommendations.
 - For every core decision, record the recommended choice and reason, strongest viable alternative, conditions that would change the recommendation, and conflicts with other choices plus their resolution. Describe how the alternatives change the resulting skill.
 - Keep research facts, AI interpretations, proposals, and user-supplied facts distinct.
 - Write the review in the run's `question-review.md`: decision coverage, adopted/reworked/merged/dropped candidates and reasons, evidence gaps, and representative answer-to-behavior comparisons. Do not certify quality with a self-assigned numerical score.

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.3 — 2026-11-14
+
+- Record actual supervised Claude Code and Antigravity CLI workflows, with fictional inputs, generated skills, fresh-context outputs, independent AI review, and explicit limitations.
+- Document host-specific installation paths and execution permissions for Claude Code and Antigravity CLI.
+- Make multi-select exclusivity explicit in the authoring contract, including localized "none" choices.
+- Keep supplied requirements fixed across questionnaire options and preserve conditions, uncertainty, and conflicts when offering output-format choices.
+- Give tables, explanations, and follow-up questions distinct roles so generated outputs preserve evidence without repeating it across sections.
+- Clarify safe recovery from host permission denials and quiet or buffered headless sessions without resetting saved runs.
+
 ## 0.2.2 — 2026-11-14
 
 - Add a lightweight README GIF showing one request, the actual questionnaire, and the recorded finished skill, with a static alternative and documented evidence.
