@@ -1,6 +1,6 @@
 # Any Skill Builder
 
-[Releases](https://github.com/Bravery724/any-skill-builder/releases) · [Install](#quick-start) · [Usage](any-skill-builder/README.md) · [Complete walkthrough](examples/complete/README.md) · [Validation](https://github.com/Bravery724/any-skill-builder/actions/workflows/ci.yml)
+[Releases](https://github.com/Bravery724/any-skill-builder/releases) · [Install](#quick-start) · [Example prompts](#example-requests) · [Model guidance](#model-and-reasoning-settings) · [Complete walkthrough](examples/complete/README.md) · [Validation](https://github.com/Bravery724/any-skill-builder/actions/workflows/ci.yml)
 
 Turn a rough idea into a researched, usable agent skill. Discover meaningful requirements, keep decisions editable, and carry them through implementation and evaluation.
 
@@ -8,7 +8,7 @@ The host agent researches the topic, asks useful questions, and creates the fina
 
 Use it to **create a new skill**, **improve an existing skill**, or **work out the right questions before building**.
 
-> Use $any-skill-builder to create a skill that analyzes research papers and develops testable ideas. Research the subject, recommend answers, and continue through implementation.
+> **For complex skills:** choose a capable reasoning model and a higher reasoning-effort setting when your host offers one. This can help with research, useful questions, and difficult design choices. Better results still depend on sources, clear requirements, and testing. [Choose settings for your task](#model-and-reasoning-settings).
 
 ![A real questionnaire rendered from the public example](docs/assets/questionnaire.jpg)
 
@@ -32,11 +32,11 @@ After installation, refresh your host's skills and use the starting request belo
 
 ### Install with Python
 
-1. Open [Releases](https://github.com/Bravery724/any-skill-builder/releases) and download `any-skill-builder-0.2.0-source.zip`. Extract it. You can also use **Code → Download ZIP** and open its extracted root folder.
+1. Open [Releases](https://github.com/Bravery724/any-skill-builder/releases) and download `any-skill-builder-0.2.1-source.zip`. Extract it. You can also use **Code → Download ZIP** and open its extracted root folder.
 2. In a terminal, enter the extracted source folder containing `README.md` and `tools/`, then run the installer. From the parent of the named release folder:
 
    ```sh
-   cd any-skill-builder-0.2.0-source
+   cd any-skill-builder-0.2.1-source
    python -B tools/install_skill.py --dest "~/.agents/skills"
    ```
 
@@ -49,6 +49,50 @@ After installation, refresh your host's skills and use the starting request belo
    The agent should show its current stage, research the subject, prepare decisions, and create a skill with verification results. To answer the questions yourself, say so in your request. Use `$any-skill-builder` if your host supports that syntax.
 
 For the smaller runtime ZIP, troubleshooting, and safe **updates, rollback, and removal**, see [installation](docs/installation.md). The runtime ZIP contains the skill; the source ZIP also contains the installer, tests, and examples.
+
+## Example requests
+
+Copy a request into your agent after installation. These requests create a reusable skill; you use the finished skill afterward to do its task. Use `$any-skill-builder` if your host supports that syntax, and write naturally in your own language.
+
+**Let AI research and decide:**
+
+```text
+Use any-skill-builder to create a skill that analyzes papers from any
+research field and develops testable new ideas. Research relevant methods,
+answer the design questions using your judgment, explain the key assumptions,
+and build and evaluate the skill. Include a short usage guide.
+```
+
+**Choose the design yourself:**
+
+```text
+Use any-skill-builder to create a skill for designing clear dashboard
+interfaces. Research the topic and let me answer a card-based questionnaire.
+Where visual choices matter and your tools allow it, show image candidates.
+If none fit, defer that choice and discuss new candidates with me after
+the questionnaire.
+```
+
+**Improve a skill you already have:**
+
+```text
+Use any-skill-builder to improve the skill in the folder I provide.
+Preserve its working behavior, research the gaps, and let me review the
+important design choices. Evaluate the changes against the original on
+the same cases and explain what improved and what remains untested.
+```
+
+For webtoon creation, questionnaire-only requests, resuming saved work, and using the generated skill, see [more examples](docs/usage.md). The [complete walkthrough](examples/complete/README.md) contains recorded inputs, outputs, and evaluation evidence; the prompts above are starting examples, not claims of completed evaluations.
+
+## Model and reasoning settings
+
+The host model performs the research synthesis, question design, implementation, and review. A model that is stronger at those tasks, with enough reasoning effort, is a sensible choice for complex builds. More inference-time computation can improve reasoning under suitable conditions, but the benefit depends on the task and method; this is a practical recommendation, **not a measured success-rate claim for this builder**. [Research on inference-time compute](https://arxiv.org/abs/2408.03314).
+
+- For a new skill in an unfamiliar field, conflicting requirements, or substantial code and evaluation, consider a capable reasoning model and a higher effort setting.
+- For a small wording change or straightforward reuse of an existing design, the host's normal setting may be enough. Maximum effort is not automatically the best choice.
+- Higher effort can take longer and may cost more, depending on the host. Check the resulting questions, source support, and observed behavior; response length is not a quality measure.
+
+Choose the model and effort in your host's settings. Writing “think harder” in a request does not change the actual setting, and this skill does not silently change your model or provider. Good source material, useful examples, and real tests remain essential at every setting. See the [usage guide](docs/usage.md#model-and-reasoning-settings) for practical guidance.
 
 ## What it does
 

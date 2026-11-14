@@ -8,9 +8,9 @@ Open [GitHub Releases](https://github.com/Bravery724/any-skill-builder/releases)
 
 | File | Use |
 | --- | --- |
-| `any-skill-builder-0.2.0-source.zip` | Recommended for the verified installer; includes tests, examples, and maintainer tools |
-| `any-skill-builder-0.2.0.zip` | Smaller runtime for manual installation; contains `any-skill-builder/` and all its resources |
-| `any-skill-builder-0.2.0-manifest.json` | File sizes and SHA-256 hashes for release verification |
+| `any-skill-builder-0.2.1-source.zip` | Recommended for the verified installer; includes tests, examples, and maintainer tools |
+| `any-skill-builder-0.2.1.zip` | Smaller runtime for manual installation; contains `any-skill-builder/` and all its resources |
+| `any-skill-builder-0.2.1-manifest.json` | File sizes and SHA-256 hashes for release verification |
 
 You can also use **Code → Download ZIP** or clone [the repository](https://github.com/Bravery724/any-skill-builder). That download is source, not the runtime-only ZIP. Extract it into a normal working directory with enough space, outside the host's skills directory and existing questionnaire runs.
 
@@ -33,7 +33,7 @@ npx skills add Bravery724/any-skill-builder --skill any-skill-builder --agent co
 The default source follows the repository's default branch. To install the published release instead:
 
 ```sh
-npx skills add Bravery724/any-skill-builder@v0.2.0 --skill any-skill-builder
+npx skills add Bravery724/any-skill-builder@v0.2.1 --skill any-skill-builder
 ```
 
 Keep the explicit skill name: this repository also contains an example generated skill. Add `-g` only if you want a global installation. The CLI chooses paths according to its supported hosts; confirm the reported path and refresh the host before using the skill. Installing files does not certify another host's behavior.
@@ -42,12 +42,12 @@ The CLI has its own update and removal commands; see its [command reference](htt
 
 ## Install from source
 
-The source root is the extracted directory containing `README.md`, `tools/`, and `any-skill-builder/`. The named source release creates `any-skill-builder-0.2.0-source/`; a GitHub source download uses the repository/branch name instead.
+The source root is the extracted directory containing `README.md`, `tools/`, and `any-skill-builder/`. The named source release creates `any-skill-builder-0.2.1-source/`; a GitHub source download uses the repository/branch name instead.
 
 Open a terminal in its parent folder. For the named source release, these commands work in PowerShell and common POSIX shells. If the terminal already opens inside the source root, omit the `cd` line:
 
 ```sh
-cd any-skill-builder-0.2.0-source
+cd any-skill-builder-0.2.1-source
 python -B tools/install_skill.py --dest "~/.agents/skills"
 ```
 

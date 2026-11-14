@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1 — 2026-11-14
+
+- Put copyable requests for AI-led creation, interactive design, and existing-skill improvement near the start of the README.
+- Add a practical usage guide with questionnaire-only, visual, and resume examples, and clarify when to use the resulting skill.
+- Make model and reasoning-effort guidance visible in both public and installed user guides, including task-dependent benefits, time/cost tradeoffs, and the role of sources and testing.
+- Keep model selection under host control; no runtime logic or questionnaire behavior changes.
+
 ## 0.2.0 — 2026-11-14
 
 - Publish installation and release links, add an explicit Skills CLI installation path, and retain the dependency-free Python installer.

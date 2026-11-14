@@ -36,6 +36,7 @@
     "docs/installation.md",
     "docs/releasing.md",
     "docs/testing.md",
+    "docs/usage.md",
     "examples/README.md",
     "examples/complete/README.md",
     "examples/complete/decisions.json",
