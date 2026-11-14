@@ -1,39 +1,43 @@
 # Language support
 
-This builder accepts Unicode subject material, questions, and answers. Reusable package files are written in English by default: instructions, references, README files, code comments, and metadata. Newly generated skills follow the same default unless the user explicitly requests another file language. Preserve intentional translations, examples used to test Unicode, and user-provided text.
+The builder accepts Unicode subject material, questions, and answers. Reusable package files default to English: instructions, references, README files, comments, and metadata. Newly generated skills follow that default unless the user explicitly requests another file language. Preserve original user text, intentional translations, and multilingual test material.
 
-Questionnaires, chat replies, and the generated skill's task outputs naturally follow the conversation's language. An explicit output-language request takes precedence. Do not ask the user to select a language, translate a dictionary, or configure anything. All metadata and translation mechanics below are the host's responsibility. Choose helper programming languages from the task environment; a source prose language does not prescribe a programming language.
+Questionnaires, chat replies, and the generated skill's task outputs naturally follow the conversation's language. An explicit output-language request takes precedence. Do not ask the user to select a language or translate a dictionary. Localization is the host's responsibility; source prose language does not dictate the programming language of generated helpers.
 
-New workspaces record an explicit English locale as a portable fallback. The host sets the actual form locale to match the conversation before rendering. Updating questions without a locale keeps the run's existing choice. Legacy saved workspaces that omit the locale retain their original Korean fallback without rewriting saved questions or answers. Set an explicit locale when intentionally changing a run's interface language.
+## Set the questionnaire locale
 
-## Localize the questionnaire
-
-Set `questionnaire.locale`:
+New runs record an explicit English fallback. Before rendering, set the actual form language to the conversation language through `questionnaire.locale`:
 
 ```json
 {"language":"ar","direction":"rtl","messages":{"...":"complete translated message dictionary"}}
 ```
 
-The `messages` above is explanatory, not valid production input. Read `assets/locales.json` relative to this skill and translate every English message key for a language without a bundled dictionary. Keep the keys and all named `{placeholders}` exactly intact. Supply the complete translated dictionary to `locale.messages`; never translate internal enum values, question IDs, option IDs, JSON keys, or API names. `set-questions` checks dictionary completeness and placeholders.
+The example's `messages` value is explanatory, not valid production input. Read `assets/locales.json` and translate every English message key when no bundled dictionary is suitable. Preserve internal keys and all named `{placeholders}`. Do not translate IDs, option values, enum names, or JSON field names.
 
-Korean (`ko`) and English (`en`) have bundled dictionaries; their regional variants can use the base dictionary. Other language tags are accepted with a complete translated dictionary. `language` uses a language tag such as `ja`, `ar`, `fr`, or `pt-BR`. Set `direction` to `rtl` for right-to-left UI and `ltr` otherwise. Do not infer direction from the presence of an English acronym in an otherwise right-to-left form. The form also supports automatic direction for entered text.
+English (`en`) and Korean (`ko`) dictionaries are bundled; regional variants can use the base dictionary. Other valid language tags use a complete host-authored dictionary. Set `direction` to `rtl` for a right-to-left interface and `ltr` otherwise. The presence of an English acronym does not change the form's reading direction.
 
-For compatibility with saved custom dictionaries, deferral-note, global-action, question-status, clear-selection, Finish, pending-delegation, core-question guidance, resume-copy, and browser-recovery messages are optional on read and use English fallbacks when absent. Recovery keys include `draft_exported`, `draft_imported`, `invalid_draft`, and `ai_request_import_notice`. Translate them with the other keys when authoring or intentionally refreshing a form. Keep recovery wording clear about unfinished selections and the need to return AI-request files to chat. Keep resume instructions in the conversation language while preserving the exact local workspace and run identifiers. Never insert a server token or authenticated URL into the copied message.
+Current dictionaries include the request summary, Other input, answered/unanswered states, core guidance, blank-to-AI explanation, Save answers, download feedback, resume guidance, and reset confirmation. Use the current catalog as the authority. The offline redesign removed the old connected-form and special-state messages; an older custom dictionary must be reviewed and translated against the new keys rather than silently mixed with English fragments.
 
-The goal summary uses `goal_label`, `goal_expand`, and `goal_collapse`. These keys are also optional when reading older custom dictionaries and fall back to English; translate all three for newly authored interfaces. The summary displays the saved `questionnaire.goal` as plain text, with an expansion control only when needed. Keep that goal in the conversation language when authoring it; do not rewrite the saved request or answers simply to refresh this display.
+Updating a questionnaire without a locale preserves its existing choice. Do not rewrite old saved user data merely to refresh translations. If an incompatible legacy run needs migration, preserve its answers and original language explicitly in a new reviewed run.
 
-Translate question titles, help, option labels, descriptions, recommendation reasons, source summaries, and group labels into the questionnaire language. Preserve the actual meaning and tradeoffs. The source's original title, quoted technical term, or proper name may remain in its original language when useful. Recommendations and AI-created assumptions need the same language treatment as user-facing questions.
+## Preserve natural wording
 
-## Research and generate across languages
+Keep the request summary in the conversation language and display it as text. Use short, ordinary labels for saving and continuing; avoid making users learn internal export IDs or command names.
 
-- Search relevant local-language material as well as primary sources in other languages when useful. Explain a translation or evidence gap rather than inventing a source.
-- Keep units, dates, names, script, accents, and mixed-language text intact. Language preference alone does not reveal jurisdiction, location, budget, or software environment.
-- For unfamiliar language-specific terminology, preserve the original term with an explanation or seek reliable evidence. Do not certify native quality from a mechanical check.
-- A skill may be written in one language and accept multilingual input. Encode that intended behavior explicitly in its instructions and evaluation cases.
-- Use portable ASCII skill names when the target host requires them; that does not require ASCII body text or answers.
+The download notice must say what actually happened. It should explain that the answered HTML is being downloaded, the browser may choose another location or filename, and the user should return to chat. Do not translate this into a claim that the original file was overwritten or that an AI has already received it.
+
+Use the same language for questions, options, help, recommendation reasons, and completion guidance. Preserve exact paths and IDs when they are necessary, but do not expose them as decorative interface content.
+
+## Research across languages
+
+- Consult relevant local-language material and primary sources in other languages when useful. Explain translation or evidence gaps.
+- Preserve names, units, dates, accents, and mixed-script text. Language alone does not establish jurisdiction, location, budget, or environment.
+- For unfamiliar specialist terminology, retain the original term with an explanation or consult a reliable source.
+- A skill written in English may accept multilingual input; state that behavior in its instructions and tests.
+- Use portable ASCII skill names when a host requires them, without imposing ASCII on questions or answers.
 
 ## Verify without overstating coverage
 
-Exercise the actual chosen language in the browser, including controls, notices, long text, and save/resume. For right-to-left languages inspect direction, choice alignment, mixed-direction numbers, and narrow screens. Test composition-based input when relevant. Export/import must preserve text exactly.
+Exercise the actual chosen language, including long text, Other inputs, save, reopening, and host import. For RTL, inspect layout, mixed-direction numbers, choice alignment, and narrow screens. Composition-based input requires both relevant event regressions and, when claiming native IME coverage, the actual operating-system input method.
 
-Bundled dictionaries and a flexible translation mechanism do not prove translation quality for every language. Record the languages and behaviors actually exercised. Retain the user's host model/effort; do not silently switch providers to obtain a translation.
+Saved HTML and import must retain Unicode exactly. Tests of a flexible translation mechanism do not certify every language, translation, or keyboard. Record what was actually exercised. Preserve the user's host model and effort rather than silently switching providers for translation.

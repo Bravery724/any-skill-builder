@@ -1,22 +1,31 @@
 # Any Skill Builder
 
-[Releases](https://github.com/Bravery724/any-skill-builder/releases) · [Install](#quick-start) · [Example prompts](#example-requests) · [Model guidance](#model-and-reasoning-settings) · [Complete walkthrough](examples/complete/README.md) · [Validation](https://github.com/Bravery724/any-skill-builder/actions/workflows/ci.yml)
+[Releases](https://github.com/Bravery724/any-skill-builder/releases) · [Install](#quick-start) · [Example requests](#example-requests) · [Model guidance](#model-and-reasoning-settings) · [Complete example](examples/complete/README.md) · [Validation](https://github.com/Bravery724/any-skill-builder/actions/workflows/ci.yml)
 
-Turn a rough idea into a researched, usable agent skill. Discover meaningful requirements, keep decisions editable, and carry them through implementation and evaluation.
+Turn a rough idea into a researched, usable agent skill. Discover meaningful requirements and carry the decisions through implementation and evaluation.
 
-The host agent researches the topic, asks useful questions, and creates the final skill. A small Python helper keeps decisions consistent in a paginated card questionnaire or a chat-only workflow. It does not call a model or require an API key of its own.
+**Let AI handle the whole build, or answer a simple HTML questionnaire first.** The host agent does the research and judgment. A small Python helper keeps questions, answers, revisions, and build records consistent. It does not call another model or need an API key.
 
-Use it to **create a new skill**, **improve an existing skill**, or **work out the right questions before building**.
+> **For complex skills:** consider a capable reasoning model and a higher reasoning-effort setting in your host. This can help with research, question quality, and difficult design choices. Reliable sources, clear requirements, and actual tests still matter. [Choose settings for your task](#model-and-reasoning-settings).
 
-> **For complex skills:** choose a capable reasoning model and a higher reasoning-effort setting when your host offers one. This can help with research, useful questions, and difficult design choices. Better results still depend on sources, clear requirements, and testing. [Choose settings for your task](#model-and-reasoning-settings).
+![A request becomes a saved questionnaire and a reusable skill](docs/assets/demo.gif)
 
-![A one-line request becomes a questionnaire and a reusable skill](docs/assets/demo.gif)
+An edited replay of the fictional weekly-update example using the current offline questionnaire. The saved-file step is real; the finished skill and its nine recorded checks are existing example evidence, not a new model run or a timing claim. [Static preview](docs/assets/questionnaire.jpg) · [Walkthrough](examples/complete/README.md) · [Demo details](docs/demo.md).
 
-A 21-second edited replay using the real questionnaire and recorded skill from the fictional public example. The final result shows nine recorded checks: two automatic and seven reviewed. [Static questionnaire preview](docs/assets/questionnaire.jpg) · [Complete walkthrough](examples/complete/README.md) · [Demo details](docs/demo.md). The [small questionnaire fixture](examples/questionnaire.json) is also available for testing the helper alone.
+## Two ways to build
+
+| Mode | What you do | What the agent does |
+| --- | --- | --- |
+| **Full Auto** | Describe the skill and ask AI to decide. | Research, prepare and review questions, answer them, then build and evaluate. No HTML is generated. |
+| **Questionnaire** | Answer what matters in the HTML, save it, then say “continue” in chat. | Research and prepare questions, preserve your meaningful answers, fill the blanks, then build and evaluate. |
+
+If your request makes the mode clear, the agent starts directly. Otherwise it offers these two choices in chat after invocation. The host controls its `/` or `$` picker; the skill does not add a native submenu to every host.
+
+The questionnaire works as a standalone file. There is no local server, background model connection, or special defer state. For a different direction, use **Other — describe**. To let AI decide, leave the question blank.
 
 ## Quick start
 
-You need an agent that can read skill files and run local Python commands. Install a maintained Python release, preferably **3.13 or newer**; the minimum compatible version is 3.10. Check `python --version`. If your system uses `python3`, substitute that command below.
+You need an agent that reads skill files, accesses local files, and runs Python. Python **3.10+** is supported; use a maintained **3.13+** release for a new installation. Check `python --version`; substitute `python3` if that is your command.
 
 ### Install with the Skills CLI
 
@@ -26,187 +35,162 @@ If you already use Node.js 22.20+, run this in your project:
 npx skills add Bravery724/any-skill-builder --skill any-skill-builder
 ```
 
-Choose your host when prompted. This installs into the current project; add `-g` for an installation shared across projects. Keep `--skill any-skill-builder` so only the builder is selected. The [Skills CLI](https://github.com/vercel-labs/skills) is an optional third-party installer; Python is still required to run the builder. See [CLI details](docs/installation.md#install-with-the-skills-cli) for a pinned release and verification.
-
-After installation, refresh your host's skills and use the starting request below. To install without Node.js, use the source ZIP:
+Choose your host when prompted. Add `-g` for a shared installation. Keep `--skill any-skill-builder` so only the builder is selected. The [Skills CLI](https://github.com/vercel-labs/skills) is an optional third-party installer; Python is still required. See [installation details](docs/installation.md#install-with-the-skills-cli) for a pinned release and verification.
 
 ### Install with Python
 
-1. Open [Releases](https://github.com/Bravery724/any-skill-builder/releases) and download `any-skill-builder-0.2.3-source.zip`. Extract it. You can also use **Code → Download ZIP** and open its extracted root folder.
-2. In a terminal, enter the extracted source folder containing `README.md` and `tools/`, then run the installer. From the parent of the named release folder:
+1. Download `any-skill-builder-0.3.0-source.zip` from [Releases](https://github.com/Bravery724/any-skill-builder/releases) and extract it.
+2. Enter the extracted source folder containing `README.md` and `tools/`, then run:
 
    ```sh
-   cd any-skill-builder-0.2.3-source
+   cd any-skill-builder-0.3.0-source
    python -B tools/install_skill.py --dest "~/.agents/skills"
    ```
 
-   Choose the skills directory your host reads; `~/.agents/skills` is the example convention. The installer appends `any-skill-builder/`, verifies its files, and reports the absolute installed path. It protects a different existing installation.
-3. Refresh the host's skills or open a new session if required. Confirm **Any Skill Builder** appears in its available skills. A successful file copy alone does not prove host discovery.
-4. Ask the agent:
+   Choose the directory your host actually reads. The installer appends `any-skill-builder/`, checks the files, and reports the installed path. It protects a differing existing installation.
+3. Refresh your host's skills or start a new session, then ask:
 
-   > Use any-skill-builder to create a skill that analyzes research papers and develops testable ideas. Research the subject, recommend answers, and continue through implementation.
+   > Use any-skill-builder in Full Auto to create a skill that analyzes papers from any field and develops testable research ideas.
 
-   The agent should show its current stage, research the subject, prepare decisions, and create a skill with verification results. To answer the questions yourself, say so in your request. Use `$any-skill-builder` if your host supports that syntax.
+The agent should show its stage, research the topic, resolve useful design choices, and deliver a skill with a usage guide and observed verification. Use `$any-skill-builder` if your host supports that spelling.
 
-For the smaller runtime ZIP, troubleshooting, and safe **updates, rollback, and removal**, see [installation](docs/installation.md). The runtime ZIP contains the skill; the source ZIP also contains the installer, tests, and examples.
+For the smaller runtime ZIP, host paths, troubleshooting, safe updates, rollback, and removal, see [installation](docs/installation.md). The runtime ZIP contains the skill; the source ZIP adds tests, examples, and the installer.
 
-Using **Claude Code or Antigravity CLI**? Follow the [host-specific paths and permission guidance](docs/installation.md#claude-code-and-antigravity). Their installation locations and command-approval modes differ.
-
-**Actually exercised on Windows:** Claude Code 2.1.322 and Antigravity CLI 1.5.9 completed supervised questionnaire-to-skill workflows. Generated skills were then run on normal, missing-detail, and conflicting-detail cases. Read the [results, repairs, and exact limits](docs/host-validation.md), including Antigravity's supervised resume and the final outputs. This does not certify the Antigravity IDE.
+**Host evidence has a version boundary.** Supervised Claude Code CLI and Antigravity CLI questionnaire-to-skill runs were recorded for v0.2.3. They are [historical evidence](docs/host-validation.md), not verification of the redesigned v0.3.0 workflow or either IDE extension. See the [current offline validation](docs/offline-validation.md), [two recorded workflow examples](examples/offline-workflows/README.md), and CI for the checks actually run.
 
 ## Example requests
 
-Copy a request into your agent after installation. These requests create a reusable skill; you use the finished skill afterward to do its task. Use `$any-skill-builder` if your host supports that syntax, and write naturally in your own language.
+These requests create reusable skills. Use the delivered skill afterward to perform its task. Write naturally in your own language.
 
-**Let AI research and decide:**
+**Full Auto:**
 
 ```text
-Use any-skill-builder to create a skill that analyzes papers from any
-research field and develops testable new ideas. Research relevant methods,
-answer the design questions using your judgment, explain the key assumptions,
-and build and evaluate the skill. Include a short usage guide.
+Use any-skill-builder in Full Auto to create a skill that analyzes papers
+across research fields and develops testable new ideas. Research relevant
+methods, decide the design questions, explain the key assumptions, and
+build and evaluate the skill. Include a short usage guide.
 ```
 
-**Choose the design yourself:**
+**Answer a questionnaire:**
 
 ```text
 Use any-skill-builder to create a skill for designing clear dashboard
-interfaces. Research the topic and let me answer a card-based questionnaire.
-Where visual choices matter and your tools allow it, show image candidates.
-If none fit, defer that choice and discuss new candidates with me after
-the questionnaire.
+interfaces. Research the topic and make an HTML questionnaire.
+Show meaningful image candidates where your tools allow it.
+Let me describe another direction through Other if none fit.
 ```
 
-**Improve a skill you already have:**
+**Continue after saving:**
 
 ```text
-Use any-skill-builder to improve the skill in the folder I provide.
-Preserve its working behavior, research the gaps, and let me review the
-important design choices. Evaluate the changes against the original on
-the same cases and explain what improved and what remains untested.
+Continue building from the saved HTML. Keep my answers and decide the blanks.
 ```
 
-For webtoon creation, questionnaire-only requests, resuming saved work, and using the generated skill, see [more examples](docs/usage.md). The [complete walkthrough](examples/complete/README.md) contains recorded inputs, outputs, and evaluation evidence; the prompts above are starting examples, not claims of completed evaluations.
+In the same conversation, “continue” is enough when the saved questionnaire is identifiable at the recorded location. If you saved to another location, provide the path or file. The agent checks run identity and versions instead of guessing between conflicting copies.
 
-## Model and reasoning settings
+**Improve an existing skill:**
 
-The host model performs the research synthesis, question design, implementation, and review. A model that is stronger at those tasks, with enough reasoning effort, is a sensible choice for complex builds. More inference-time computation can improve reasoning under suitable conditions, but the benefit depends on the task and method; this is a practical recommendation, **not a measured success-rate claim for this builder**. [Research on inference-time compute](https://arxiv.org/abs/2408.03314).
+```text
+Use any-skill-builder in Full Auto to improve the skill in the folder
+I provide. Preserve working behavior, research the gaps, and compare
+the revision with the original on the same cases. Explain what improved
+and what remains untested.
+```
 
-- For a new skill in an unfamiliar field, conflicting requirements, or substantial code and evaluation, consider a capable reasoning model and a higher effort setting.
-- For a small wording change or straightforward reuse of an existing design, the host's normal setting may be enough. Maximum effort is not automatically the best choice.
-- Higher effort can take longer and may cost more, depending on the host. Check the resulting questions, source support, and observed behavior; response length is not a quality measure.
+See [more examples](docs/usage.md) for webtoons, questionnaire-only work, and using the generated skill.
 
-Choose the model and effort in your host's settings. Writing “think harder” in a request does not change the actual setting, and this skill does not silently change your model or provider. Good source material, useful examples, and real tests remain essential at every setting. See the [usage guide](docs/usage.md#model-and-reasoning-settings) for practical guidance.
+## Save answers and continue
 
-## What it does
+The card questionnaire shows the original request, question counts, and answered/unanswered states. It supports conditional questions, actual image candidates, **Other — describe**, clearing an answer, and a confirmed full reset. There is no fixed question limit; related questions are split across manageable pages.
 
-- Connects each question to an actual design choice, with sources, recommendations, and explicit assumptions.
-- Keeps the saved skill goal above the questions, with a two-line summary and an expandable full request when needed.
-- Supports user answers, AI suggestions, or fully delegated AI decisions.
-- Offers a single AI-delegation toggle above the questions and a Finish action on every page, preserving existing answers and deferrals.
-- Resets all answers in one confirmed action while keeping the questionnaire and prior response history.
-- Shows conditional questions and actual image candidates without imposing a fixed question limit.
-- Saves answers, preserves revision history, and keeps user deferrals separate from missing answers.
-- Revisits deferred choices in chat after the full questionnaire, then presents revised candidates.
-- Builds the skill only after the active decisions are resolved, and evaluates its behavior as well as its file structure.
-- Includes a concise usage guide and starting request with each newly generated skill, plus short picker metadata when the host supports it.
-- Improves an existing skill while preserving a baseline and testing changed behavior.
-- Records artifact checks and evidence-backed reviews separately, with explicit failures and untested cases.
+**Save answers** is available on every page, including the first. It downloads a self-contained HTML with the questions, images, and answers. Save it in the original location when practical, then return to chat. The browser may instead use its Downloads folder or add a filename suffix; a download does not guarantee the original was overwritten.
+
+On continuation, the agent imports the matching saved file, retains meaningful user choices, and answers the blanks. Core questions recommend a direct answer but can also be left to AI. “None”, `0`, unfamiliar technical terms, and unusual creative preferences are not rejected merely for being short or different. Clearly unusable text is reviewed in context by the agent, retained in the record, and replaced with an explained decision.
+
+The browser does not run a model. Saving is not proof that the agent has read the file and does not wake a closed conversation. Returning to chat starts the next step. Full Auto avoids this handoff entirely and creates no HTML.
+
+## What makes the questions useful
+
+- Each question identifies a behavior, input, output, constraint, or evaluation it changes.
+- Sources distinguish inspected evidence, partial access, AI interpretation, and proposals.
+- Important recommendations are reviewed against viable alternatives and conditions that would change them.
+- User requirements and meaningful custom answers remain authoritative.
+- Conditional questions follow dependencies; relevant changes invalidate stale answers while retaining history.
+- The build maps decisions to implemented features and checks actual task behavior.
+- Every generated skill includes a usage guide, starting request, and observed limitations.
 
 ```mermaid
 flowchart LR
-    A[Goal and subject research] --> B[Design questions]
-    B --> C[Answers or AI decisions]
-    C --> D{Any deferrals?}
-    D -->|Yes| E[Discuss and revise candidates]
-    E --> B
-    D -->|No| F[Build and evaluate the skill]
+    A[Request and subject research] --> B[Design and review questions]
+    B --> C{Mode}
+    C -->|Full Auto| D[AI answers with reasons]
+    C -->|Questionnaire| E[Answer and save HTML]
+    E --> F[Return to chat]
+    F --> G[Keep user answers and fill blanks]
+    D --> H[Build and evaluate]
+    G --> H
 ```
 
-## Requirements
+## Model and reasoning settings
+
+The host model performs research synthesis, question design, implementation, and review. A model stronger at those tasks, with enough reasoning effort, is a sensible choice for complex builds. More inference-time computation can help under suitable conditions, but benefits depend on the task and method. This is a practical recommendation, **not a measured success-rate claim for this builder**. [Research on inference-time compute](https://arxiv.org/abs/2408.03314).
+
+- Consider a capable reasoning model and higher effort for unfamiliar subjects, conflicting requirements, or substantial code and evaluation.
+- Normal effort may be enough for a small wording change or straightforward reuse.
+- Higher effort can take longer and may cost more. Check source support, question quality, and actual behavior; explanation length is not a quality measure.
+
+Choose settings in the host. Writing “think harder” does not change the actual setting, and this skill does not silently switch your model, provider, or effort.
+
+## Requirements and languages
 
 | Component | Requirement |
 | --- | --- |
-| Host agent | Reads Agent Skills, accesses local files, and executes Python; research and image candidates use its available tools |
-| Runtime | Python 3.10+; a maintained 3.13+ release is recommended for a new installation; standard library only |
-| Questionnaire | A modern browser; live delivery also needs the local server and host task to remain active |
-| Optional Skills CLI installer | Node.js 22.20+; the Python and manual ZIP routes do not need Node.js |
-| Maintainer tests only | Node.js 22+ with the built-in test runner, `Blob`, and `Intl.Segmenter` |
+| Host agent | Reads Agent Skills, accesses files, and executes Python; research and images use its available tools |
+| Runtime | Python 3.10+, standard library only; maintained 3.13+ recommended for new installations |
+| Questionnaire | Modern browser for the standalone HTML; no server or model credentials |
+| Optional Skills CLI installer | Node.js 22.20+; Python/ZIP installation does not require Node.js |
+| Maintainer form tests | Node.js 22+ with the built-in test runner and `Blob` |
 
-There are no runtime package downloads or bundled model credentials. Uploading a ZIP to an ordinary chat interface does not by itself provide the required file and command access. See the [verified environment scope](docs/installation.md#verified-scope) before assuming another host has been tested.
+The skill uses the [Agent Skills directory format](https://agentskills.io/specification). Discovery paths and permissions vary by host. Optional `agents/openai.yaml` supplies picker metadata where supported. Uploading a ZIP to an ordinary chat interface alone does not grant file or command access.
 
-The skill follows the [Agent Skills directory format](https://agentskills.io/specification). Host discovery and installation paths vary; use your host's documented skill installation flow. The optional `agents/openai.yaml` supplies interface metadata for hosts that support it.
-
-## Answer, delegate, and resume
-
-The installed builder includes a [short user guide](any-skill-builder/README.md). Invoke it without a task to get a brief introduction and a starting example, or ask for help directly. It reuses a purpose already supplied in the conversation and starts clear tasks without repeating an introduction. Picker descriptions and invocation spelling depend on the host.
-
-Example request:
-
-> Use any-skill-builder to improve this existing skill. Preserve what works, research the gaps, and let me answer the design questions in chat.
-
-Use `$any-skill-builder` if your host supports that invocation syntax. For a user-completed questionnaire, ask the agent to let you answer. To resume, provide the existing run directory; do not initialize it again. Runs from the former `skill-builder` name remain valid. Changing the skill's name does not reset questions, answers, or browser draft identities.
-
-While answering, choose **Let AI decide unanswered questions**, then **Finish** on any page to hand the remaining decisions to the active agent. The top toggle can be cancelled before finishing and does not send a request by itself. If you finish with unanswered questions and no delegation selected, an inline prompt offers **Let AI decide and finish** or **Keep answering**, which returns to the first unanswered question. Previous/next controls only navigate; visiting the last page is unnecessary. **Reset all answers** clears choices, deferrals, and the pending delegation preference if you want a fresh start; previous responses remain in history. Offline Finish downloads an answer or delegation-request file to return to the chat.
-
-Core questions set the skill's important direction. The form recommends answering them yourself, while allowing AI to answer any or all of them through the same delegation controls. The host reviews consequential recommendations against viable alternatives, the conditions that would change them, and conflicting choices. Information needed only when the finished skill runs stays a runtime input. After AI decides, it briefly explains the main directions and assumptions in chat before continuing.
-
-Submission acceptance and AI receipt are separate. The form confirms acceptance; the host reads the saved answers, acknowledges that exact submission, and reports receipt in chat. The completion panel can copy a token-free resume message, with selectable text if clipboard access fails. Saved stage checkpoints show the last confirmed progress and next action. They do not claim that a stopped agent is still running, and an offline downloaded file must still be given to the host.
-
-Recovery downloads with unfinished multi-select choices preserve those selections as drafts. Load the file into a matching standalone/offline questionnaire to continue editing, then use Finish to create the normal handoff file. If you were using a live form, ask the host for an offline copy of the existing run. Run identity and revisions must match; an older draft must not overwrite newer decisions. A recovery draft is not a submitted answer or an AI request.
-
-## Language defaults
-
-| Content | Default |
-| --- | --- |
-| This repository and new reusable skill packages | English instructions, references, README files, comments, and metadata |
-| Questions, interface wording, chat, and task outputs | The conversation's language |
-| User material, translations, and Unicode test samples | Preserved without automatic translation |
-
-An explicit language request overrides the applicable default. The host sets the form language naturally; users do not need a language picker. English and Korean UI dictionaries are bundled. Other languages use a complete host-authored dictionary with the same keys and placeholders. This is not a claim that every translation or input method has been tested.
-
-New runs have an explicit English fallback locale. Existing runs keep their chosen locale; legacy runs without a locale retain their original Korean fallback. See [language support](any-skill-builder/references/language-support.md).
+Reusable instructions, references, README files, comments, and metadata default to **English**. Questions, interface wording, chat, and task outputs follow **the conversation's language**. An explicit language request takes precedence. English and Korean dictionaries are bundled; other languages use host-authored translations with matching message keys. No language picker is required. This does not certify every translation or input method.
 
 ## Try the helper directly
 
-These developer-oriented commands run from the source root with a fresh sibling workspace. `--rebind-project` binds the public authored fixture to the chosen folder name; it is restricted to empty initialized runs and cannot import another run's answers or identity. The example is an original proposal fixture, not completed subject research.
+From the source root, choose a fresh workspace outside the repository:
 
 ```sh
-python -B any-skill-builder/scripts/skill_builder.py init --workspace ../any-skill-builder-runs/my-example --goal "Build a weekly update skill" --mode user
-python -B any-skill-builder/scripts/skill_builder.py set-questions --workspace ../any-skill-builder-runs/my-example --input examples/questionnaire.json --rebind-project
-python -B any-skill-builder/scripts/skill_builder.py validate --workspace ../any-skill-builder-runs/my-example
-python -B any-skill-builder/scripts/skill_builder.py render --workspace ../any-skill-builder-runs/my-example
-python -B any-skill-builder/scripts/skill_builder.py serve --workspace ../any-skill-builder-runs/my-example --timeout 3600
+python -B any-skill-builder/scripts/skill_builder.py init --workspace ../builder-runs/my-example --goal "Build a weekly update skill" --mode questionnaire
+python -B any-skill-builder/scripts/skill_builder.py set-questions --workspace ../builder-runs/my-example --input examples/questionnaire.json --rebind-project
+python -B any-skill-builder/scripts/skill_builder.py validate --workspace ../builder-runs/my-example
+python -B any-skill-builder/scripts/skill_builder.py render --workspace ../builder-runs/my-example
 ```
 
-Open the exact loopback URL printed by `serve`. It contains a run token and must not be published. Keep the serving process and host task active while answering. A completed submission returns an event for the host to process. The HTML file cannot wake a closed AI conversation.
+Open the reported HTML, answer, and choose **Save answers**. If saved back to its recorded location:
 
-The offline HTML is a fallback: give its Finish download to the host for `import-answers` or `delegate`, according to the file type. Browser recovery drafts with unfinished selections belong back in the questionnaire. Importing ordinary answers does not submit them; the host uses `submit` for a final completed answer file, then acknowledges the accepted record. Update an existing standalone form with `render`; never reset its answers just to refresh the UI. Full commands and conflict handling are in the [workflow guide](any-skill-builder/references/workflow.md).
-
-## Repository layout
-
-```text
-any-skill-builder/   Installable runtime skill
-examples/            Small, public, English questionnaire fixture
-tests/               Backend and mock-DOM form regressions
-tools/               Release checks, explicit file manifest, packaging
-docs/                Design, testing, and release guidance
-.github/workflows/   Windows and Linux CI configuration
+```sh
+python -B any-skill-builder/scripts/skill_builder.py resume --workspace ../builder-runs/my-example
 ```
 
-Keep real research, answers, generated user content, and run folders outside the repository. Release archives are built from an explicit file allowlist; they do not collect arbitrary local files.
+Or supply the saved file explicitly:
+
+```sh
+python -B any-skill-builder/scripts/skill_builder.py import-answers --workspace ../builder-runs/my-example --input /path/to/saved/questionnaire.html
+```
+
+The host reviews the imported answers and authors recommendations before running `recommend`. That helper only applies recorded recommendations; it does not do research or call AI. Full commands, restoration, and conflict handling are in the [workflow guide](any-skill-builder/references/workflow.md).
 
 ## Evaluation and related tools
 
-Check three different things: whether the helper works, whether questions uncover useful decisions, and whether the created skill performs its actual task. Test counts for the first do not prove the other two. The [evaluation helper](any-skill-builder/references/evaluation.md) checks existing output artifacts, aggregates evidence-backed reviews, and compares runs only when their recorded conditions match. It does not execute a model, invent review results, or optimize descriptions automatically.
+Check three different things: helper correctness, question quality, and the created skill's real task behavior. Tests of the first do not prove the other two. The [evaluation helper](any-skill-builder/references/evaluation.md) checks existing artifacts, aggregates evidence-backed reviews, and compares runs only when recorded conditions match. It does not execute a model, invent review results, or optimize descriptions automatically.
 
 | Tool | Emphasis |
 | --- | --- |
-| Any Skill Builder | Subject research, editable conditional questions, deferred-choice discussion, decision history, and implementation from those decisions |
+| Any Skill Builder | Subject research, meaningful conditional questions, automatic or saved-file decisions, and implementation traced to those decisions |
 | [Anthropic skill-creator](https://github.com/anthropics/skills/tree/main/skills/skill-creator) | Skill iteration with evaluation workflows, benchmark aggregation, and description/trigger improvement tools |
-| [writing-skills](https://github.com/obra/superpowers/tree/main/skills/writing-skills) | Testing skill instructions through baseline failures, application, and behavioral rechecks |
+| [writing-skills](https://github.com/obra/superpowers/tree/main/skills/writing-skills) | Testing instructions through baseline failures, application, and behavioral rechecks |
 
-These workflows can complement each other. Research and evaluation are not exclusive to this project, and no benchmark superiority is claimed. Use compatible evaluation tools already available in the host, or the bundled artifact helper without adding another provider dependency.
+These approaches can complement each other. Research and evaluation are not exclusive to this project, and no benchmark superiority is claimed.
 
 ## Check and package
 
@@ -218,12 +202,15 @@ python -B tools/check_example.py
 python -B tools/package_release.py --out dist
 ```
 
-`check_example.py` checks the consistency of existing public evidence and reports; it does not run a new model evaluation. See [testing](docs/testing.md) for test scope and temporary-directory settings, and [releasing](docs/releasing.md) for package contents and publication steps. The [first successful hosted run](https://github.com/Bravery724/any-skill-builder/actions/runs/43591884294) passed all four Ubuntu/Windows and Python 3.10/3.13 combinations with Node 24. Check [current CI results](https://github.com/Bravery724/any-skill-builder/actions/workflows/ci.yml) for later commits.
+`check_example.py` checks existing public evidence; it does not rerun a model. Keep real research, answers, generated user content, and run folders outside the repository. Archives use an explicit file allowlist.
 
-## Limits
+```text
+any-skill-builder/   Installable runtime skill
+examples/           Public fixtures and recorded task evidence
+tests/              Backend and form regressions
+tools/              Release checks, installer, and packaging
+docs/               Usage, design, validation, and release guidance
+.github/workflows/  Windows and Linux CI
+```
 
-The helper validates records, not the insightfulness of questions or the quality of the final skill. The host must actually review sources, resolve conflicting decisions, inspect visual candidates, and exercise generated helpers. Mock input tests do not cover every native OS input method. The live server is a local workflow bridge, not a hosted multi-user service.
-
-## License
-
-[MIT](LICENSE). The installable skill includes the same [license notice](any-skill-builder/LICENSE).
+See [testing](docs/testing.md), [release preparation](docs/releasing.md), [contributing](CONTRIBUTING.md), and [security](SECURITY.md). Licensed under [MIT](LICENSE).

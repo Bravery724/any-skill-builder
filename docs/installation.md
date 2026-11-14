@@ -8,9 +8,9 @@ Open [GitHub Releases](https://github.com/Bravery724/any-skill-builder/releases)
 
 | File | Use |
 | --- | --- |
-| `any-skill-builder-0.2.3-source.zip` | Recommended for the verified installer; includes tests, examples, and maintainer tools |
-| `any-skill-builder-0.2.3.zip` | Smaller runtime for manual installation; contains `any-skill-builder/` and all its resources |
-| `any-skill-builder-0.2.3-manifest.json` | File sizes and SHA-256 hashes for release verification |
+| `any-skill-builder-0.3.0-source.zip` | Recommended for the verified installer; includes tests, examples, and maintainer tools |
+| `any-skill-builder-0.3.0.zip` | Smaller runtime for manual installation; contains `any-skill-builder/` and all its resources |
+| `any-skill-builder-0.3.0-manifest.json` | File sizes and SHA-256 hashes for release verification |
 
 You can also use **Code → Download ZIP** or clone [the repository](https://github.com/Bravery724/any-skill-builder). That download is source, not the runtime-only ZIP. Extract it into a normal working directory with enough space, outside the host's skills directory and existing questionnaire runs.
 
@@ -33,21 +33,21 @@ npx skills add Bravery724/any-skill-builder --skill any-skill-builder --agent co
 The default source follows the repository's default branch. To install the published release instead:
 
 ```sh
-npx skills add Bravery724/any-skill-builder@v0.2.3 --skill any-skill-builder
+npx skills add Bravery724/any-skill-builder@v0.3.0 --skill any-skill-builder
 ```
 
-Keep the explicit skill name: this repository also contains an example generated skill. Add `-g` only if you want a global installation. The CLI chooses paths according to its supported hosts; confirm the reported path and refresh the host before using the skill. Installing files does not certify another host's behavior.
+Keep the explicit skill name: this repository also contains generated example skills. Add `-g` only if you want a global installation. The CLI chooses paths according to its supported hosts; confirm the reported path and refresh the host before using the skill. Installing files does not certify another host's behavior.
 
 The CLI has its own update and removal commands; see its [command reference](https://github.com/vercel-labs/skills/blob/main/docs/commands.md). Its documented `DISABLE_TELEMETRY=1` or `DO_NOT_TRACK=1` setting disables its telemetry and security-audit requests. These settings belong to that installer, not to this skill. Use the Python installer below if you prefer no Node.js dependency. Python remains necessary for the builder with either installation route.
 
 ## Install from source
 
-The source root is the extracted directory containing `README.md`, `tools/`, and `any-skill-builder/`. The named source release creates `any-skill-builder-0.2.3-source/`; a GitHub source download uses the repository/branch name instead.
+The source root is the extracted directory containing `README.md`, `tools/`, and `any-skill-builder/`. The named source release creates `any-skill-builder-0.3.0-source/`; a GitHub source download uses the repository/branch name instead.
 
 Open a terminal in its parent folder. For the named source release, these commands work in PowerShell and common POSIX shells. If the terminal already opens inside the source root, omit the `cd` line:
 
 ```sh
-cd any-skill-builder-0.2.3-source
+cd any-skill-builder-0.3.0-source
 python -B tools/install_skill.py --dest "~/.agents/skills"
 ```
 
@@ -74,7 +74,7 @@ Replace `PROJECT` with the intended project's absolute path. The installer copie
 
 Claude Code supports `/any-skill-builder`; refresh with `/reload-skills` or start a new session if needed. Antigravity CLI also exposes skills as slash commands; use `/skills reload` or a new conversation. These paths and commands follow the [Claude Code skill documentation](https://code.claude.com/docs/en/skills) and [Antigravity skill documentation](https://antigravity.google/docs/skills). The latter also documents IDE and legacy locations; CLI testing does not certify the IDE interface.
 
-An interactive first run is the easiest way to approve the required local Python commands and file access. The host needs permission to research, write its chosen run directory, render the form, and run the local submission server. Keep the host task and server active while answering. A successful install does not grant those execution permissions.
+An interactive first run is the easiest way to grant the required local Python and file permissions. The host researches, writes its private run directory, and either completes Full Auto or renders a standalone questionnaire. No questionnaire server or active host task is needed while you answer the saved HTML. A successful install does not grant execution permissions.
 
 For headless automation, configure the necessary project-scoped permissions explicitly. Claude Code's `--permission-mode acceptEdits` and Antigravity CLI's `--mode=accept-edits` are different flags; neither promises approval of every command. Antigravity's `auto` mode also depends on a supported terminal sandbox and account. If it is unavailable on Windows, it can fall back to a mode that still needs approvals, which a headless run cannot display. Follow the host's [Claude Code permission modes](https://code.claude.com/docs/en/permission-modes) or [Antigravity execution modes](https://antigravity.google/docs/cli/modes/) instead of disabling protections globally.
 
@@ -93,7 +93,7 @@ Refresh the host's skill list or open a new session according to its discovery r
 
 > Use any-skill-builder to create a skill for writing weekly project updates. Let me answer the design questions.
 
-The host should read the installed skill, report its current stage, and choose a separate run directory for your work. It then researches the subject and prepares questions. If you prefer all decisions delegated, say so in the request. Core questions remain delegatable.
+The host should read the installed skill, show its stage, and choose a separate run directory. This request selects Questionnaire mode: it researches the subject and delivers standalone HTML. To skip HTML, request Full Auto. If the mode is unclear, the agent offers those two choices in chat; no native slash submenu is assumed.
 
 For a structural check, replace `INSTALLED_SKILL` below with the absolute installed path printed by the installer. For example, the first argument is the script inside that folder, and the second is the folder itself:
 
@@ -114,7 +114,7 @@ Use this procedure for a source-installer installation or a manually copied runt
 5. Install from the new source root using the same `--dest`, or copy the staged runtime into the now-empty target. The final folder must again be `<host-skills>/any-skill-builder/`.
 6. Check the installed `VERSION`, run the structural check, refresh the host, and invoke the skill. To resume a project, give the host its existing run directory; do not call `init` for it again.
 
-Use Explorer, Finder, or your file manager for the folder move and replacement, checking exact paths before each operation. Updating the skill does not rewrite old standalone questionnaire HTML. Ask the host to render the existing run again while preserving its answers.
+Use Explorer, Finder, or your file manager for the folder move and replacement, checking exact paths before each operation. Updating the skill does not rewrite old HTML or migrate saved runs automatically. v0.3.0 replaces the previous connection and answer-handoff formats. Keep legacy files intact; inspect them and migrate meaningful decisions explicitly into a new run if the current helper rejects their format. Never erase unresolved intent merely to make an old file importable. For a compatible current run, rerender only after preserving any unsaved browser answers.
 
 ### Roll back a failed update
 
@@ -139,12 +139,14 @@ For a linked installation, remove only the verified discovery link through the h
 | A different installation already exists | Preserve it and use the reversible update procedure. Do not merge directories or delete it just to bypass the check. |
 | The installer rejects a symbolic link | Resolve the actual target and use the link-aware manual procedure. |
 | Installation succeeds but the host cannot find the skill | Verify the host's directory, exact `any-skill-builder/SKILL.md` nesting, and whether discovery needs a refresh or new session. |
-| Finish downloads a file but nothing happens in chat | This is the offline path. Attach the Finish download to the skill-building chat. A closed host task cannot be restarted by HTML. |
-| A recovery file contains unfinished choices | Load it into the matching standalone/offline questionnaire, then use Finish after editing or choosing AI delegation. If needed, ask the host to render an offline copy of the existing run. A mismatched or stale draft must not overwrite newer decisions. |
+| Save answers downloads HTML but nothing happens in chat | Return to the skill-building chat and say “continue”. The agent checks the recorded path; if you saved elsewhere, give that path or file. HTML does not wake a closed chat. |
+| The agent finds only an unanswered template | Use the questionnaire's Save answers button, then provide the downloaded file's location if the browser saved elsewhere or added a suffix. |
+| Multiple saved files conflict | Identify which version you intend. The helper does not silently choose an arbitrary newest file or overwrite newer decisions. |
+| An old release's run is rejected | Keep it intact and inspect its version. Use a reviewed migration into a new run, or the previous runtime to read its decisions. |
 
 ## Verified scope
 
-These observations were recorded on 2026-11-14. They are separate from compatibility expectations:
+The following observations were recorded on 2026-11-14 for earlier releases through **v0.2.3**. They are historical evidence, not a claim that the redesigned v0.3.0 workflow was rerun in those hosts or IDE extensions:
 
 | Environment or capability | Evidence |
 | --- | --- |
@@ -159,4 +161,4 @@ These observations were recorded on 2026-11-14. They are separate from compatibi
 | Skills CLI 1.8.1, Windows | Installed from the public repository with explicit `--skill any-skill-builder --agent codex --copy --yes`; all 18 runtime source files matched, only the builder was installed, and init/import/validation/render commands passed |
 | Other hosts and installer modes | These observations do not cover other host variants, every global installation path, or every host-specific behavior |
 
-The host may use the browser workflow, a chat-only questionnaire, or offline HTML according to its available tools. See [testing](testing.md) for detailed test boundaries.
+For current work, choose Full Auto or the standalone Questionnaire flow. See [testing](testing.md) for the checks required for a new version. Neither historical CLI run certifies the Claude Code IDE extension or Antigravity IDE.

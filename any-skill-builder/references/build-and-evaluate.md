@@ -1,8 +1,8 @@
 # Turn decisions into a usable skill
 
-Only build the final package after the active questionnaire is complete and material deferrals are resolved. `brief` enforces the state gate and writes the current evidence, answers, reasons, and assumptions. This text is input to the host AI, not an automatic replacement for implementation judgment.
+Only build the final package after current applicable design choices are resolved, including blanks assigned to AI and meaningful custom answers. `brief` enforces the state gate and writes the current evidence, answers, reasons, and assumptions. This text is input to the host AI, not an automatic replacement for implementation judgment.
 
-Before implementation, give a concise conversational summary of the main AI-selected directions, their reasons, and remaining assumptions. Use the latest valid answers and preserve explicit user decisions. This update explains the build plan without adding a blanket approval step. Carry facts deferred to execution into the generated skill's runtime inputs; do not turn unknown accounts, equipment, or private resources into assumed facts.
+Before implementation, give a concise conversational summary of the main AI-selected directions, their reasons, and remaining assumptions. Use the latest valid answers and preserve explicit user decisions. This update explains the build plan without adding a blanket approval step. Carry facts needed only at execution into the generated skill's runtime inputs; do not turn unknown accounts, equipment, or private resources into assumed facts.
 
 ## Design the smallest adequate package
 

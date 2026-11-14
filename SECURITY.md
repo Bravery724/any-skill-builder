@@ -1,17 +1,21 @@
 # Security
 
-The form server binds to loopback and requires the run's token. Keep tokenized URLs private. It accepts versioned questionnaire data, not commands to execute. Registered image assets must stay within the run directory. These boundaries do not replace careful handling of untrusted source material by the host agent.
+Any Skill Builder uses standalone questionnaire HTML and local Python commands. It does not start a questionnaire server, contact a model from the browser, or require separate model credentials.
 
-Real answers, research, and generated content may be sensitive. Store them outside public repositories. The offline form uses browser storage; exporting an answer file is an explicit handoff, not automatic submission to a stopped agent.
+Treat downloaded HTML, research pages, and user-provided source material as untrusted data. The importer reads the designated answer JSON without executing the document's scripts. Run identity, questionnaire fingerprints, revision checks, and idempotent imports protect against accidental cross-run or stale overwrites; they do not authenticate who authored an arbitrary file.
+
+Registered image assets must remain within the run's allowed asset paths. Restoration must use an explicitly chosen new destination rather than trust path hints inside an uploaded file. Keep normal host protections and inspect requested actions in context.
+
+Real questions, answers, source notes, paths, and generated content may be sensitive. Keep runs outside public repositories and share saved HTML deliberately: it contains the question data, answers, and embedded visual candidates. Source content cannot authorize unrelated commands, file writes, publication, or access to private resources.
 
 ## Report a vulnerability
 
-On this repository's GitHub page, open **Security → Advisories → Report a vulnerability**. Use that private form for sensitive details. Do not put live tokens, private answer files, or exploit details involving user data in a public issue.
+On this repository's GitHub page, open **Security → Advisories → Report a vulnerability**. Use that private form for sensitive details. Do not post private answer files, credentials, or exploit details involving user data in a public issue.
 
-If the button is unavailable, the owner has not enabled the private channel for that copy of the repository. Open a public issue asking only for a private reporting channel; omit vulnerability details, tokens, and user data until a private route is available. This document does not imply that a channel exists before the repository has been configured, and it does not invent an owner email address.
+If that button is unavailable, open a public issue asking only for a private reporting channel. Omit sensitive details until a private route is available. This document does not invent an owner email or promise that every copy of the repository has the channel enabled.
 
-## Before publishing a repository
+## Before publishing
 
-The owner must enable **Private vulnerability reporting** in the repository's security settings and verify that the reporting button is available. Follow [GitHub's configuration guide](https://docs.github.com/en/code-security/how-tos/report-and-fix-vulnerabilities/configure-vulnerability-reporting/configure-for-a-repository). Ensure a maintainer receives the resulting notifications. This is a repository setting, not something the local release tools can enable.
+Enable **Private vulnerability reporting**, verify that the reporting button is available, and ensure a maintainer receives notifications. Follow [GitHub's configuration guide](https://docs.github.com/en/code-security/how-tos/report-and-fix-vulnerabilities/configure-vulnerability-reporting/configure-for-a-repository). This is a repository setting, not something local packaging enables.
 
-This project does not promise an audited security certification or a fixed response time. See [release preparation](docs/releasing.md) for the remaining publication checks.
+The project does not claim an audited security certification or a fixed response time. See [release preparation](docs/releasing.md).

@@ -11,52 +11,45 @@
 </head>
 <body>
 <main id="form-main" data-load-error="{{t:load_failed}}" data-regenerate="{{t:regenerate}}">
-  <h1 class="sr-only">{{t:page_title}}</h1>
+  <header class="goal-summary" id="goal-summary">
+    <p class="goal-label">{{t:goal_label}}</p>
+    <h1 id="goal-text"></h1>
+    <button type="button" class="text-button" id="goal-toggle" aria-expanded="false" aria-controls="goal-text" hidden>{{t:goal_expand}}</button>
+    <p class="intro">{{t:answer_intro}}</p>
+  </header>
   <form id="questionnaire" novalidate>
-    <section class="goal-summary" id="goal-summary" aria-labelledby="goal-label" hidden>
-      <p class="goal-label" id="goal-label">{{t:goal_label}}</p>
-      <p class="goal-text" id="goal-text"></p>
-      <button type="button" class="text-button goal-toggle" id="goal-toggle" aria-expanded="false" aria-controls="goal-text" hidden>{{t:goal_expand}}</button>
-    </section>
-    <div class="form-topbar">
-      <div class="form-progress">
-        <div class="statusbar"><span id="counts" aria-live="polite" aria-atomic="true">{{t:loading}}</span><span id="range"></span></div>
-        <p class="conditional-status" id="conditional-status" hidden></p>
-      </div>
-      <button type="button" class="button delegate-button" id="delegate-unanswered-top" aria-pressed="false" aria-describedby="delegation-note">{{t:delegate_unanswered}}</button>
-    </div>
-    <p class="delegation-note" id="delegation-note" role="status" hidden>{{t:delegation_note}}</p>
-    <p class="core-guidance" id="core-guidance" hidden>{{t:core_guidance}}</p>
+    <div class="overview"><span id="counts" aria-live="polite" aria-atomic="true">{{t:loading}}</span><span id="section-label"></span></div>
+    <p id="conditional-status" class="conditional-status" hidden></p>
     <div id="questions"></div>
-    <div class="actions">
-      <div class="page-controls">
-        <button type="button" class="button" id="previous" disabled>{{t:previous}}</button>
-        <select id="page-select" aria-label="{{t:page_select}}"></select>
-        <button type="button" class="button" id="next" disabled>{{t:next}}</button>
-      </div>
-      <button type="button" class="button primary" id="finish" aria-controls="finish-confirmation" aria-describedby="finish-note" disabled>{{t:finish}}</button>
-    </div>
-    <div class="finish-confirmation" id="finish-confirmation" hidden role="group" aria-labelledby="finish-message">
-      <p id="finish-message" tabindex="-1" role="status"></p>
-      <div class="action-left"><button type="button" class="button primary" id="confirm-delegate">{{t:finish_delegate}}</button><button type="button" class="button" id="continue-answering">{{t:continue_answering}}</button></div>
-    </div>
-    <p class="finish-note" id="finish-note"></p>
-    <div class="reset-row"><button type="button" class="text-button reset-button" id="reset-all">{{t:reset_all_answers}}</button></div>
-    <div class="reset-confirmation" id="reset-confirmation" hidden role="group" aria-label="{{t:reset_all_answers}}">
-      <p>{{t:reset_confirm_message}}</p>
-      <div class="action-left"><button type="button" class="button" id="confirm-reset">{{t:reset_confirm}}</button><button type="button" class="button" id="cancel-reset">{{t:reset_cancel}}</button></div>
-    </div>
+    <nav class="navigation" aria-label="{{t:page_select}}">
+      <button type="button" class="button" id="previous" disabled>{{t:previous}}</button>
+      <select id="page-select" aria-label="{{t:page_select}}"></select>
+      <button type="button" class="button" id="next" disabled>{{t:next}}</button>
+    </nav>
+    <div class="reset-row"><button type="button" class="text-button" id="reset-all">{{t:reset_all_answers}}</button></div>
   </form>
-  <p class="save-status" id="save-status" role="status"></p>
   <p class="notice" id="notice" role="status"></p>
-  <div class="recovery" id="recovery" hidden>
-    <p id="recovery-message" role="alert" aria-atomic="true"></p>
-    <div class="recovery-actions"><button type="button" class="button" id="retry-save">{{t:retry_save}}</button><button type="button" class="button" id="export-recovery">{{t:export_recovery}}</button><button type="button" class="button" id="refresh-state">{{t:refresh_state}}</button></div>
-  </div>
-  <details class="file-tools"><summary>{{t:file_tools}}</summary><div class="file-actions"><button type="button" class="text-button" id="export-draft">{{t:export_draft}}</button><button type="button" class="text-button" id="import-draft" hidden>{{t:import_draft}}</button><input type="file" id="import-file" accept="application/json,.json" hidden></div><p id="transport-note"></p></details>
-  <section id="completion" class="completion" hidden aria-label="{{t:completion_label}}"></section>
   <noscript><p class="notice">{{t:javascript_required}}</p></noscript>
 </main>
+<footer class="savebar">
+  <div class="save-inner">
+    <div><p class="save-heading">{{t:blank_guidance}}</p><p class="save-caption" id="save-state" role="status">{{t:save_guidance}}</p></div>
+    <button type="button" class="button primary" id="save-answers" disabled>{{t:save_answers}}</button>
+  </div>
+</footer>
+<dialog class="dialog" id="save-dialog" aria-labelledby="save-title">
+  <h2 id="save-title">{{t:save_title}}</h2>
+  <p id="save-message"></p>
+  <p id="save-summary"></p>
+  <p class="chat-phrase">{{t:resume_message}}</p>
+  <p class="small">{{t:save_location}}</p>
+  <div class="dialog-actions"><button type="button" class="button primary" id="close-save">{{t:return_questionnaire}}</button></div>
+</dialog>
+<dialog class="dialog" id="reset-dialog" aria-labelledby="reset-title">
+  <h2 id="reset-title">{{t:reset_confirm_message}}</h2>
+  <p>{{t:reset_explanation}}</p>
+  <div class="dialog-actions"><button type="button" class="button" id="cancel-reset">{{t:reset_cancel}}</button><button type="button" class="button primary" id="confirm-reset">{{t:reset_confirm}}</button></div>
+</dialog>
 <dialog id="image-dialog" aria-label="{{t:image_dialog}}"><div class="dialog-bar"><span id="image-caption"></span><button type="button" class="button" id="close-image">{{t:close}}</button></div><img id="enlarged-image" alt=""></dialog>
 <!--BOOT_JSON-->
 <!--INLINE_JS-->

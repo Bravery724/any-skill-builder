@@ -1,32 +1,35 @@
 # README demo
 
-[Watch the GIF](assets/demo.gif) · [Static questionnaire preview](assets/questionnaire.jpg) · [Complete example](../examples/complete/README.md)
+[Watch the GIF](assets/demo.gif) · [Static questionnaire](assets/questionnaire.jpg) · [Complete example](../examples/complete/README.md)
 
-The 21.3-second GIF is an edited replay of the fictional weekly-update example. Its request and result are presentation panels; the questionnaire is the actual browser-rendered form. Timing is condensed. It does not show a new model generating and evaluating a skill in 21 seconds.
+The GIF is an edited replay of the fictional weekly-update example with the current standalone questionnaire. Request, continuation, and result panels summarize the workflow; the questionnaire and saved HTML step use the actual renderer. Timing is condensed. It does not show a new model researching and building a skill in the animation's running time.
 
 ## What is shown
 
 | Stage | Content and evidence |
 | --- | --- |
-| One request | “Create a skill that turns project notes into clear weekly updates.” This expresses the goal in the public questionnaire. |
-| Questionnaire | The current renderer displays the saved goal, three active questions, and one conditional question. Recorded pointer clicks select the same three values as the public decisions. |
-| Finish | The standalone form downloads its answers. Its actual notice explains that the file must return to the skill-building chat. |
-| Finished skill | Excerpts from the existing `weekly-team-update/SKILL.md` show audience context, visible uncertainty, and source links beside supported claims. |
+| One request | “Create a skill that turns project notes into clear weekly updates.” |
+| Questionnaire | The saved goal and related questions appear as cards. The example includes one conditional follow-up. |
+| Answer and save | The recorded choices are entered, then Save answers downloads a standalone HTML containing them. |
+| Continue in chat | A presentation panel explains returning with the saved HTML. It is not a claim that downloading wakes an agent. |
+| Finished skill | Excerpts from the existing `weekly-team-update/SKILL.md` show audience context, uncertainty, and source links beside supported claims. |
 
-The choices are:
+The replay uses these recorded choices:
 
-- **Readers:** teammates and cross-functional partners.
-- **Evidence:** beside the relevant claim.
-- **Missing information:** draft now and mark what is uncertain.
+- Readers: teammates and cross-functional partners.
+- Evidence: beside the relevant claim.
+- Missing information: draft now and mark what is uncertain.
 
-These match [the recorded decisions](../examples/complete/decisions.json). The clarification-first follow-up remains inactive. The final screen quotes the [actual skill](../examples/complete/weekly-team-update/SKILL.md), rather than inventing an output or additional files.
+These match [the historical decisions](../examples/complete/decisions.json). The clarification-first branch remains inactive. The final skill excerpts come from the [actual existing skill](../examples/complete/weekly-team-update/SKILL.md).
 
-The **nine recorded checks** are two automatic checks and seven reviewed judgments from [the existing evaluation report](../examples/complete/evaluation-report.md). They are not nine automated model tests, a fresh evaluation, or a comparative quality benchmark. See [the execution note](../examples/complete/execution.md) for scope and limits.
+The **nine recorded checks** are two automatic checks and seven reviewed judgments in [the existing evaluation report](../examples/complete/evaluation-report.md). They are not a fresh evaluation, nine automated model tests, or a quality comparison with another builder. Read [the execution note](../examples/complete/execution.md) for scope.
 
-## Recording and accessibility
+## Reproduce the questionnaire
 
-The form was rendered with the project's own Python helper and exercised in an isolated headless Chrome profile. The saved answers were checked against the public decisions, and browser exceptions were checked during the replay. Captions and a visible pointer were added around the form; the request and skill panels summarize the public artifacts. The GIF is 900 × 900 pixels, 10 frames per second, and approximately 366 KB.
+Use the current [weekly-update questionnaire fixture](../examples/weekly-update-questionnaire.json). It copies the historical question content into the current Questionnaire mode while preserving the original evidence files. Follow [the walkthrough](../examples/complete/README.md#recreate-the-answered-questionnaire). Omit the recommendation-filling step if you want to answer it yourself.
 
-No personal browser sessions, credentials, live server URLs, private research, or user responses appear in the recording. The example uses fictional public data. Its supplied `example.invalid` links are fixtures, not verified live sources.
+The preview uses only reviewed fictional data. No user browser account, private research, real responses, or machine-specific paths should appear in the published media. The example's `example.invalid` source links are fixtures, not verified live sources.
 
-The GIF loops. Use the static preview and the written walkthrough if animation is inconvenient or the small text is hard to read. To reproduce the questionnaire without the presentation panels, follow the commands in [the complete example](../examples/complete/README.md#recreate-the-answered-questionnaire), omitting `recommend` when you want to answer it yourself.
+The GIF loops. Use the static preview or written walkthrough if motion is inconvenient or the text is hard to read.
+
+The refreshed recording is approximately 21 seconds, 900 × 990 pixels, and 542 KiB. Its actual saved HTML was inspected to confirm the three recorded choices. The current browser renderer produced the static screenshot; the surrounding request, continuation, and result panels are explicitly an edited illustration.

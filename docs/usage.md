@@ -2,110 +2,126 @@
 
 [Installation](installation.md) · [Project overview](../README.md) · [Complete worked example](../examples/complete/README.md)
 
-Tell your agent what you want a reusable skill to do. These requests start the creation or improvement of that skill; use the delivered skill afterward to carry out its task. You can bring examples and source material, but a rough idea is enough to begin.
+Describe what you want a reusable skill to do. Bring examples, source material, or constraints if you have them; a rough idea is enough to start. Use `any-skill-builder` in your request, or `$any-skill-builder` if your host supports that spelling.
 
-Use `any-skill-builder` in your request, or `$any-skill-builder` if your host supports that spelling. Write naturally in your own language. Reusable files default to English, while questions, explanations, and task outputs follow the conversation's language. An explicit language request overrides the relevant default.
+Source packages default to English. Questions, explanations, and task outputs follow your language unless you request another language.
 
-## Model and reasoning settings
+## Choose a workflow
 
-**For a complex skill, a capable reasoning model and higher reasoning effort can help with research synthesis, useful question design, conflicting requirements, and evaluation.** Treat this as a practical recommendation, not a guarantee that every increase in effort produces a better skill.
+**Full Auto** researches the subject, prepares and reviews design questions, answers them with AI judgment, and builds and evaluates the skill. It creates no HTML.
 
-General [research on test-time compute](https://arxiv.org/abs/2408.03314) finds that the benefits depend on the problem and how the extra computation is used. Applying that finding to skill creation is an inference: this project has not benchmarked which model or effort setting produces the best skills.
+**Questionnaire** prepares a standalone HTML. You answer what matters, choose Save answers, and return to chat. AI keeps meaningful answers and resolves the blanks before building. If your request already selects one flow, the agent starts directly; otherwise it offers both in chat.
 
-| Work | Practical starting point |
-| --- | --- |
-| Exploring a difficult subject or designing a complex workflow | Use a capable reasoning model and consider a higher effort setting, if your host offers one. |
-| Reviewing important choices or checking a generated skill | Allow enough reasoning and time to compare alternatives and test actual behavior. |
-| Fixing wording or making a small, well-defined change | Start with the host's usual setting; maximum effort is usually unnecessary. |
-
-Higher effort can take longer and may cost more, depending on the host. Clear goals, reliable sources, useful examples, and real tests still matter. A longer answer does not by itself show better analysis.
-
-Choose the model and effort in your host's controls. Asking the agent to "think harder" does not change the actual setting. Any Skill Builder preserves your selected model, provider, and effort; it does not silently change global settings.
-
-## 1. Let AI design a research-paper skill
+## 1. Full Auto for a research-paper skill
 
 ```text
-Use any-skill-builder to create a skill that analyzes research papers
-and develops testable research ideas across disciplines, without fixing
-one paper topic. Research the relevant methods, recommend and record
-the design answers, explain the main assumptions, and continue through
-implementation and evaluation. Adapt the analysis to each field and
-distinguish the paper's evidence from proposed ideas.
+Use any-skill-builder in Full Auto to create a skill that analyzes
+research papers and develops testable ideas across disciplines.
+Do not fix one paper topic. Research useful methods, record and explain
+the main design choices, then implement and evaluate the skill.
+Adapt analysis to each field and separate evidence from proposed ideas.
 ```
 
-This delegates the design choices to AI. The builder should explain its main decisions and deliver a skill with a usage guide and observed checks. A reusable method still needs to respect the field and limits of each paper.
+The result should include a usage guide and observed checks. A reusable method still needs to respect each field's evidence and the limits of the supplied paper.
 
-## 2. Create a webtoon-making skill
+## 2. A webtoon-making questionnaire
 
 ```text
 Use any-skill-builder to create a skill for making short everyday-life
 comedy webtoons. Research story structure, panel pacing, character
-consistency, lettering, and revision workflows. Let me choose the visual
-direction using real image candidates if the host has suitable tools.
-If those tools are unavailable, explain the limitation and discuss the
-direction in chat. Ask me about important creative preferences.
+consistency, lettering, and revision workflows. Prepare an HTML
+questionnaire so I can choose the important creative direction.
+Use real image candidates when suitable tools are available.
 ```
 
-Image generation and visual comparisons depend on the host's available tools. This request creates a reusable production workflow; it does not ask the builder to draw a finished episode immediately.
+Choose **Other — describe** to explain a different direction or reject the shown candidates. Image generation depends on available host tools; placeholders must not be presented as real candidates. This request creates a reusable production skill, not a finished episode.
 
-## 3. Answer UI design questions yourself
+## 3. A UI-design questionnaire
 
 ```text
-Use any-skill-builder to create a skill for designing accessible web-app
-interfaces. Research the topic and let me answer a card-style questionnaire.
-Show meaningful visual alternatives when tools are available. If I defer
-a choice, finish the active questionnaire first, then discuss what I
-disliked, create revised candidates, and let me choose again. Preserve
-the answers I already gave.
+Use any-skill-builder to create a skill for designing accessible
+web-app interfaces. Research the topic and let me answer an HTML
+card questionnaire. Show useful visual alternatives when tools allow.
+Preserve my custom directions and decide the questions I leave blank.
 ```
 
-You can leave a question unanswered for AI or explicitly defer it for later discussion. Those are different decisions: delegating unanswered questions does not resolve a deferral for you.
+Core questions recommend direct input without requiring it. The form has answered/unanswered states, answer clearing, Other text, and a Save answers button on every page.
 
-## 4. Ask only for the questionnaire
+## 4. Continue after saving
 
 ```text
-Use any-skill-builder to research and design a questionnaire for a skill
-that turns project notes into clear weekly updates. Show the active
-question count, recommendations, and the evidence behind the choices.
-Stop after delivering the questionnaire; do not build the skill yet.
+Continue building from the saved HTML.
 ```
 
-The builder should respect this limited scope. Ask it to continue when you are ready, using the same saved run and decisions.
-
-## 5. Improve an existing skill
+In the same conversation, the agent uses the known run and recorded file location. It checks that the file contains saved answers for that run. If you saved to another folder or the browser added a suffix, provide that file or path:
 
 ```text
-Use any-skill-builder to improve the existing skill in <skill-folder>.
-It currently produces explanations that are too rigid and hard to follow.
-Inspect the instructions and examples, preserve working behavior as a
-baseline, and research useful improvements. Ask only about meaningful
-gaps. Build the revision separately and compare it with the original
-on the same tasks and available model settings before replacing anything.
+Use the saved questionnaire at <saved-html-path>.
+Keep my answers and fill the remaining blanks with your judgment.
 ```
 
-Replace `<skill-folder>` with the actual path. Include examples of both useful and disappointing outputs when you have them; they help turn a broad preference into concrete evaluation criteria.
+Replace the placeholder with your actual file. You do not need a separate user-facing command such as `build_from_answers`. The saved file does not restart a closed conversation on its own.
 
-## 6. Resume an unfinished build
+Brief meaningful values such as "none", `0`, or a specialist term are respected. Clearly unusable text is judged in context by the host, retained in the record, and replaced with an explained decision. AI does not invent your real budget, accounts, equipment, or access.
+
+## 5. Ask only for questions
 
 ```text
-Use any-skill-builder to resume the saved run in <saved-run-folder>.
-Read its current status, recorded answers, deferrals, and last checkpoint.
-Continue from the next unfinished step without reinitializing the run
-or asking me to repeat decisions that are still valid.
+Use any-skill-builder to research and prepare an HTML questionnaire
+for a skill that turns project notes into clear weekly updates.
+Show the question count and the evidence behind meaningful choices.
+Stop after delivering the questionnaire; I will return after saving it.
 ```
 
-Replace `<saved-run-folder>` with the existing run path. If an offline questionnaire downloaded a Finish file, also give that file to the agent. A saved HTML form cannot restart a closed conversation by itself.
+The agent completes that part and waits. It should not answer your blanks while you are still editing.
+
+## 6. Improve an existing skill
+
+```text
+Use any-skill-builder in Full Auto to improve the skill in <skill-folder>.
+Its explanations are too rigid and hard to follow. Inspect the
+instructions and examples, preserve working behavior as a baseline,
+and research useful improvements. Build the revision separately and
+compare it with the original on the same tasks before replacing it.
+```
+
+Provide examples of useful and disappointing outputs when possible. They turn a broad preference into concrete checks.
+
+## 7. Resume an interrupted build
+
+```text
+Use any-skill-builder to resume the run in <saved-run-folder>.
+Read the questions, current answers, and last checkpoint.
+Continue from the next unfinished stage without initializing again
+or asking me to repeat valid decisions.
+```
+
+If only an answered HTML remains, provide it. The helper can restore its embedded questionnaire, answers, and assets into a new run. It cannot claim that research logs or output files absent from the HTML have also been recovered.
 
 ## Use the skill you receive
 
-The builder delivers the skill folder, its usage guide, a starting request, and the checks and limitations it actually observed. Follow that guide to install the complete folder in the location your host discovers, then refresh the host if necessary.
+The builder delivers the skill folder, usage guide, starting request, and observed checks and limits. Follow that guide to install the complete folder where your host discovers skills, then refresh the host if needed.
 
-For example, if the delivered skill is named `paper-research` and supports these actions, you might ask:
+For example, if the delivered skill is named `paper-research` and supports these actions:
 
 ```text
 Use paper-research to analyze the attached paper. Explain its central
-claim and evidence in plain language, identify the most important
-limitations, and propose three research ideas with a test for each.
+claim and evidence in plain language, identify important limitations,
+and propose three research ideas with a test for each.
 ```
 
-`paper-research` is an illustrative generated name here, not an additional skill installed with Any Skill Builder. Use the actual name and capabilities in your delivered guide. For a recorded end-to-end example, see the [weekly-update walkthrough](../examples/complete/README.md).
+That name is illustrative, not another skill installed with this builder. Use the name and capabilities in your delivered guide.
+
+## Model and reasoning settings
+
+A capable reasoning model and enough reasoning effort can help with research synthesis, useful question design, conflicting requirements, and evaluation. This is a practical recommendation, not a guarantee that every increase in effort produces a better skill.
+
+General [research on test-time compute](https://arxiv.org/abs/2408.03314) finds task- and method-dependent benefits. Applying that to skill creation is an inference: this project has not benchmarked the best model or effort setting for every skill.
+
+| Work | Practical starting point |
+| --- | --- |
+| Unfamiliar subject or complex workflow | Consider a capable reasoning model and higher effort, if available. |
+| Important choices and behavior review | Allow time to compare alternatives and test actual outcomes. |
+| Small, well-defined wording change | The host's normal setting may be enough. |
+
+Higher effort can increase time and cost. Useful examples, good sources, and real testing still matter; a long answer is not a quality measure. Choose model and effort in your host's controls. Asking “think harder” does not change the actual setting, and the builder does not silently change your provider or settings.

@@ -1,164 +1,140 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { setup, makeBoot, delay } from './form_harness.mjs';
+import { setup, makeBoot, copy, select, inputValue, downloadedBoot, catalog } from './form_harness.mjs';
 
-function deferredBoot(transport = 'live', language = 'en', id = 'other') {
-  const boot = makeBoot(transport, language);
-  boot.view.answers.answers[id] = { status: 'deferred', actor: 'user', question_version: 1, rationale: 'Need more examples' };
-  return boot;
-}
-
-function createEnv(t, boot = deferredBoot(), storage) {
-  const env = setup(boot, storage);
-  t.after(() => env.dispose());
-  return env;
-}
-
-const reason = (env, id = 'other') => env.ids.get('questions').querySelectorAll('textarea').find(node => node.name === `defer-reason-${id}`);
-function inputValue(node, value, composing = false, start = value.length, end = start) {
-  node.value = value;
-  node.setSelectionRange(start, end);
-  node.dispatch('input', { isComposing: composing, inputType: composing ? 'insertCompositionText' : 'insertText' });
-}
-
-for (const [language, label] of [['en', 'Reason for deferring (optional)'], ['ko', '보류한 이유 (선택)']]) {
-  test(`The optional deferral note is localized in ${language} and appears only for deferred questions`, t => {
-    const env = createEnv(t, deferredBoot('offline', language));
-    assert.equal(env.ids.get('questions').querySelectorAll('.defer-label')[0].textContent, label);
-    assert.equal(reason(env).value, 'Need more examples');
-    assert.equal(reason(env, 'text'), undefined);
-    assert.equal(env.api.view.counts.deferred, 1);
-    assert.equal(env.api.view.ready_to_build, false);
-  });
-}
+function envFor(t, boot = makeBoot()) { const env = setup(boot); t.after(() => env.dispose()); assert.ok(env.api, env.ids.get('notice').textContent); return env; }
 
 for (const [language, partial, final] of [
-  ['Korean', '다른 그림ㅊ', '다른 그림체도 보고 싶어요'],
-  ['Japanese', 'ほかのれい', 'ほかの例も見たいです'],
-  ['Chinese', 'geng duo', '需要更多例子'],
+  ['Korean', '논문 분ㅅ', '논문 분석을 쉽게 설명해주세요.'],
+  ['Japanese', 'ぶんせき', '分析をわかりやすく説明してください。'],
+  ['Chinese', 'fen xi', '请清楚地解释分析结果。'],
 ]) {
-  test(`${language} deferral-note composition survives a background acknowledgement`, async t => {
-    const env = createEnv(t);
-    env.api.change('text', { status: 'answered', value: 'Updated unrelated answer' });
-    const node = reason(env); node.focus();
-    node.dispatch('compositionstart'); inputValue(node, partial, true);
-    env.ack(); await delay(0);
-    assert.equal(reason(env), node);
-    assert.equal(node.value, partial);
-    assert.equal(node.isConnected, true);
-    assert.equal(env.api.view.counts.deferred, 1);
-    inputValue(node, final, true); node.dispatch('compositionend'); inputValue(node, final);
-    assert.equal(env.requests.filter(request => request.body?.changes?.other).length, 0);
-    env.ids.get('next').focus(); await delay(5);
-    assert.equal(env.requests.at(-1).body.changes.other.status, 'deferred');
-    assert.equal(env.requests.at(-1).body.changes.other.rationale, final);
-    assert.equal(Object.hasOwn(env.requests.at(-1).body.changes.other, 'value'), false);
-    env.ack(); await delay(0);
-    assert.equal(env.server.answers.answers.other.rationale, final);
-    assert.equal(env.server.answers.answers.other.status, 'deferred');
-    const resumed = deferredBoot(); resumed.view = env.server;
-    assert.equal(reason(createEnv(t, resumed, new Map(env.storage))).value, final);
+  test(`${language} composition keeps the editor node, focus, and partial input`, t => {
+    const env = envFor(t); const input = env.textarea('text'); input.focus();
+    input.dispatch('compositionstart'); inputValue(input, partial, true);
+    assert.equal(env.textarea('text'), input);
+    assert.equal(env.document.activeElement, input);
+    assert.equal(input.value, partial);
+    assert.equal(env.api.composition.input, input);
+    inputValue(input, final, true); input.dispatch('compositionend');
+    assert.equal(env.api.composition, null);
+    assert.equal(env.api.answers.answers.text.value, final);
+    assert.equal(env.textarea('text'), input);
   });
 }
 
-test('A deferral-note selection and middle edit survive an acknowledgement', async t => {
-  const env = createEnv(t);
-  env.api.change('text', { status: 'answered', value: 'Unrelated answer' });
-  const node = reason(env); node.focus(); inputValue(node, 'alpha BETA omega', false, 6, 10);
-  env.ack(); await delay(0);
-  assert.equal(reason(env), node);
-  assert.equal(node.selectionStart, 6); assert.equal(node.selectionEnd, 10);
-  inputValue(node, 'alpha 다른 omega', false, 8);
-  env.api.goPage(1);
-  assert.equal(env.requests.at(-1).body.changes.other.rationale, 'alpha 다른 omega');
-  env.ack(); await delay(0); env.api.goPage(0);
-  assert.equal(reason(env).value, 'alpha 다른 omega');
+test('Editing in the middle of text preserves the selection and does not replace the textarea', t => {
+  const env = envFor(t); const input = env.textarea('text'); input.focus();
+  inputValue(input, 'alpha BETA omega', false, 6, 10);
+  assert.equal(env.textarea('text'), input);
+  assert.equal(input.selectionStart, 6); assert.equal(input.selectionEnd, 10);
+  inputValue(input, 'alpha 다른 omega', false, 8);
+  assert.equal(input.selectionStart, 8); assert.equal(input.selectionEnd, 8);
 });
 
-test('Clearing a reason keeps the question deferred rather than unanswered', async t => {
-  const env = createEnv(t, deferredBoot('offline'));
-  const node = reason(env); node.focus(); inputValue(node, '');
-  env.api.download();
-  const exported = JSON.parse(await env.downloads.at(-1).text());
-  assert.equal(exported.answers.other.status, 'deferred');
-  assert.equal(exported.answers.other.rationale, '');
-  assert.equal(env.api.view.counts.deferred, 1);
-  assert.equal(env.api.view.counts.unanswered, 0);
+test('Other text uses the same composition-safe editing path and preserves ordinary selections', t => {
+  const env = envFor(t); select(env.other('gate'));
+  const input = env.textarea('gate'); input.focus(); input.dispatch('compositionstart');
+  inputValue(input, '직접 입ㄹ', true, 3);
+  assert.equal(env.textarea('gate'), input);
+  assert.equal(input.selectionStart, 3);
+  inputValue(input, '직접 입력한 다른 방식', true); input.dispatch('compositionend');
+  assert.equal(env.api.answers.answers.gate.value.other, '직접 입력한 다른 방식');
+  assert.deepEqual(copy(env.api.answers.answers.gate.value.selected), ['a', 'b']);
 });
 
-test('Answer and reason drafts retain separate Unicode values across resume and export', async t => {
-  const env = createEnv(t, deferredBoot('offline'));
-  const answer = env.textarea('text'); answer.focus(); inputValue(answer, 'Answer: 한글 日本語');
-  const note = reason(env); note.focus(); inputValue(note, 'Reason: العربية हिन्दी');
-  env.api.persistCurrentText();
-  const resumed = createEnv(t, deferredBoot('offline'), new Map(env.storage));
-  assert.equal(resumed.textarea('text').value, 'Answer: 한글 日本語');
-  assert.equal(reason(resumed).value, 'Reason: العربية हिन्दी');
-  resumed.api.download();
-  const exported = JSON.parse(await resumed.downloads.at(-1).text());
-  assert.equal(exported.answers.text.value, 'Answer: 한글 日本語');
-  assert.equal(exported.answers.other.rationale, 'Reason: العربية हिन्दी');
-  assert.equal(exported.answers.other.status, 'deferred');
+test('Saving during composition includes the current DOM text even before the final input event', async t => {
+  const env = envFor(t); const input = env.textarea('text'); input.focus(); input.dispatch('compositionstart');
+  input.value = '마지막 조합 내용';
+  env.api.saveAnswers();
+  const saved = await downloadedBoot(env.downloads[0]);
+  assert.equal(saved.boot.view.answers.answers.text.value, '마지막 조합 내용');
+  assert.equal(env.textarea('text'), input);
 });
 
-test('A deferred text question stores its reason without becoming an answer', async t => {
-  const env = createEnv(t, deferredBoot('offline', 'en', 'text'));
-  const node = reason(env, 'text'); node.focus(); inputValue(node, 'Need a clearer question');
-  env.api.download();
-  const exported = JSON.parse(await env.downloads.at(-1).text());
-  assert.equal(exported.answers.text.status, 'deferred');
-  assert.equal(exported.answers.text.rationale, 'Need a clearer question');
-  assert.equal(Object.hasOwn(exported.answers.text, 'value'), false);
-  assert.equal(env.textarea('text').value, '');
-  const answer = env.textarea('text'); answer.focus(); inputValue(answer, 'A deliberate answer');
-  env.api.download();
-  const answered = JSON.parse(await env.downloads.at(-1).text());
-  assert.equal(answered.answers.text.status, 'answered');
-  assert.equal(answered.answers.text.value, 'A deliberate answer');
-  assert.equal(reason(env, 'text'), undefined);
+test('Unicode limits count code points and retain over-limit input until the user corrects it', t => {
+  const boot = makeBoot(); boot.view.questionnaire.questions[1].max_length = 4;
+  boot.view.answers.answers.text.value = 'abcd';
+  const env = envFor(t, boot); const input = env.textarea('text');
+  inputValue(input, '😀한日文'); assert.equal(env.api.answers.answers.text.value, '😀한日文');
+  inputValue(input, '😀한日文a'); env.api.saveAnswers();
+  assert.equal(env.downloads.length, 0);
+  assert.equal(input.value, '😀한日文a');
+  assert.equal(input.getAttribute('aria-invalid'), 'true');
+  assert.match(env.ids.get('notice').textContent, /4/);
+  inputValue(input, '😀한日文'); assert.equal(input.getAttribute('aria-invalid'), 'false');
+  env.api.saveAnswers(); assert.equal(env.downloads.length, 1);
 });
 
-test('Undoing a deferral clears its draft and does not reuse it on a new deferral', async t => {
-  const env = createEnv(t, deferredBoot('offline'));
-  const node = reason(env); node.focus(); inputValue(node, 'Uncommitted old reason');
-  env.api.change('other', null);
-  assert.equal(reason(env), undefined);
-  env.api.change('other', { status: 'deferred' });
-  assert.equal(reason(env).value, '');
-  env.api.download();
-  assert.equal(JSON.parse(await env.downloads.at(-1).text()).answers.other.rationale, '');
+test('Over-limit text in an initially blank answer still warns before closing', t => {
+  const boot = makeBoot(); boot.view.questionnaire.questions[1].max_length = 4;
+  delete boot.view.answers.answers.text;
+  const env = envFor(t, boot);
+  inputValue(env.textarea('text'), 'Long unsaved text');
+  assert.equal(env.api.answers.answers.text, undefined);
+  assert.equal(env.api.dirty, true);
+  assert.equal(env.unload().prevented, true);
+  env.api.saveAnswers();
+  assert.equal(env.downloads.length, 0);
+  assert.equal(env.api.dirty, true);
 });
 
-test('Visibility persistence retains a deferral composition draft', t => {
-  const env = createEnv(t, deferredBoot('offline'));
-  const node = reason(env); node.focus(); node.dispatch('compositionstart'); inputValue(node, '검토 중인 이유', true);
-  env.document.visibilityState = 'hidden';
-  for (const listener of env.document.listeners.visibilitychange) listener();
-  const resumed = createEnv(t, deferredBoot('offline'), new Map(env.storage));
-  assert.equal(reason(resumed).value, '검토 중인 이유');
-  assert.equal(resumed.api.view.counts.deferred, 1);
+test('Clearing all text is unanswered and exports no invented replacement', async t => {
+  const env = envFor(t); inputValue(env.textarea('text'), '');
+  assert.equal(env.card('text').dataset.status, 'unanswered');
+  env.api.saveAnswers(); const saved = await downloadedBoot(env.downloads[0]);
+  assert.equal(saved.boot.view.answers.answers.text, undefined);
+  assert.equal(saved.boot.view.counts.unanswered, 1);
 });
 
-test('Conflict recovery preserves the reason draft while freezing its editor', t => {
-  const env = createEnv(t);
-  const node = reason(env); node.focus(); node.dispatch('compositionstart'); inputValue(node, '작성 중인 보류 이유', true);
-  env.api.showRecovery('Conflict', true);
-  assert.equal(node.isConnected, false);
-  assert.equal(reason(env).disabled, true);
-  assert.equal(reason(env).value, '작성 중인 보류 이유');
-  assert.equal(env.api.composition, null);
+test('Navigation restores text exactly without replacing it with an older canonical record', t => {
+  const env = envFor(t); const input = env.textarea('text');
+  inputValue(input, '最新の変更 · 최신 수정 · newest edit');
+  env.api.goPage(env.api.pages.length - 1); env.api.goPage(0);
+  assert.equal(env.textarea('text').value, '最新の変更 · 최신 수정 · newest edit');
+  assert.equal(env.textarea('text'), input);
 });
 
-test('Submission saves a final deferral reason before sending the latest revision', async t => {
-  const env = createEnv(t, deferredBoot('live', 'en', 'last')); env.api.goPage(1);
-  const node = reason(env, 'last'); node.focus(); inputValue(node, 'Discuss this after the questionnaire');
-  const finishing = env.api.finish();
-  assert.equal(env.requests.at(-1).body.changes.last.status, 'deferred');
-  assert.equal(env.requests.at(-1).body.changes.last.rationale, 'Discuss this after the questionnaire');
-  env.ack(); await delay(65); env.ack(); await finishing;
-  assert.equal(env.requests.at(-1).url.startsWith('/api/submit'), true);
-  assert.equal(env.requests.at(-1).body.base_answer_revision, env.server.answers.answer_revision);
-  assert.equal(env.server.answers.answers.last.status, 'deferred');
-  assert.equal(env.server.answers.answers.last.rationale, 'Discuss this after the questionnaire');
-  assert.equal(env.api.view.ready_to_build, false);
+test('Read-only navigation and saving preserve an AI-authored answer and its rationale', t => {
+  const boot = makeBoot(); const answer = boot.view.answers.answers.text;
+  answer.actor = 'ai'; answer.rationale = 'Fits the user’s request.'; answer.assumptions = ['No private facts are inferred.'];
+  const env = envFor(t, boot); env.api.goPage(1); env.api.goPage(0);
+  assert.deepEqual(copy(env.api.snapshot().view.answers.answers.text), answer);
+});
+
+test('Editing an AI-authored answer makes only the changed answer user-owned', t => {
+  const boot = makeBoot(); boot.view.answers.answers.text.actor = 'ai'; boot.view.answers.answers.text.rationale = 'Initial recommendation.';
+  const env = envFor(t, boot); inputValue(env.textarea('text'), 'My explicit revision.');
+  assert.equal(env.api.answers.answers.text.actor, 'user');
+  assert.equal(env.api.answers.answers.text.value, 'My explicit revision.');
+  assert.equal(env.api.answers.answers.gate.actor, 'user');
+});
+
+test('Korean UI uses translated labels without changing user text', t => {
+  const env = envFor(t, makeBoot('ko'));
+  assert.equal(env.document.documentElement.lang, 'ko');
+  assert.equal(env.textarea('text').placeholder, catalog.ko.answer_placeholder);
+  assert.equal(env.card('gate').querySelector('.question-status').textContent, catalog.ko.question_status_answered);
+  assert.equal(env.api.answers.answers.text.value, 'Initial answer');
+});
+
+test('Custom languages and RTL keep the supplied messages and text direction', t => {
+  const boot = makeBoot(); boot.locale = { language: 'ar', direction: 'rtl', messages: { ...catalog.en, answer_placeholder: 'اكتب إجابتك', question_status_answered: 'تمت الإجابة' } };
+  const env = envFor(t, boot);
+  assert.equal(env.document.documentElement.lang, 'ar');
+  assert.equal(env.document.documentElement.dir, 'rtl');
+  assert.equal(env.textarea('text').placeholder, 'اكتب إجابتك');
+  assert.equal(env.textarea('text').dir, 'auto');
+  inputValue(env.textarea('text'), 'تحليل واضح مع أمثلة');
+  assert.equal(env.api.answers.answers.text.value, 'تحليل واضح مع أمثلة');
+});
+
+test('An initially long request can be expanded without disturbing answers or editor identity', t => {
+  const env = envFor(t); const input = env.textarea('text');
+  env.ids.get('goal-text').scrollHeight = 300; env.api.updateGoal();
+  assert.equal(env.ids.get('goal-toggle').hidden, false);
+  env.ids.get('goal-toggle').click();
+  assert.equal(env.ids.get('goal-toggle').getAttribute('aria-expanded'), 'true');
+  assert.equal(env.textarea('text'), input);
+  assert.equal(env.api.answers.answers.text.value, 'Initial answer');
 });

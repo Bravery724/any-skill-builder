@@ -1,4 +1,4 @@
 interface:
   display_name: "Any Skill Builder"
-  short_description: "Turn ideas into skills with research and guided questions"
-  default_prompt: "Use $any-skill-builder to research my topic, discover useful requirements, and create a tested skill from the answers."
+  short_description: "Build skills with Full Auto or a saved questionnaire"
+  default_prompt: "Use $any-skill-builder to create or improve a reusable skill. Use Full Auto, prepare a questionnaire, or continue from my saved answers as requested."

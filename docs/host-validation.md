@@ -1,4 +1,6 @@
-# Actual host validation
+# Historical host validation: v0.2.3
+
+**Version boundary:** these observations cover the previous v0.2.3 workflow. v0.3.0 replaces its connected form with standalone saved HTML and Full Auto without HTML. This report is retained as historical evidence; it does not validate the new workflow or either IDE extension.
 
 Recorded on 2026-11-14 on Windows. These were supervised runs of installed host applications, not simulations of their tools. The shared goal was a small English `meeting-action-list` skill: turn rough meeting notes into clear actions, retain supplied owners and deadlines, and flag missing or conflicting details. All meeting data was fictional.
 
@@ -13,7 +15,7 @@ Independent review used a separate AI reviewer/context with predefined criteria.
 | Claude Code 2.1.322 | Native skill discovery, researched questionnaire, live Chrome submission, host acknowledgment, revisioned repairs, and completed skill | Normal, missing, and conflicting details: all three pass independent review |
 | Antigravity CLI 1.5.9 | Researched and repaired questionnaire, live Chrome submission, supervised resume, host acknowledgment, completed skill, and readability refinement | Normal, missing, and conflicting details: all three retain substantive behavior after refinement |
 
-Claude Code reported `claude-opus-5-5`. No model or reasoning-effort override was applied; effort was not exposed in the recorded run. This is CLI testing, not validation of the Antigravity IDE/App, Claude web chat, every discovery path, or every host setting.
+Claude Code reported `claude-opus-5-5`. No model or reasoning-effort override was applied; effort was not exposed in the recorded run. This is CLI testing, not validation of the Claude Code IDE extension, Antigravity IDE/App, Claude web chat, every discovery path, or every host setting.
 
 ## What was actually done
 

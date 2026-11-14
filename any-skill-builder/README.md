@@ -1,61 +1,52 @@
 # Any Skill Builder
 
-Turn an idea into a reusable skill through subject research and guided design questions.
+Create or improve a reusable skill through subject research, useful design questions, and actual evaluation.
 
-[Project and installation](https://github.com/Bravery724/any-skill-builder) · [Releases](https://github.com/Bravery724/any-skill-builder/releases)
+[Project and installation](https://github.com/Bravery724/any-skill-builder) · [Example requests](https://github.com/Bravery724/any-skill-builder/blob/main/docs/usage.md) · [Releases](https://github.com/Bravery724/any-skill-builder/releases)
 
-For Claude Code or Antigravity CLI, see the [host-specific installation paths and permissions](https://github.com/Bravery724/any-skill-builder/blob/main/docs/installation.md#claude-code-and-antigravity). The host must read local files and run Python; installing the folder alone does not grant those permissions.
+## Choose how to work
 
-> **For complex builds:** a capable reasoning model and a higher reasoning-effort setting can help with research, question design, and difficult decisions. Choose these in your host when available. This is a practical recommendation, not a guarantee or a measured success rate for this builder; sources, examples, and actual testing still matter.
+| Mode | What happens |
+| --- | --- |
+| **Full Auto** | AI researches the topic, prepares and answers the design questions, then creates and evaluates the skill. No HTML is generated. |
+| **Questionnaire** | AI prepares an HTML questionnaire. Answer the parts you care about, save it, and return to chat. AI fills the remaining blanks and builds the skill. |
 
-## Start with your task
+If your request already makes the choice clear, the agent starts directly. Otherwise it offers these two modes in chat. The host controls its skill picker and whether invocation uses `/`, `$`, or another interface.
 
-Tell your agent what you want the new skill to do. Add any examples, materials, or constraints you already have. You do not need a finished prompt or a technical specification.
+**Full Auto:**
 
-> Use any-skill-builder to create a skill that analyzes research papers and suggests testable research ideas. Let me answer the design questions.
+> Use any-skill-builder in Full Auto to create a skill that analyzes research papers from any field and develops testable research ideas.
 
-To delegate the design choices:
+**Questionnaire:**
 
-> Use any-skill-builder to create a webtoon-making skill. Research the options, recommend the answers, and continue through implementation.
+> Use any-skill-builder to create a webtoon-making skill. Research the options and prepare an HTML questionnaire so I can choose the direction.
 
-To improve or resume work, provide the existing skill folder or saved run directory and explain the desired change. The agent preserves your recorded decisions and continues from the saved state.
+You can provide examples, source material, and constraints, but a rough idea is enough. These requests create a reusable skill; use the finished skill afterward to do its task.
 
-For a questionnaire before you commit to building:
+## Save and continue
 
-```text
-Use any-skill-builder to design a skill for writing clear weekly project updates. Research useful approaches and prepare the questionnaire only. Let me answer before building the skill.
-```
+The questionnaire shows what skill is being made, the question count, and answered/unanswered status. Choose an option, use **Other — describe**, or leave a question blank. Core questions recommend direct input but can also be left for AI. Clear an answer if you want AI to decide it instead.
 
-For an existing skill:
+Choose **Save answers** on any page. It downloads an HTML file containing your answers; you do not need to visit the final page. Save it in the original location when practical. Browsers can choose another folder or append a suffix, so saving does not guarantee the original was overwritten.
 
-```text
-Use any-skill-builder to improve the skill in the folder I provide. Preserve working behavior, research the gaps, and let me review the important choices. Compare the original and revised versions on the same cases.
-```
+Return to the same chat and say:
 
-These requests create or improve a reusable skill. After delivery, use the new skill's usage guide and starting request to perform its task. See [more example prompts](https://github.com/Bravery724/any-skill-builder/blob/main/docs/usage.md).
+> Continue building from the saved HTML.
 
-## Model and reasoning settings
+The agent checks the known questionnaire file, keeps meaningful answers, and decides the blanks. If you saved elsewhere, provide that path or the file. If a file is missing or ambiguous, the agent asks only for the information needed to find the right one. No server needs to remain running, and the HTML does not contact a model or automatically restart a closed chat.
 
-Consider stronger reasoning for an unfamiliar subject, conflicting requirements, or substantial implementation and evaluation. Normal effort may be enough for small edits. Higher effort can increase time and, depending on the host, cost; maximum effort does not guarantee a better skill.
+Brief but meaningful answers such as "none" or "0" are respected. Clearly unusable input is reviewed in context by the agent, retained in the records, and replaced with a reasoned AI decision. An unusual preference is not discarded merely because it differs from the recommendation.
 
-The host controls model and effort settings. Writing “think harder” does not change them, and the builder does not switch them silently. Judge the result by useful questions, reliable sources, and tested behavior, rather than the length of its explanation. Research supports task-dependent benefits from [additional inference-time computation](https://arxiv.org/abs/2408.03314); this builder has not measured a universal benefit across models or settings.
+## Improve or resume
 
-## Answer or delegate
+Provide the existing skill folder and describe what should improve. The agent preserves working behavior as a baseline and compares the revision on suitable cases. For an unfinished build, provide its saved run folder or continue in the existing conversation; it reuses valid decisions instead of starting over.
 
-The agent researches the subject and prepares a questionnaire or asks in chat. You can answer, leave questions for AI, or defer a decision for later discussion. Core questions recommend your input but remain delegatable.
-
-The questionnaire shows the saved goal above the questions so you can see what the skill is being built for. Long requests expand from a two-line summary; expanding the request does not change your answers.
-
-In the questionnaire, select **Let AI decide unanswered questions** if needed, then choose **Finish** on any page. Existing answers and deferrals stay protected. If Finish downloads a file, return it to the skill-building chat. A downloaded file does not restart a closed chat.
+To request only a questionnaire, say so. The agent stops after delivering it and waits for your continuation.
 
 ## What you receive
 
-A completed build includes the reusable skill, a concise usage guide, a starting request, and the checks and limits actually observed. If you request only a questionnaire or another part, the agent completes that part.
+A completed build includes the reusable skill, a concise usage guide, a starting request, and the checks and limits actually observed. Source files default to English; questions, chat, and task outputs follow your language unless you request otherwise.
 
-The files use English by default. Conversation, questions, explanations, and task outputs follow your language unless you request otherwise.
+For complex builds, consider a capable reasoning model and a higher reasoning-effort setting in your host. This can help with research and difficult decisions, but is not a guarantee or a measured success-rate claim for this builder. Reliable sources, useful examples, and actual tests still matter. The skill does not silently change your model, provider, or effort.
 
-## Getting help
-
-Ask “How do I use any-skill-builder?” for guidance. When you invoke it without a task or earlier context, it briefly introduces itself and asks what you want to create. When the task is already clear, it starts the work.
-
-The host may show a short description and starting prompt in its skill picker. The host controls whether invocation uses `/`, `$`, or another interface. It must support local file access and Python execution; the skill does not include its own model or API key.
+The host must support local file access and Python 3.10 or newer. Research and image candidates use its available tools; no separate model API key is required. See the [host-specific installation guide](https://github.com/Bravery724/any-skill-builder/blob/main/docs/installation.md#claude-code-and-antigravity).

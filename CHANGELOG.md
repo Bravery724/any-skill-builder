@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0 — 2026-11-15
+
+- Offer two creation workflows: Full Auto completes researched decisions without generating HTML; Questionnaire exports an editable standalone form and resumes from its saved HTML.
+- Apply the restrained card layout with the original request, answer counts and states, per-question clearing, custom Other answers, page navigation, and Save answers on every page.
+- Store the questionnaire, answers, image candidates, and run/version identity in saved HTML so answers can be read without executing the document or running a local service.
+- Resolve unanswered questions through the host AI when building resumes, preserving meaningful user choices and recording the reasons for AI decisions.
+- Remove the connected server, submission polling, separate delegation controls, hybrid mode, and deferred-choice workflow.
+- Update installation and usage guidance, current screenshots and demo, and validation coverage for the offline workflow. Earlier host validation remains clearly labeled as historical evidence.
+
 ## 0.2.3 — 2026-11-14
 
 - Record actual supervised Claude Code and Antigravity CLI workflows, with fictional inputs, generated skills, fresh-context outputs, independent AI review, and explicit limitations.

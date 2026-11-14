@@ -4,6 +4,9 @@ from __future__ import annotations
 import copy
 import hashlib
 from html import escape
+from html.parser import HTMLParser
+import base64
+import binascii
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -17,21 +20,16 @@ from urllib.parse import unquote, urlsplit
 
 SCHEMA_VERSION = 1
 ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$")
-MODES = {"user", "auto", "hybrid"}
+MODES = {"questionnaire", "auto"}
+HTML_FORMAT = "any-skill-builder-questionnaire"
+MAX_HTML_BYTES = 128 * 1024 * 1024
+MAX_ASSET_BYTES = 20 * 1024 * 1024
 TYPES = {"single", "multi", "text", "image"}
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".avif"}
 LOCALE_CATALOG = Path(__file__).resolve().parents[1] / "assets" / "locales.json"
 DEFAULT_LOCALE = {"language": "en", "direction": "ltr"}
 LEGACY_LOCALE = {"language": "ko", "direction": "ltr"}
-OPTIONAL_LOCALE_MESSAGES = {"defer_reason_label", "delegate_unanswered", "reset_all_answers", "reset_confirm_message",
-                            "reset_confirm", "reset_cancel", "reset_complete", "ai_request_title", "ai_request_offline_title",
-                            "ai_request_live", "ai_request_offline", "ai_request_sent", "clear_selection",
-                            "question_status_answered", "question_status_unanswered", "question_status_deferred",
-                            "delegate_selected", "delegation_note", "finish", "finish_missing", "finish_delegate",
-                            "continue_answering", "finish_live", "finish_offline", "ai_pending", "counts_delegated",
-                            "core_guidance", "resume_copy", "resume_copied", "resume_manual", "resume_message",
-                            "resume_offline_note", "resume_label", "draft_exported", "draft_imported",
-                            "invalid_draft", "ai_request_import_notice", "goal_label", "goal_expand", "goal_collapse"}
+OPTIONAL_LOCALE_MESSAGES = set()
 PLACEHOLDER = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
 LANGUAGE_TAG = re.compile(
     r"(?:(?:[a-z]{2,3}(?:-[a-z]{3}){0,3}|[a-z]{4,8})"
@@ -267,6 +265,20 @@ def validate_value(question, value):
         require(len(value) <= question.get("max_length", 20000), f"Answer for {qid} is too long.")
         return
     option_ids = {o["id"] for o in question["options"]}
+    if isinstance(value, dict):
+        require(set(value) == {"other", "selected"}, f"Custom answer for {qid} requires other and selected.")
+        nonempty(value["other"], f"Other answer for {qid}")
+        require(len(value["other"]) <= question.get("max_length", 20000), f"Other answer for {qid} is too long.")
+        selected = value["selected"]
+        require(isinstance(selected, list) and all(isinstance(item, str) for item in selected)
+                and len(selected) == len(set(selected)) and set(selected) <= option_ids, f"Invalid custom selections for {qid}.")
+        if kind in {"single", "image"}:
+            require(not selected, f"Other replaces ordinary selection for {qid}.")
+        else:
+            require(len(selected) <= question.get("max_choices", len(option_ids)), f"Too many selections for {qid}.")
+            require(not any(o.get("exclusive") and o["id"] in selected for o in question["options"]),
+                    f"Exclusive option for {qid} cannot be combined with Other.")
+        return
     if kind in {"single", "image"}:
         require(isinstance(value, str) and value in option_ids, f"Invalid option for {qid}: {value!r}")
         return
@@ -286,7 +298,7 @@ def validate_questionnaire(data, workspace=None, allow_empty=False, check_asset_
         valid_run_id(data["run_id"])
     positive_integer(data.get("revision"), "revision")
     nonempty(data.get("goal"), "goal")
-    require(data.get("mode") in MODES, "Mode must be user, auto, or hybrid.")
+    require(data.get("mode") in MODES, "Mode must be questionnaire or auto. Legacy user/hybrid runs must be copied and explicitly converted; keep the original files.", "legacy_mode")
     resolve_questionnaire_locale(data)
     groups, sources, questions = data.get("groups"), data.get("sources"), data.get("questions")
     require(isinstance(groups, list) and (groups or allow_empty), "groups must be a non-empty list.")
@@ -414,7 +426,7 @@ def blank_answers(questionnaire):
 def normalize_record(question, record, actor=None):
     require(isinstance(record, dict), f"Answer for {question['id']} must be an object.")
     status = record.get("status")
-    require(status in {"answered", "deferred"}, f"Invalid answer status for {question['id']}.")
+    require(status == "answered", f"Invalid answer status for {question['id']}. Legacy deferrals must be reviewed explicitly; original records are not changed.", "unsupported_answer_status")
     if actor is not None:
         require(record.get("actor", actor) == actor, f"Answer actor must be {actor}.")
     who = actor or record.get("actor", "user")
@@ -431,7 +443,45 @@ def normalize_record(question, record, actor=None):
     if "assumptions" in record:
         require(isinstance(record["assumptions"], list) and all(isinstance(v, str) for v in record["assumptions"]), "Answer assumptions must be a string list.")
         result["assumptions"] = copy.deepcopy(record["assumptions"])
+    if "branch_value" in record:
+        require(isinstance(result.get("value"), dict), "Only a custom answer can carry branch interpretation.")
+        validate_branch_value(question, record["branch_value"], result["value"])
+        nonempty(record.get("branch_rationale"), "Branch interpretation rationale")
+        result["branch_value"] = copy.deepcopy(record["branch_value"])
+        result["branch_rationale"] = record["branch_rationale"]
+    if "user_selected" in record:
+        selected = record["user_selected"]
+        require(question["type"] == "multi" and isinstance(selected, list) and all(isinstance(x, str) for x in selected),
+                "user_selected must be a multi-choice option list.")
+        final = result["value"].get("selected", []) if isinstance(result.get("value"), dict) else result.get("value", [])
+        require(set(selected) <= set(final), "AI completion must preserve user selections.")
+        result["user_selected"] = copy.deepcopy(selected)
     return result
+
+
+def validate_branch_value(question, value, original):
+    ids = {o["id"] for o in question.get("options", [])}
+    if question["type"] == "multi":
+        require(isinstance(value, list) and all(isinstance(v, str) for v in value)
+                and len(value) == len(set(value)) and set(value) <= ids, "Invalid branch interpretation.")
+        require(set(original.get("selected", [])) <= set(value), "Branch interpretation must preserve explicit selections.")
+    else:
+        require(value is None or isinstance(value, str) and value in ids, "Branch interpretation must be an option or null.")
+
+
+def validate_pending_inputs(questionnaire, pending):
+    require(isinstance(pending, dict), "pending_inputs must be an object.")
+    by_id = {q["id"]: q for q in questionnaire["questions"]}
+    for qid, draft in pending.items():
+        require(qid in by_id and by_id[qid]["type"] == "multi" and isinstance(draft, dict), "Invalid pending multi-choice input.")
+        selected = draft.get("selected")
+        q = by_id[qid]
+        ids = {o["id"] for o in q["options"]}
+        require(draft.get("question_version") == q["version"], "Pending input uses a stale question version.", "stale_question", 409)
+        require(isinstance(selected, list) and all(isinstance(v, str) for v in selected)
+                and len(selected) == len(set(selected)) and set(selected) <= ids
+                and 0 < len(selected) < q.get("min_choices", 1), "Pending input must contain an incomplete multi-choice selection.")
+        require(not any(o.get("exclusive") and o["id"] in selected for o in q["options"]), "Exclusive pending selection is invalid.")
 
 
 def validate_answers(questionnaire, answers):
@@ -442,6 +492,8 @@ def validate_answers(questionnaire, answers):
     require(answers.get("revision") == questionnaire["revision"], "Answers use a different questionnaire revision.", "stale_revision", 409)
     positive_integer(answers.get("answer_revision"), "answer_revision", zero=True)
     require(isinstance(answers.get("answers"), dict) and isinstance(answers.get("history", []), list), "Invalid answers or history.")
+    validate_pending_inputs(questionnaire, answers.get("pending_inputs", {}))
+    require(not (answers.get("pending_inputs", {}).keys() & answers["answers"].keys()), "A pending input cannot also be an answered record.")
     by_id = {q["id"]: q for q in questionnaire["questions"]}
     for qid, record in answers["answers"].items():
         require(qid in by_id, f"Answer references unknown question: {qid}")
@@ -462,11 +514,22 @@ def states_for(questionnaire, answers):
             pstate, answer = resolve(parent), records.get(parent)
             if pstate == "inactive":
                 results.append("inactive")
-            elif pstate == "waiting" or not answer or answer["status"] != "answered":
+            elif pstate == "waiting":
                 results.append("waiting")
+            elif not answer or answer["status"] != "answered":
+                selected = answers.get("pending_inputs", {}).get(parent, {}).get("selected", [])
+                results.append("active" if "includes" in condition and condition["includes"] in selected else "waiting")
             else:
                 value = answer["value"]
-                match = value == condition["equals"] if "equals" in condition else condition["includes"] in value
+                if isinstance(value, dict):
+                    if "includes" in condition and condition["includes"] in value["selected"]:
+                        results.append("active")
+                        continue
+                    if "branch_value" not in answer:
+                        results.append("waiting")
+                        continue
+                    value = answer["branch_value"]
+                match = value == condition["equals"] if "equals" in condition else condition["includes"] in (value or [])
                 results.append("active" if match else "inactive")
         states[qid] = "inactive" if "inactive" in results else "waiting" if "waiting" in results else "active"
         return states[qid]
@@ -477,7 +540,7 @@ def states_for(questionnaire, answers):
 
 def make_view(questionnaire, answers):
     states = states_for(questionnaire, answers)
-    counts = {"total": len(states), "active": 0, "answered": 0, "deferred": 0, "unanswered": 0, "waiting": 0, "inactive": 0}
+    counts = {"total": len(states), "active": 0, "answered": 0, "unanswered": 0, "waiting": 0, "inactive": 0}
     for qid, state in states.items():
         counts[state] += 1
         if state == "active":
@@ -486,7 +549,12 @@ def make_view(questionnaire, answers):
     complete = bool(states) and counts["unanswered"] == 0
     return {"questionnaire": questionnaire, "answers": answers, "states": states, "counts": counts,
             "traversal_complete": complete,
-            "ready_to_build": complete and counts["deferred"] == 0 and counts["waiting"] == 0}
+            "ready_to_build": complete and counts["waiting"] == 0,
+            "pending_input_ids": sorted(answers.get("pending_inputs", {})),
+            "unresolved_branch_ids": sorted({c["question_id"] for q in questionnaire["questions"]
+                if states[q["id"]] == "waiting" for c in q.get("when", [])
+                if isinstance(answers["answers"].get(c["question_id"], {}).get("value"), dict)
+                and "branch_value" not in answers["answers"][c["question_id"]]})}
 
 
 def load_workspace(workspace, require_questions=False, check_asset_hash=True):
@@ -497,14 +565,14 @@ def load_workspace(workspace, require_questions=False, check_asset_hash=True):
     return questionnaire, answers
 
 
-WORKFLOW_RECORD_FILES = {"ai-request.json", "submission.json", "submission-history.json", "handoff.json", "progress.json"}
+WORKFLOW_RECORD_FILES = {"imports.json", "progress.json"}
 
 
 def validate_workflow_records(records, questionnaire, answers):
     require(isinstance(records, dict) and set(records) <= WORKFLOW_RECORD_FILES, "Invalid pending workflow records.")
     for name, record in records.items():
-        if name == "submission-history.json":
-            require(isinstance(record, list) and all(isinstance(item, dict) for item in record), "Invalid submission history.")
+        if name == "imports.json":
+            require(isinstance(record, list) and all(isinstance(item, dict) for item in record), "Invalid import history.")
         else:
             require(isinstance(record, dict) and record.get("project_id") == questionnaire["project_id"]
                     and record.get("run_id") == questionnaire["run_id"] and record.get("revision") == questionnaire["revision"]
@@ -550,7 +618,7 @@ def recover_workspace(root):
         commit_workspace(root, questionnaire, answers)
 
 
-def init_workspace(workspace, goal, mode="user"):
+def init_workspace(workspace, goal, mode="questionnaire"):
     nonempty(goal, "goal")
     require(mode in MODES, "Invalid answer mode.")
     root = Path(workspace).resolve()
@@ -580,6 +648,9 @@ def status(workspace, require_questions=False, *, include_workflow=False):
 
 
 def archive(answers, qid, reason):
+    if qid in answers.get("pending_inputs", {}):
+        answers["history"].append({"question_id": qid, "pending_input": answers["pending_inputs"].pop(qid),
+                                   "reason": reason, "at": timestamp()})
     if qid in answers["answers"]:
         answers["history"].append({"question_id": qid, "answer": answers["answers"].pop(qid),
                                    "reason": reason, "at": timestamp()})
@@ -636,9 +707,11 @@ def set_questions(workspace, incoming, *, presentation_only=None, rebind_project
                     "Only an authored questionnaire without run identity or answer records can be rebound.", "not_authored_questionnaire")
             valid_id(data.get("project_id"), "fixture project_id")
             data["project_id"] = previous["project_id"]
+            data["mode"] = previous["mode"]
         require(isinstance(data, dict) and data.get("project_id") == previous["project_id"], "Questionnaire belongs to another project.", "wrong_project", 409)
         require("run_id" not in data or data["run_id"] == previous["run_id"], "Questionnaire belongs to another run.", "wrong_run", 409)
         data["run_id"] = previous["run_id"]
+        require(data.get("mode") == previous["mode"], "Authored questions must preserve the selected run mode.", "mode_mismatch")
         if "locale" not in data and "locale" in previous:
             data["locale"] = copy.deepcopy(previous["locale"])
         require(data.get("revision") == previous["revision"], "Supply the current questionnaire revision when updating.", "stale_revision", 409)
@@ -699,13 +772,13 @@ def set_questions(workspace, incoming, *, presentation_only=None, rebind_project
                 })
         removed = set(prior_questions) - {q["id"] for q in data["questions"]}
         invalid = updated | removed | descendants(previous, updated | removed) | descendants(data, updated)
-        invalidated_answers = invalid & answers["answers"].keys()
+        invalidated_answers = invalid & (answers["answers"].keys() | answers.get("pending_inputs", {}).keys())
         for qid in invalid:
             archive(answers, qid, "question_revised_or_dependency_changed")
         answers["revision"] = data["revision"]
         answers["answer_revision"] += 1
         states = states_for(data, answers)
-        for qid in list(answers["answers"]):
+        for qid in set(answers["answers"]) | set(answers.get("pending_inputs", {})):
             if states[qid] != "active":
                 archive(answers, qid, "question_not_active")
         validate_answers(data, answers)
@@ -725,23 +798,50 @@ def verify_version(questionnaire, answers, payload):
     require(payload.get("base_answer_revision") == answers["answer_revision"], "Answers changed in another session; preserve your draft and reload.", "stale_answers", 409)
 
 
-def apply_changes(questionnaire, answers, changes, actor=None):
+def apply_changes(questionnaire, answers, changes, actor=None, *, preserve_active_branches=False, pending_updates=None):
     require(isinstance(changes, dict), "changes must be an object.")
     by_id = {q["id"]: q for q in questionnaire["questions"]}
     normalized = {}
     for qid, record in changes.items():
         require(qid in by_id, f"Unknown question: {qid}")
         if actor == "ai" and qid in answers["answers"]:
-            raise BuilderError(f"AI cannot overwrite an existing answer or deferral: {qid}", "protected_answer", 409)
+            raise BuilderError(f"AI cannot overwrite an existing answer: {qid}", "protected_answer", 409)
+        pending = answers.get("pending_inputs", {}).get(qid)
+        if actor == "ai" and pending:
+            require(isinstance(record, dict) and record.get("user_selected") == pending["selected"],
+                    "AI must preserve incomplete user selections through complete-input.", "protected_input", 409)
         normalized[qid] = None if record is None else normalize_record(by_id[qid], record, actor)
-    changed = {qid for qid, record in normalized.items() if answers["answers"].get(qid) != record}
+    changed = {qid for qid, record in normalized.items() if answers["answers"].get(qid) != record or qid in answers.get("pending_inputs", {})}
     if not changed:
         return False
-    invalidate = descendants(questionnaire, changed)
+    # Ownership, rationale, and branch classification do not change the original answer.
+    # Branches made inactive by a classification are still pruned below.
+    value_changed = {qid for qid in changed
+                     if (answers["answers"].get(qid) or {}).get("value") != (normalized[qid] or {}).get("value")
+                     or bool(answers["answers"].get(qid)) != bool(normalized[qid])}
+    invalidate = descendants(questionnaire, value_changed)
+    if pending_updates is not None:
+        validate_pending_inputs(questionnaire, pending_updates)
+    if preserve_active_branches:
+        before_states = states_for(questionnaire, answers)
+        tentative = copy.deepcopy(answers)
+        for qid, record in normalized.items():
+            tentative["answers"].pop(qid, None)
+            tentative.get("pending_inputs", {}).pop(qid, None)
+            if record is not None:
+                tentative["answers"][qid] = record
+        tentative.setdefault("pending_inputs", {}).update(pending_updates or {})
+        after_states = states_for(questionnaire, tentative)
+        invalidate -= {qid for qid in invalidate if before_states[qid] == after_states[qid] == "active" and qid not in changed}
     for qid in invalidate:
         archive(answers, qid, "parent_answer_changed")
     for qid in changed:
         archive(answers, qid, "answer_changed_or_cleared")
+    if pending_updates:
+        for qid, draft in pending_updates.items():
+            if qid in answers.get("pending_inputs", {}) and answers["pending_inputs"][qid] != draft:
+                archive(answers, qid, "saved_input_changed_or_cleared")
+        answers.setdefault("pending_inputs", {}).update(pending_updates)
     pending = dict(normalized)
     while pending:
         progressed = False
@@ -756,7 +856,7 @@ def apply_changes(questionnaire, answers, changes, actor=None):
             answers["answers"][qid] = record
         require(progressed, "Cannot resolve answer dependency order.")
     states = states_for(questionnaire, answers)
-    for qid in list(answers["answers"]):
+    for qid in set(answers["answers"]) | set(answers.get("pending_inputs", {})):
         if states[qid] != "active":
             archive(answers, qid, "question_not_active")
     answers["answer_revision"] += 1
@@ -774,15 +874,75 @@ def update_answers(workspace, payload, actor="user"):
         return make_view(questionnaire, answers)
 
 
-def answer_one(workspace, qid, value=None, actor="user", rationale="", defer=False, clear=False):
+def answer_one(workspace, qid, value=None, actor="user", rationale="", clear=False):
     with workspace_lock(workspace):
         recover_workspace(workspace)
         questionnaire, answers = load_workspace(workspace, True)
-        record = None if clear else {"status": "deferred" if defer else "answered", "actor": actor, "rationale": rationale}
-        if record is not None and not defer:
+        record = None if clear else {"status": "answered", "actor": actor, "rationale": rationale}
+        if record is not None:
             record["value"] = value
         if apply_changes(questionnaire, answers, {qid: record}, actor):
             commit_workspace(workspace, questionnaire, answers)
+        return make_view(questionnaire, answers)
+
+
+def complete_input(workspace, qid, value, rationale):
+    """Complete an unfinished multi-choice answer while retaining every user choice."""
+    nonempty(rationale, "Completion rationale")
+    with workspace_lock(workspace):
+        recover_workspace(workspace)
+        questionnaire, answers = load_workspace(workspace, True)
+        draft = answers.get("pending_inputs", {}).get(qid)
+        require(draft is not None, "No incomplete input exists for this question.")
+        selected = value.get("selected", []) if isinstance(value, dict) else value
+        require(isinstance(selected, list) and set(draft["selected"]) <= set(selected), "Completion must preserve user selections.")
+        record = {"status": "answered", "actor": "ai", "value": value, "rationale": rationale,
+                  "user_selected": draft["selected"]}
+        apply_changes(questionnaire, answers, {qid: record}, "ai", preserve_active_branches=True)
+        commit_workspace(workspace, questionnaire, answers)
+        return make_view(questionnaire, answers)
+
+
+def resolve_input(workspace, qid, rationale):
+    """The host explicitly identifies uninterpretable text; no automatic length heuristic."""
+    nonempty(rationale, "Why this input cannot be interpreted in context")
+    with workspace_lock(workspace):
+        recover_workspace(workspace)
+        questionnaire, answers = load_workspace(workspace, True)
+        q = next((q for q in questionnaire["questions"] if q["id"] == qid), None)
+        record = answers["answers"].get(qid)
+        require(q is not None and record is not None and record["actor"] == "user", "A user text answer is required.")
+        value = record["value"]
+        require(q["type"] == "text" or isinstance(value, dict), "Ordinary selected options cannot be discarded as uninterpretable.")
+        selected = value.get("selected", []) if isinstance(value, dict) else []
+        replacement = None
+        pending = None
+        if selected:
+            if len(selected) >= q.get("min_choices", 1):
+                replacement = {**record, "value": selected}
+                replacement.pop("branch_value", None)
+                replacement.pop("branch_rationale", None)
+            else:
+                pending = {"selected": selected, "other_enabled": False, "other_text": "", "question_version": q["version"]}
+        original = copy.deepcopy(record)
+        apply_changes(questionnaire, answers, {qid: replacement}, "user", preserve_active_branches=True,
+                      pending_updates={qid: pending} if pending else None)
+        answers["history"].append({"question_id": qid, "answer": original, "reason": "uninterpretable_input",
+                                   "rationale": rationale, "at": timestamp()})
+        commit_workspace(workspace, questionnaire, answers)
+        return make_view(questionnaire, answers)
+
+
+def interpret_answer(workspace, qid, value, rationale):
+    nonempty(rationale, "Branch interpretation rationale")
+    with workspace_lock(workspace):
+        recover_workspace(workspace)
+        questionnaire, answers = load_workspace(workspace, True)
+        record = answers["answers"].get(qid)
+        require(record is not None and isinstance(record.get("value"), dict), "Only custom Other answers need branch interpretation.")
+        interpreted = {**record, "branch_value": value, "branch_rationale": rationale}
+        apply_changes(questionnaire, answers, {qid: interpreted})
+        commit_workspace(workspace, questionnaire, answers)
         return make_view(questionnaire, answers)
 
 
@@ -793,14 +953,26 @@ def recommend(workspace):
         filled = []
         while True:
             states = states_for(questionnaire, answers)
-            candidate = next((q for q in questionnaire["questions"] if states[q["id"]] == "active"
-                              and q["id"] not in answers["answers"] and q.get("recommendation")), None)
+            candidate = None
+            for q in questionnaire["questions"]:
+                if states[q["id"]] != "active" or q["id"] in answers["answers"] or not q.get("recommendation"):
+                    continue
+                pending = answers.get("pending_inputs", {}).get(q["id"])
+                value = q["recommendation"]["value"]
+                selected = value.get("selected", []) if isinstance(value, dict) else value
+                if pending and (not isinstance(selected, list) or not set(pending["selected"]) <= set(selected)):
+                    continue
+                candidate = q
+                break
             if not candidate:
                 break
             rec = candidate["recommendation"]
             record = {"status": "answered", "actor": "ai", "value": rec["value"], "rationale": rec["rationale"],
                       "question_version": candidate["version"], "assumptions": rec.get("assumptions", [])}
-            apply_changes(questionnaire, answers, {candidate["id"]: record}, "ai")
+            pending = answers.get("pending_inputs", {}).get(candidate["id"])
+            if pending:
+                record["user_selected"] = copy.deepcopy(pending["selected"])
+            apply_changes(questionnaire, answers, {candidate["id"]: record}, "ai", preserve_active_branches=bool(pending))
             filled.append(candidate["id"])
         if filled:
             commit_workspace(workspace, questionnaire, answers)
@@ -832,53 +1004,10 @@ def import_answer_changes(questionnaire, answers, incoming, *, verify=True):
         before, after = answers["answers"].get(qid), incoming["answers"].get(qid)
         if before == after and qid not in affected:
             continue
-        if after is not None:
+        if after is not None and before != after:
             after = dict(after, actor="user")
         changes[qid] = after
-    return apply_changes(questionnaire, answers, changes, "user")
-
-
-def reject_browser_draft(payload):
-    if isinstance(payload, dict) and payload.get("action") == "restore_draft":
-        raise BuilderError("This is a browser recovery file, not a submission. Import it into the same questionnaire's offline HTML file, "
-                           "continue answering, then use Finish to create a file for the host.", "browser_draft")
-
-
-def import_answers(workspace, incoming):
-    reject_browser_draft(incoming)
-    if isinstance(incoming, dict) and incoming.get("action") == "reset_answers":
-        return reset_answers(workspace, incoming)
-    with workspace_lock(workspace):
-        recover_workspace(workspace)
-        questionnaire, answers = load_workspace(workspace, True)
-        if import_answer_changes(questionnaire, answers, incoming):
-            commit_workspace(workspace, questionnaire, answers)
-        return make_view(questionnaire, answers)
-
-
-def control_input(questionnaire, answers, payload, action):
-    """Validate the request shape; version checks happen before any state change."""
-    reject_browser_draft(payload)
-    incoming, reset_all = None, False
-    if payload is None:
-        versions = answer_envelope_version(answers)
-    else:
-        require(isinstance(payload, dict), "Workflow request must be an object.")
-        if "action" in payload:
-            require(payload.get("action") == action, f"Expected workflow action {action}.", "wrong_action")
-            allowed = {"action", "answers", "reset_all"} if action == "delegate_unanswered" else {"action", "answers"}
-            require(set(payload) <= allowed, "Unknown workflow request field.")
-            incoming = payload.get("answers")
-            versions = answer_envelope_version(incoming)
-            validate_answers(questionnaire, incoming)
-            reset_all = payload.get("reset_all", False)
-            require(type(reset_all) is bool, "reset_all must be boolean.")
-        else:
-            require(set(payload) <= {"project_id", "run_id", "revision", "base_answer_revision"}, "Use only identity and revision fields for a live workflow request.")
-            versions = payload
-    digest = hashlib.sha256(json.dumps({"action": action, "payload": payload if payload is not None else versions},
-                                       ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
-    return versions, incoming, reset_all, digest
+    return apply_changes(questionnaire, answers, changes, pending_updates=incoming.get("pending_inputs", {}))
 
 
 def workflow_position(questionnaire, answers):
@@ -886,258 +1015,427 @@ def workflow_position(questionnaire, answers):
             "revision": questionnaire["revision"], "answer_revision": answers["answer_revision"]}
 
 
-def current_workflow_record(root, name, questionnaire, answers):
-    path = Path(root) / name
-    if not path.exists():
-        return None
-    record = read_json(path)
-    require(isinstance(record, dict), f"Invalid saved workflow record: {name}")
-    position = workflow_position(questionnaire, answers)
-    return record if all(record.get(key) == value for key, value in position.items()) else None
-
-
-def workflow_file(root, name):
-    path = Path(root) / name
-    if not path.exists():
-        return None
-    record = read_json(path)
-    require(isinstance(record, dict), f"Invalid saved workflow record: {name}")
-    return record
-
-
-def with_workflow_history(root, name, record):
-    previous = workflow_file(root, name)
-    history = []
-    if previous:
-        history = previous.get("history", [])
-        require(isinstance(history, list) and all(isinstance(item, dict) for item in history), f"Invalid history: {name}")
-        history = history + [{key: value for key, value in previous.items() if key != "history"}]
-    return {**record, "history": history}
-
-
-def accepted_handoff(root, request):
-    return with_workflow_history(root, "handoff.json", {
-        "schema_version": 1, **copy.deepcopy(request), "receipt": None,
-    })
-
-
-def request_is_latest(root, handoff, questionnaire):
-    if not handoff or any(handoff.get(key) != questionnaire[key] for key in ("run_id", "project_id", "revision")):
-        return False
-    reset = workflow_file(root, "submission.json")
-    return not (reset and reset.get("event") == "answers_reset"
-                and all(reset.get(key) == questionnaire[key] for key in ("run_id", "project_id", "revision"))
-                and reset.get("answer_revision", -1) > handoff.get("answer_revision", -1))
-
-
 def workflow_status(root, questionnaire, answers):
     position = workflow_position(questionnaire, answers)
-    handoff, progress = workflow_file(root, "handoff.json"), workflow_file(root, "progress.json")
-    result = {"handoff": None, "progress": None}
-    if handoff:
-        current = request_is_latest(root, handoff, questionnaire) and all(handoff.get(key) == value for key, value in position.items())
-        receipt = handoff.get("receipt")
-        receipt_current = bool(current and receipt and receipt.get("request_id") == handoff.get("request_id")
-                               and all(receipt.get(key) == value for key, value in position.items()))
-        result["handoff"] = {"record": {k: v for k, v in handoff.items() if k != "history"},
-                             "current": current, "receipt_current": receipt_current,
-                             "history_count": len(handoff.get("history", []))}
-    if progress:
-        current = all(progress.get(key) == value for key, value in position.items())
-        if progress.get("request_id"):
-            current = current and request_is_latest(root, handoff, questionnaire) and progress["request_id"] == handoff.get("request_id")
-        elif handoff and request_is_latest(root, handoff, questionnaire):
-            current = False
-        result["progress"] = {"record": {k: v for k, v in progress.items() if k != "history"},
-                              "current": current, "history_count": len(progress.get("history", []))}
-    return result
+    progress_path = Path(root) / "progress.json"
+    progress = read_json(progress_path) if progress_path.exists() else None
+    if progress is not None:
+        require(isinstance(progress, dict), "Invalid saved progress checkpoint.")
+    imports_path = Path(root) / "imports.json"
+    imports = read_json(imports_path) if imports_path.exists() else []
+    require(isinstance(imports, list) and all(isinstance(item, dict) for item in imports), "Invalid import history.")
+    export_path = Path(root) / "questionnaire-export.json"
+    export = read_json(export_path) if export_path.exists() else None
+    return {"progress": {"record": progress, "current": bool(progress and all(progress.get(k) == v for k, v in position.items()))},
+            "last_import": imports[-1] if imports else None, "questionnaire_export": export,
+            "note": "Saved progress describes the last observed state, not a running process."}
 
 
-def acknowledge(workspace, request_id, revision, answer_revision):
-    """Record the host's explicit reading of one accepted, unchanged submission."""
-    valid_run_id(request_id)
-    positive_integer(revision, "revision")
-    positive_integer(answer_revision, "answer_revision", zero=True)
-    with workspace_lock(workspace):
-        recover_workspace(workspace)
-        questionnaire, answers = load_workspace(workspace, True)
-        handoff = current_workflow_record(workspace, "handoff.json", questionnaire, answers)
-        require(handoff and request_is_latest(workspace, handoff, questionnaire) and handoff.get("request_id") == request_id,
-                "The submitted answers changed or the request was superseded; inspect status before acknowledging.", "stale_handoff", 409)
-        require(revision == questionnaire["revision"] and answer_revision == answers["answer_revision"],
-                "Read the current submitted question and answer revisions before acknowledging.", "stale_handoff", 409)
-        receipt = handoff.get("receipt")
-        if receipt is None:
-            receipt = {"request_id": request_id, **workflow_position(questionnaire, answers), "at": timestamp(), "actor": "host"}
-            handoff["receipt"] = receipt
-            commit_workspace(workspace, questionnaire, answers, workflow_records={"handoff.json": handoff})
-        return {"event": "acknowledged", "receipt": receipt}
-
-
-def checkpoint(workspace, stage, summary, next_action, remaining=None, request_id=None, *, revision, answer_revision):
-    """Save last-observed work; this record is not a process heartbeat."""
+def checkpoint(workspace, stage, summary, next_action, remaining=None, *, revision, answer_revision):
     require(type(stage) is int and 1 <= stage <= 7, "stage must be between 1 and 7.")
-    positive_integer(revision, "revision")
-    positive_integer(answer_revision, "answer_revision", zero=True)
-    nonempty(summary, "summary")
-    nonempty(next_action, "next_action")
-    remaining = [] if remaining is None else remaining
-    require(isinstance(remaining, list) and all(isinstance(item, str) and item.strip() for item in remaining),
-            "remaining must be a list of nonempty descriptions.")
-    if request_id is not None:
-        valid_run_id(request_id)
+    nonempty(summary, "Checkpoint summary")
+    nonempty(next_action, "Checkpoint next action")
+    require(isinstance(remaining or [], list) and all(isinstance(item, str) and item.strip() for item in remaining or []),
+            "Checkpoint remaining work must be a string list.")
     with workspace_lock(workspace):
         recover_workspace(workspace)
         questionnaire, answers = load_workspace(workspace)
-        verify_version(questionnaire, answers, {"run_id": questionnaire["run_id"], "project_id": questionnaire["project_id"],
-                                               "revision": revision, "base_answer_revision": answer_revision})
-        if request_id is not None:
-            handoff = workflow_file(workspace, "handoff.json")
-            require(request_is_latest(workspace, handoff, questionnaire) and handoff.get("request_id") == request_id,
-                    "This handoff was reset, superseded, or refers to changed questions.", "stale_handoff", 409)
-            require(handoff.get("receipt") and handoff["receipt"].get("request_id") == request_id,
-                    "Read and acknowledge the submitted answers before recording work for this handoff.", "unacknowledged_handoff", 409)
-        record = with_workflow_history(workspace, "progress.json", {
-            "schema_version": 1, **workflow_position(questionnaire, answers), "request_id": request_id,
-            "stage": stage, "summary": summary, "next_action": next_action, "remaining": remaining, "at": timestamp(),
-        })
+        require(revision == questionnaire["revision"] and answer_revision == answers["answer_revision"],
+                "Checkpoint revisions must match the state actually inspected.", "stale_checkpoint", 409)
+        record = {**workflow_position(questionnaire, answers), "stage": stage, "summary": summary,
+                  "next_action": next_action, "remaining": remaining or [], "at": timestamp()}
+        previous_path = Path(workspace) / "progress.json"
+        if previous_path.exists():
+            previous = read_json(previous_path)
+            require(isinstance(previous, dict), "Invalid prior progress record.")
+            record["history"] = previous.get("history", []) + [{k: v for k, v in previous.items() if k != "history"}]
         commit_workspace(workspace, questionnaire, answers, workflow_records={"progress.json": record})
-        return {"event": "checkpoint_saved", "progress": {k: v for k, v in record.items() if k != "history"}}
+        return {"event": "checkpoint_saved", "checkpoint": record}
 
 
-def reset_answer_records(answers):
-    for qid in sorted(answers["answers"]):
-        archive(answers, qid, "user_reset")
-    answers["answer_revision"] += 1
-
-
-def preserve_offline_reset_history(questionnaire, answers, incoming, before):
-    """Retain browser-only reset snapshots as user-supplied history, never active answers."""
-    if incoming is None:
-        return
-    by_id = {question["id"]: question for question in questionnaire["questions"]}
-    for entry in incoming.get("history", []):
-        if not isinstance(entry, dict) or entry.get("reason") != "browser_reset_all":
-            continue
-        if entry in answers["history"]:
-            continue  # Existing history may refer to an older or removed question.
-        qid = entry.get("question_id")
-        require(isinstance(qid, str) and qid in by_id, "Offline reset history references an unknown question.")
-        record = normalize_record(by_id[qid], entry.get("answer"))
-        nonempty(entry.get("at"), "Offline reset history timestamp")
-        if before.get(qid) == record:
-            continue  # The canonical reset already archived this exact saved answer.
-        saved = {"question_id": qid, "answer": record, "reason": "browser_reset_all",
-                 "at": entry["at"], "source": "offline_reset_export"}
-        if saved not in answers["history"]:
-            answers["history"].append(saved)
-
-
-def reset_workflow_records(root, questionnaire, answers, digest):
-    root = Path(root)
-    record = {"event": "answers_reset", "scope": "all_answers", **workflow_position(questionnaire, answers),
-              "at": timestamp(), "request_sha256": digest}
-    records = {"submission.json": record}
-    previous = root / "submission.json"
-    if previous.exists():
-        old = read_json(previous)
-        require(isinstance(old, dict), "Invalid saved submission record.")
-        history_file = root / "submission-history.json"
-        history = read_json(history_file) if history_file.exists() else []
-        require(isinstance(history, list) and all(isinstance(item, dict) for item in history), "Invalid saved submission history.")
-        records["submission-history.json"] = history + [old]
-    return records
-
-
-def reset_answers(workspace, payload=None):
-    """Clear answer records, not questions or run identity; offline edits may follow the reset."""
+def reset_answers(workspace):
     with workspace_lock(workspace):
         recover_workspace(workspace)
         questionnaire, answers = load_workspace(workspace, True)
-        versions, incoming, _, digest = control_input(questionnaire, answers, payload, "reset_answers")
-        cached = current_workflow_record(workspace, "submission.json", questionnaire, answers)
-        if cached and cached.get("event") == "answers_reset" and cached.get("request_sha256") == digest:
-            return make_view(questionnaire, answers)
-        verify_version(questionnaire, answers, versions)
-        if (incoming is None and not answers["answers"] and cached and cached.get("event") == "answers_reset"
-                and not current_workflow_record(workspace, "ai-request.json", questionnaire, answers)):
-            return make_view(questionnaire, answers)
-        before = copy.deepcopy(answers["answers"])
-        reset_answer_records(answers)
-        preserve_offline_reset_history(questionnaire, answers, incoming, before)
-        if incoming is not None:
-            import_answer_changes(questionnaire, answers, incoming, verify=False)
-        validate_answers(questionnaire, answers)
-        records = reset_workflow_records(workspace, questionnaire, answers, digest)
-        commit_workspace(workspace, questionnaire, answers, workflow_records=records)
+        ids = set(answers["answers"]) | set(answers.get("pending_inputs", {}))
+        if ids:
+            for qid in ids:
+                archive(answers, qid, "reset_all")
+            answers["answer_revision"] += 1
+            commit_workspace(workspace, questionnaire, answers)
         return make_view(questionnaire, answers)
 
 
-def request_ai(workspace, payload=None):
-    """Request the waiting host's judgment for unanswered questions without answering them."""
+def questionnaire_digest(questionnaire):
+    encoded = json.dumps(questionnaire, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+class QuestionnaireHTMLParser(HTMLParser):
+    """Read a single inert JSON block. Never evaluate markup or JavaScript."""
+    def __init__(self):
+        super().__init__(convert_charrefs=False)
+        self.blocks = []
+        self.active = None
+        self.invalid = False
+
+    def handle_starttag(self, tag, attrs):
+        if tag.lower() != "script":
+            return
+        ids = [v for k, v in attrs if k.lower() == "id"]
+        if "skill-builder-data" in ids:
+            types = [v for k, v in attrs if k.lower() == "type"]
+            if len(ids) != 1 or types != ["application/json"]:
+                self.invalid = True
+            self.active = []
+            self.blocks.append(self.active)
+
+    def handle_data(self, value):
+        if self.active is not None:
+            self.active.append(value)
+
+    def handle_endtag(self, tag):
+        if tag.lower() == "script":
+            self.active = None
+
+
+def strict_json(value):
+    def object_pairs(pairs):
+        result = {}
+        for key, item in pairs:
+            require(key not in result, f"Duplicate JSON key: {key}.", "invalid_saved_html")
+            result[key] = item
+        return result
+    def invalid_constant(value):
+        raise BuilderError(f"Non-finite JSON constant is not supported: {value}.", "invalid_saved_html")
+    try:
+        return json.loads(value, object_pairs_hook=object_pairs, parse_constant=invalid_constant)
+    except (json.JSONDecodeError, RecursionError) as exc:
+        raise BuilderError("Saved questionnaire contains invalid JSON.", "invalid_saved_html") from exc
+
+
+def embedded_assets(boot, questionnaire):
+    assets = boot.get("assets", {})
+    require(isinstance(assets, dict), "Embedded assets must be an object.", "invalid_saved_html")
+    expected = {}
+    for question in questionnaire["questions"]:
+        if question["type"] != "image":
+            continue
+        for option in question["options"]:
+            name, digest = option["image"], option.get("image_sha256")
+            require(name not in expected or expected[name] == digest, "The same embedded asset has conflicting fingerprints.")
+            expected[name] = digest
+    require(set(assets) == set(expected), "Embedded assets must match the registered image candidates.", "invalid_saved_html")
+    decoded = {}
+    total = 0
+    for name, digest in expected.items():
+        safe_asset(Path.cwd(), name, must_exist=False)
+        require(isinstance(digest, str) and re.fullmatch(r"[0-9a-f]{64}", digest), "Embedded image fingerprint is missing.")
+        value = assets[name]
+        require(isinstance(value, str), "Embedded asset must be a data URL.")
+        match = re.fullmatch(r"data:(image/(?:png|jpeg|webp|gif|svg\+xml|avif));base64,([A-Za-z0-9+/=\r\n]+)", value)
+        require(match is not None, "Embedded assets require supported base64 image data URLs.")
+        expected_mime = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp",
+                         ".gif": "image/gif", ".svg": "image/svg+xml", ".avif": "image/avif"}[Path(name).suffix.lower()]
+        require(match[1] == expected_mime, "Embedded image MIME type does not match its extension.")
+        try:
+            content = base64.b64decode(match[2].replace("\r", "").replace("\n", ""), validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise BuilderError("Invalid embedded asset encoding.", "invalid_saved_html") from exc
+        total += len(content)
+        require(0 < len(content) <= MAX_ASSET_BYTES and total <= MAX_HTML_BYTES // 2, "Embedded image assets exceed the size limit.")
+        require(hashlib.sha256(content).hexdigest() == digest, "Embedded image does not match its questionnaire fingerprint.", "stale_asset", 409)
+        decoded[name] = content
+    return decoded
+
+
+def validate_saved_boot(boot, *, require_saved=True):
+    require(isinstance(boot, dict) and boot.get("format") == HTML_FORMAT and boot.get("format_version") == 1,
+            "This is not a supported saved questionnaire HTML.", "invalid_saved_html")
+    require(isinstance(boot.get("view"), dict), "Saved questionnaire view is missing.", "invalid_saved_html")
+    questionnaire, answers = boot["view"].get("questionnaire"), boot["view"].get("answers")
+    validate_questionnaire(questionnaire)
+    require(questionnaire["mode"] == "questionnaire", "Only questionnaire mode uses saved HTML.")
+    validate_answers(questionnaire, answers)
+    require(boot.get("questionnaire_sha256") == questionnaire_digest(questionnaire),
+            "Saved questionnaire fingerprint does not match its questions.", "questionnaire_mismatch", 409)
+    positive_integer(boot.get("base_answer_revision"), "base_answer_revision", zero=True)
+    require(answers["answer_revision"] == boot["base_answer_revision"], "Saved answer base revision is inconsistent.", "stale_answers", 409)
+    if require_saved:
+        require(boot.get("saved_at") is not None and boot.get("export_id") is not None,
+                "This is the original questionnaire template. Use its Save answers button and finish saving the HTML first.", "unsaved_questionnaire", 409)
+        valid_run_id(boot["export_id"])
+        try:
+            saved_at = datetime.fromisoformat(boot["saved_at"].replace("Z", "+00:00"))
+            require(saved_at.tzinfo is not None, "Saved timestamp must include a timezone.")
+        except (AttributeError, TypeError, ValueError) as exc:
+            raise BuilderError("Invalid saved timestamp.", "invalid_saved_html") from exc
+    drafts = boot.get("drafts", {})
+    require(isinstance(drafts, dict), "Saved drafts must be an object.")
+    embedded_assets(boot, questionnaire)
+    return boot
+
+
+def read_saved_html(path, *, require_saved=True):
+    path = Path(path)
+    require(path.is_file(), f"Saved HTML does not exist: {path}", "missing_saved_html", 404)
+    require(path.stat().st_size <= MAX_HTML_BYTES, "Saved HTML exceeds the 128 MiB safety limit.", "saved_html_too_large")
+    try:
+        source = path.read_text(encoding="utf-8-sig")
+        parser = QuestionnaireHTMLParser()
+        parser.feed(source)
+        parser.close()
+    except (OSError, UnicodeError, RecursionError) as exc:
+        raise BuilderError("Cannot read the saved questionnaire HTML.", "invalid_saved_html") from exc
+    require(not parser.invalid and len(parser.blocks) == 1 and parser.active is None,
+            "HTML must contain exactly one closed application/json script with id skill-builder-data.", "invalid_saved_html")
+    return validate_saved_boot(strict_json("".join(parser.blocks[0])), require_saved=require_saved)
+
+
+def pending_from_saved(questionnaire, incoming, drafts):
+    by_id = {q["id"]: q for q in questionnaire["questions"]}
+    pending = {}
+    for qid, draft in drafts.items():
+        require(qid in by_id and isinstance(draft, dict), "Saved draft refers to an unknown question.")
+        q = by_id[qid]
+        require(set(draft) <= {"selected", "other_enabled", "other_text", "text"}, "Unknown saved draft field.")
+        selected = draft.get("selected", [])
+        text = draft.get("other_text", "")
+        require(isinstance(selected, list) and all(isinstance(v, str) for v in selected)
+                and len(selected) == len(set(selected)) and set(selected) <= {o["id"] for o in q.get("options", [])}, "Invalid saved draft selection.")
+        require(type(draft.get("other_enabled", False)) is bool and isinstance(text, str)
+                and len(text) <= q.get("max_length", 20000), "Invalid saved Other draft.")
+        require(not text.strip(), "Meaningful Other text must be represented in saved answers, not hidden in a draft.")
+        require(not str(draft.get("text", "")).strip(), "Meaningful text must be represented in saved answers.")
+        if qid in incoming["answers"]:
+            value = incoming["answers"][qid]["value"]
+            actual = value.get("selected", []) if isinstance(value, dict) else value if isinstance(value, list) else [value]
+            require(selected == actual, "Saved draft conflicts with its answer.")
+        elif selected:
+            require(q["type"] == "multi", "Only an incomplete multi-choice answer may be stored as a draft.")
+            pending[qid] = {"selected": selected, "other_enabled": draft.get("other_enabled", False), "other_text": "", "question_version": q["version"]}
+    validate_pending_inputs(questionnaire, pending)
+    state_input = {**incoming, "pending_inputs": pending}
+    states = states_for(questionnaire, state_input)
+    require(all(states[qid] == "active" for qid in pending), "Saved partial selections must belong to active questions.")
+    return pending
+
+
+def imports_for(root):
+    path = Path(root) / "imports.json"
+    imports = read_json(path) if path.exists() else []
+    require(isinstance(imports, list) and all(isinstance(item, dict) for item in imports), "Invalid saved import history.")
+    return imports
+
+
+def import_answers(workspace, incoming):
+    """Read a saved HTML path, validated boot object, or explicit answer envelope."""
+    source = None
+    if isinstance(incoming, (str, Path)):
+        source = str(Path(incoming).resolve())
+        incoming = read_saved_html(incoming) if Path(incoming).suffix.lower() in {".html", ".htm"} else read_json(incoming)
+    boot = incoming if isinstance(incoming, dict) and incoming.get("format") == HTML_FORMAT else None
+    if boot:
+        validate_saved_boot(boot)
+    else:
+        require(isinstance(incoming, dict) and "action" not in incoming, "Import an answer HTML, not a legacy live or recovery request.")
     with workspace_lock(workspace):
         recover_workspace(workspace)
         questionnaire, answers = load_workspace(workspace, True)
-        versions, incoming, reset_all, digest = control_input(questionnaire, answers, payload, "delegate_unanswered")
-        cached = current_workflow_record(workspace, "ai-request.json", questionnaire, answers)
-        handoff = workflow_file(workspace, "handoff.json")
-        if (cached and cached.get("request_sha256") == digest
-                and (handoff is None or handoff.get("request_id") == cached.get("request_id"))):
-            if handoff is None:
-                commit_workspace(workspace, questionnaire, answers, workflow_records={"handoff.json": accepted_handoff(workspace, cached)})
-            return {"event": "ai_requested", "scope": "unanswered", "request": cached, "view": make_view(questionnaire, answers)}
-        verify_version(questionnaire, answers, versions)
-        if reset_all:
-            before = copy.deepcopy(answers["answers"])
-            reset_answer_records(answers)
-            preserve_offline_reset_history(questionnaire, answers, incoming, before)
-        if incoming is not None:
-            import_answer_changes(questionnaire, answers, incoming, verify=False)
+        digest = None
+        records = None
+        if boot:
+            require(questionnaire["mode"] == "questionnaire", "Saved HTML cannot change a Full Auto run.")
+            supplied = boot["view"]["questionnaire"]
+            require(supplied["run_id"] == questionnaire["run_id"], "Saved HTML belongs to another run.", "wrong_run", 409)
+            require(supplied["project_id"] == questionnaire["project_id"], "Saved HTML belongs to another project.", "wrong_project", 409)
+            require(supplied["revision"] == questionnaire["revision"], "Saved HTML uses an older questionnaire revision.", "stale_revision", 409)
+            require(boot["questionnaire_sha256"] == questionnaire_digest(questionnaire),
+                    "Saved HTML question content differs from the current run.", "questionnaire_mismatch", 409)
+            digest = hashlib.sha256(json.dumps(boot, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+            imports = imports_for(workspace)
+            prior = next((item for item in imports if item.get("export_id") == boot["export_id"]), None)
+            if prior:
+                require(prior.get("snapshot_sha256") == digest, "An export ID was reused for different saved content.", "export_id_conflict", 409)
+                view = make_view(questionnaire, answers)
+                view.update({"event": "already_imported", "import": prior, "source": source})
+                return view
+            incoming = copy.deepcopy(boot["view"]["answers"])
+            incoming.pop("pending_inputs", None)
+            drafts = pending_from_saved(questionnaire, incoming, boot.get("drafts", {}))
+            incoming["pending_inputs"] = drafts
+        else:
+            drafts = copy.deepcopy(incoming.get("pending_inputs", {}))
+        changed = import_answer_changes(questionnaire, answers, incoming)
+        if answers.get("pending_inputs", {}) != drafts:
+            for qid, previous in list(answers.get("pending_inputs", {}).items()):
+                if drafts.get(qid) != previous:
+                    archive(answers, qid, "saved_input_changed_or_cleared")
+            answers["pending_inputs"] = drafts
+            if not changed:
+                answers["answer_revision"] += 1
+            changed = True
         validate_answers(questionnaire, answers)
+        if boot:
+            record = {**workflow_position(questionnaire, answers), "export_id": boot["export_id"], "snapshot_sha256": digest,
+                      "saved_at": boot["saved_at"], "imported_at": timestamp(), "source": source,
+                      "unanswered_policy": "host_ai_decides", "base_answer_revision": boot["base_answer_revision"]}
+            records = {"imports.json": imports + [record]}
+        if changed or records:
+            commit_workspace(workspace, questionnaire, answers, workflow_records=records)
         view = make_view(questionnaire, answers)
-        record = {"event": "ai_requested", "scope": "unanswered", **workflow_position(questionnaire, answers),
-                  "request_id": str(uuid.uuid4()), "request_sha256": digest, "at": timestamp(),
-                  "protected_question_ids": sorted(answers["answers"]),
-                  "unanswered_question_ids": [q["id"] for q in questionnaire["questions"]
-                                               if view["states"][q["id"]] == "active" and q["id"] not in answers["answers"]],
-                  "waiting_question_ids": [qid for qid, state in view["states"].items() if state == "waiting"]}
-        records = reset_workflow_records(workspace, questionnaire, answers, digest) if reset_all else {}
-        records["ai-request.json"] = record
-        records["handoff.json"] = accepted_handoff(workspace, record)
-        commit_workspace(workspace, questionnaire, answers, workflow_records=records)
-        return {"event": "ai_requested", "scope": "unanswered", "request": record, "view": view}
+        view.update({"event": "answers_imported", "unanswered_policy": "host_ai_decides", "source": source})
+        if boot:
+            view["import"] = record
+        return view
 
 
-def submission(workspace, payload=None):
-    with workspace_lock(workspace):
-        recover_workspace(workspace)
-        questionnaire, answers = load_workspace(workspace, True)
-        require(payload is None or isinstance(payload, dict) and "action" not in payload,
-                "Import an answer file before submitting; submit accepts only identity and revision fields.")
-        versions, _, _, digest = control_input(questionnaire, answers, payload, "submit_answers")
-        verify_version(questionnaire, answers, versions)
-        view = make_view(questionnaire, answers)
-        require(view["traversal_complete"], "Answer or defer every active question before submitting.", "incomplete", 422)
-        event = "submitted" if view["ready_to_build"] else "deferred_review"
-        cached = current_workflow_record(workspace, "handoff.json", questionnaire, answers)
-        if cached and cached.get("event") == event and cached.get("request_sha256") == digest:
-            record = {key: value for key, value in cached.items() if key not in {"schema_version", "receipt", "history"}}
-            return {"event": event, "view": view, "request": record}
-        record = {"event": event, **workflow_position(questionnaire, answers), "at": timestamp(),
-                  "request_id": str(uuid.uuid4()), "request_sha256": digest}
-        records = {"submission.json": record, "handoff.json": accepted_handoff(workspace, record)}
-        previous = workflow_file(workspace, "submission.json")
-        if previous:
-            history_path = Path(workspace) / "submission-history.json"
-            history = read_json(history_path) if history_path.exists() else []
-            require(isinstance(history, list) and all(isinstance(item, dict) for item in history), "Invalid submission history.")
-            records["submission-history.json"] = history + [previous]
-        commit_workspace(workspace, questionnaire, answers, workflow_records=records)
-        return {"event": event, "view": view, "request": record}
+def resume(workspace, input_path=None):
+    """Find saved snapshots only in the recorded questionnaire directory; never pick newest blindly."""
+    if input_path:
+        return import_answers(workspace, input_path)
+    view = status(workspace, True, include_workflow=True)
+    require(view["questionnaire"]["mode"] == "questionnaire", "Full Auto resumes from status and recorded decisions; it does not use HTML.", "auto_no_html")
+    root = Path(workspace).resolve()
+    metadata_path = root / "questionnaire-export.json"
+    metadata = read_json(metadata_path) if metadata_path.exists() else {}
+    original = Path(metadata.get("path", root / "questionnaire.html"))
+    require(original.resolve().parent == root, "Recorded questionnaire path is outside this run; provide an explicit saved file path.", "invalid_recorded_path")
+    candidates = set(root.glob("questionnaire*.html"))
+    if original.exists():
+        candidates.add(original)
+    matching, malformed = [], []
+    for file in sorted(candidates):
+        try:
+            boot = read_saved_html(file, require_saved=False)
+            if boot["view"]["questionnaire"]["run_id"] != view["questionnaire"]["run_id"]:
+                continue
+            if boot.get("saved_at") is None:
+                continue
+            validate_saved_boot(boot)
+            matching.append((file, boot))
+        except BuilderError as exc:
+            malformed.append({"path": str(file), "error": exc.code})
+    if not matching:
+        imports = imports_for(root)
+        if imports and not malformed:
+            view.update({"event": "resumed_from_import", "import": imports[-1], "unanswered_policy": "host_ai_decides"})
+            return view
+        raise BuilderError("No saved answers found in the recorded questionnaire folder. Save the HTML, or provide its new path. "
+                           + ("Some candidate files are malformed." if malformed else ""), "saved_answers_not_found", 404)
+    unique = {}
+    for file, boot in matching:
+        identity = hashlib.sha256(json.dumps(boot, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+        unique.setdefault(identity, (file, boot))
+    if len(unique) > 1:
+        imports = {item.get("snapshot_sha256") for item in imports_for(root)}
+        unseen = {key: value for key, value in unique.items() if key not in imports}
+        # Previously imported snapshots are identified; two different unseen saves still require a choice.
+        if len(unseen) == 1:
+            unique = unseen
+        elif not unseen:
+            history = imports_for(root)
+            view.update({"event": "resumed_from_import", "import": history[-1], "unanswered_policy": "host_ai_decides"})
+            return view
+        else:
+            raise BuilderError("Multiple different saved questionnaires exist. Specify --input with the intended file: "
+                               + ", ".join(str(file) for file, _ in unique.values()), "ambiguous_saved_html", 409)
+    file, _ = next(iter(unique.values()))
+    return import_answers(root, file)
 
 
-def render_html(workspace, transport="offline", token=None):
+def restored_history(history):
+    """Validate historical records as bounded data, independent of current question versions."""
+    require(isinstance(history, list) and len(history) <= 10000, "Saved answer history must contain at most 10000 records.")
+    require(len(json.dumps(history, ensure_ascii=False).encode("utf-8")) <= 16 * 1024 * 1024,
+            "Saved answer history exceeds the 16 MiB limit.")
+    for entry in history:
+        require(isinstance(entry, dict) and set(entry) <= {"question_id", "answer", "pending_input", "reason", "at", "rationale", "source"},
+                "Saved answer history contains an unsupported record shape.")
+        valid_id(entry.get("question_id"), "historical question id")
+        for key in ("reason", "at"):
+            nonempty(entry.get(key), f"Historical {key}")
+            require(len(entry[key]) <= 20000, f"Historical {key} is too long.")
+        for key in ("rationale", "source"):
+            if key in entry:
+                require(isinstance(entry[key], str) and len(entry[key]) <= 20000, f"Historical {key} must be bounded text.")
+        require(("answer" in entry) != ("pending_input" in entry), "Historical records must contain one answer or partial input.")
+        if "pending_input" in entry:
+            draft = entry["pending_input"]
+            require(isinstance(draft, dict) and isinstance(draft.get("selected"), list)
+                    and all(isinstance(item, str) and ID.fullmatch(item) for item in draft["selected"]), "Invalid historical partial input.")
+            if "question_version" in draft:
+                positive_integer(draft["question_version"], "historical question version")
+            if "other_text" in draft:
+                require(isinstance(draft["other_text"], str) and len(draft["other_text"]) <= 20000, "Invalid historical Other text.")
+        else:
+            record = entry["answer"]
+            require(isinstance(record, dict) and record.get("status") in {"answered", "deferred"}
+                    and record.get("actor") in {"user", "ai"}, "Invalid historical answer record.")
+            positive_integer(record.get("question_version"), "historical question version")
+            for key in ("rationale", "branch_rationale"):
+                if key in record:
+                    require(isinstance(record[key], str) and len(record[key]) <= 20000, f"Historical {key} must be bounded text.")
+            if record["status"] == "answered":
+                value = record.get("value")
+                if isinstance(value, dict):
+                    require(set(value) == {"other", "selected"} and isinstance(value["other"], str)
+                            and len(value["other"]) <= 20000 and isinstance(value["selected"], list)
+                            and all(isinstance(item, str) and ID.fullmatch(item) for item in value["selected"]), "Invalid historical custom answer.")
+                else:
+                    require(isinstance(value, str) and len(value) <= 20000
+                            or isinstance(value, list) and all(isinstance(item, str) and ID.fullmatch(item) for item in value),
+                            "Invalid historical answer value.")
+    return copy.deepcopy(history)
+
+
+def restore_html(workspace, input_path):
+    """Restore into a new explicit directory; paths in the file never select destinations."""
+    boot = read_saved_html(input_path)
+    root = Path(workspace).resolve()
+    require(not root.exists(), "Restore needs a new workspace; existing data is never replaced.", "already_exists", 409)
+    questionnaire = copy.deepcopy(boot["view"]["questionnaire"])
+    incoming = copy.deepcopy(boot["view"]["answers"])
+    incoming.pop("pending_inputs", None)
+    drafts = pending_from_saved(questionnaire, incoming, boot.get("drafts", {}))
+    incoming["pending_inputs"] = drafts
+    files = embedded_assets(boot, questionnaire)
+    restored = blank_answers(questionnaire)
+    restored["answer_revision"] = boot["base_answer_revision"]
+    restored["history"] = restored_history(incoming.get("history", []))
+    # Preserve declared actor/rationale provenance when restoring a whole snapshot.
+    # Existing-run imports instead treat changed records as new user edits.
+    final_states = states_for(questionnaire, incoming)
+    for qid in incoming["answers"]:
+        require(final_states[qid] == "active", f"Restored answer is inactive or waiting: {qid}.")
+    apply_changes(questionnaire, restored, incoming["answers"], pending_updates=drafts)
+    restored["pending_inputs"] = drafts
+    validate_answers(questionnaire, restored)
+    digest = hashlib.sha256(json.dumps(boot, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    record = {**workflow_position(questionnaire, restored), "export_id": boot["export_id"], "snapshot_sha256": digest,
+              "saved_at": boot["saved_at"], "imported_at": timestamp(), "source": str(Path(input_path).resolve()),
+              "unanswered_policy": "host_ai_decides", "restored": True, "base_answer_revision": boot["base_answer_revision"]}
+    root.mkdir(parents=True)
+    (root / "assets").mkdir()
+    for name, content in files.items():
+        destination = safe_asset(root, name, must_exist=False)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(content)
+    with workspace_lock(root):
+        commit_workspace(root, questionnaire, restored, workflow_records={"imports.json": [record]})
+    # Rebuild trusted UI from inert records; never copy executable markup from a supplied file.
+    saved_path = root / "questionnaire.html"
+    atomic_text(saved_path, render_html(root))
+    atomic_json(root / "questionnaire-export.json", {"path": str(saved_path), "run_id": questionnaire["run_id"],
+                "revision": questionnaire["revision"], "questionnaire_sha256": questionnaire_digest(questionnaire)})
+    view = make_view(questionnaire, restored)
+    view.update({"event": "restored", "workspace": str(root), "import": record, "unanswered_policy": "host_ai_decides"})
+    return view
+
+
+def render_html(workspace, *, html_path=None):
     view = status(workspace, True)
+    require(view["questionnaire"]["mode"] == "questionnaire", "Full Auto does not generate HTML. Continue from recorded decisions and build the skill.", "auto_no_html")
     assets = Path(__file__).resolve().parent.parent / "assets"
     try:
         html = (assets / "form.html").read_text(encoding="utf-8")
@@ -1157,9 +1455,33 @@ def render_html(workspace, transport="offline", token=None):
             return escape(locale["messages"][key], quote=True)
         return escape(locale[marker.split(".", 1)[1]], quote=True)
     html = re.sub(r"\{\{(t:[A-Za-z_][A-Za-z0-9_]*|locale\.(?:language|direction))\}\}", translate_template, html)
-    resume = {"workspace": str(Path(workspace).resolve()), "run_id": view["questionnaire"]["run_id"],
+    root = Path(workspace).resolve()
+    resume = {"workspace": str(root), "html_path": str(html_path or root / "questionnaire.html"), "run_id": view["questionnaire"]["run_id"],
               "project_id": view["questionnaire"]["project_id"]}
-    boot = json.dumps({"transport": transport, "token": token, "locale": locale, "view": view, "resume": resume}, ensure_ascii=False)
+    embedded = {}
+    total_asset_bytes = 0
+    image_mimes = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp",
+                   ".gif": "image/gif", ".svg": "image/svg+xml", ".avif": "image/avif"}
+    for question in view["questionnaire"]["questions"]:
+        if question["type"] != "image":
+            continue
+        for option in question["options"]:
+            if option["image"] in embedded:
+                continue
+            path = safe_asset(root, option["image"])
+            size = path.stat().st_size
+            total_asset_bytes += size
+            require(0 < size <= MAX_ASSET_BYTES, "Candidate images must contain data and be at most 20 MiB each.")
+            require(total_asset_bytes <= MAX_HTML_BYTES // 2, "Candidate images exceed the standalone file size limit; optimize them before rendering.")
+            encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+            embedded[option["image"]] = f"data:{image_mimes[path.suffix.lower()]};base64,{encoded}"
+    boot_data = {"format": HTML_FORMAT, "format_version": 1, "saved_at": None, "export_id": None,
+                "base_answer_revision": view["answers"]["answer_revision"],
+                "questionnaire_sha256": questionnaire_digest(view["questionnaire"]), "locale": locale, "view": view,
+                "resume": resume, "assets": embedded,
+                "drafts": {qid: {k: v for k, v in draft.items() if k != "question_version"}
+                           for qid, draft in view["answers"].get("pending_inputs", {}).items()}}
+    boot = json.dumps(boot_data, ensure_ascii=False)
     boot = boot.replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e")
     replacements = {"<!--UI_FINGERPRINT-->":
                     f'<meta name="skill-builder-ui" content="{ui_fingerprint}">',
@@ -1169,18 +1491,36 @@ def render_html(workspace, transport="offline", token=None):
     for marker, content in replacements.items():
         require(html.count(marker) == 1, f"UI template needs exactly one {marker}.")
         html = html.replace(marker, content)
+    require(len(html.encode("utf-8")) <= MAX_HTML_BYTES, "Rendered HTML exceeds the 128 MiB size limit.")
     return html
 
 
 def render(workspace):
-    path = Path(workspace) / "questionnaire.html"
-    atomic_text(path, render_html(workspace))
-    return {"event": "rendered", "path": str(path.resolve()), "transport": "offline"}
+    root = Path(workspace).resolve()
+    view = status(root, True)
+    require(view["questionnaire"]["mode"] == "questionnaire", "Full Auto does not generate HTML.", "auto_no_html")
+    path = root / "questionnaire.html"
+    if path.exists():
+        try:
+            existing = read_saved_html(path, require_saved=False)
+        except BuilderError:
+            existing = {"saved_at": "unrecognized"}
+        if existing.get("saved_at") is not None:
+            path = root / f"questionnaire-r{view['questionnaire']['revision']}-a{view['answers']['answer_revision']}.html"
+            if path.exists():
+                path = root / f"questionnaire-{uuid.uuid4().hex[:12]}.html"
+    # The returned path is authoritative; source-file path hints are never used as write destinations.
+    html = render_html(root, html_path=path)
+    atomic_text(path, html)
+    metadata = {"path": str(path), **workflow_position(view["questionnaire"], view["answers"]),
+                "questionnaire_sha256": questionnaire_digest(view["questionnaire"]), "rendered_at": timestamp()}
+    atomic_json(root / "questionnaire-export.json", metadata)
+    return {"event": "rendered", "path": str(path), "mode": "questionnaire"}
 
 
 def build_brief(workspace):
     view = status(workspace, True)
-    require(view["ready_to_build"], "Resolve all active unanswered/deferred questions before creating a build brief.", "not_ready", 409)
+    require(view["ready_to_build"], "Resolve all active unanswered questions and custom-answer branches before creating a build brief.", "not_ready", 409)
     questionnaire, envelope = view["questionnaire"], view["answers"]
     lines = ["# Skill build brief", "", f"Project: {questionnaire['project_id']}", f"Run identity: {questionnaire['run_id']}",
              f"Questionnaire revision: {questionnaire['revision']}; answer revision: {envelope['answer_revision']}",
@@ -1192,7 +1532,15 @@ def build_brief(workspace):
         lines += [f"### {q['id']} — {q['title']}", "", f"Decision: {q['decision']}",
                   f"Answer actor: {answer['actor']}; question version: {q['version']}",
                   "Answer: " + json.dumps(answer["value"], ensure_ascii=False)]
-        selected = answer["value"] if isinstance(answer["value"], list) else [answer["value"]]
+        value = answer["value"]
+        selected = value["selected"] if isinstance(value, dict) else value if isinstance(value, list) else [value]
+        if isinstance(value, dict):
+            lines.append("Custom direction: " + value["other"])
+        if "branch_value" in answer:
+            lines.append("Branch interpretation: " + json.dumps(answer["branch_value"], ensure_ascii=False))
+            lines.append("Branch rationale: " + answer["branch_rationale"])
+        if answer.get("user_selected"):
+            lines.append("Human-selected options retained during AI completion: " + ", ".join(answer["user_selected"]))
         for option in q.get("options", []):
             if option["id"] in selected:
                 lines.append(f"- {option['label']}: {option['effect']}")

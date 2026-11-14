@@ -89,7 +89,7 @@ class PackagingTests(unittest.TestCase):
             release.build_artifacts(self.root)
 
     def test_unsafe_and_private_paths_fail(self):
-        for path in ("../outside.md", "/absolute.md", "assets\\file.md", "D:/file.md", ".env", ".agents/session.json", ".codex/auth.json", "nested/.agents/local.json", "runs/answers.json", "ai-request.json", "submission-history.json", "handoff.json", "progress.json", "nested/handoff.json", "nested/progress.json", ".pending-state.json", "key.pem", "dist/archive.zip"):
+        for path in ("../outside.md", "/absolute.md", "assets\\file.md", "D:/file.md", ".env", ".agents/session.json", ".codex/auth.json", "nested/.agents/local.json", "runs/answers.json", "ai-request.json", "submission-history.json", "handoff.json", "progress.json", "imports.json", "questionnaire-export.json", "nested/handoff.json", "nested/progress.json", ".pending-state.json", "key.pem", "dist/archive.zip"):
             with self.subTest(path=path), self.assertRaises(release.ReleaseError):
                 release.relative_file(self.root, path, required=False)
 

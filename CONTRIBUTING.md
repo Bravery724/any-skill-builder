@@ -8,4 +8,4 @@ Run the commands in [testing](docs/testing.md). Add behavioral coverage when cha
 
 Keep runtime changes under `any-skill-builder/`. Update relevant references, public examples, and [CHANGELOG.md](CHANGELOG.md) when behavior changes. When adding a distributable file, update `tools/release-files.json` intentionally and review the resulting ZIP contents.
 
-Describe the problem, changed behavior, relevant validation, and any untested limits in a pull request. Do not include personal run records, live form URLs, answer exports, generated user assets, credentials, or local screenshots containing private content.
+Describe the problem, changed behavior, relevant validation, and any untested limits in a pull request. Do not include personal run records, saved questionnaire HTML, answer exports, generated user assets, credentials, or local screenshots containing private content.

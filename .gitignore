@@ -27,6 +27,9 @@ coverage/
 /build-brief.md
 /question-review.md
 /questionnaire.html
+/questionnaire*.html
+/imports.json
+/questionnaire-export.json
 /submission.json
 /ai-request.json
 /submission-history.json

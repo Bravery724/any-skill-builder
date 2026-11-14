@@ -1,58 +1,49 @@
 #!/usr/bin/env python3
-"""CLI for source-driven skill creation and resumable HTML questionnaires."""
+"""Offline skill creation with Full Auto and portable HTML questionnaires."""
 from __future__ import annotations
-
 import argparse
 import json
-from pathlib import Path
 import sys
-
 import builder_core as core
 
 
 def parser():
     cli = argparse.ArgumentParser(description=__doc__)
     commands = cli.add_subparsers(dest="command", required=True)
-    for name in ("init", "set-questions", "validate", "status", "answer", "recommend", "render", "serve", "import-answers", "brief", "delegate", "reset-answers", "submit", "acknowledge", "checkpoint"):
+    names = ("init", "set-questions", "validate", "status", "answer", "recommend", "render", "import-answers",
+             "resume", "restore", "brief", "reset-answers", "checkpoint", "resolve-input", "interpret-answer", "complete-input")
+    for name in names:
         sub = commands.add_parser(name)
-        sub.add_argument("--workspace", required=True, help="Task-owned run directory; keep separate from the installed skill")
+        sub.add_argument("--workspace", required=True, help="Task-owned run directory, separate from the installed skill")
         if name == "init":
             sub.add_argument("--goal", required=True)
-            sub.add_argument("--mode", choices=sorted(core.MODES), default="user")
-        elif name in {"set-questions", "import-answers"}:
-            sub.add_argument("--input", required=True)
+            sub.add_argument("--mode", choices=sorted(core.MODES), default="questionnaire")
+        elif name in {"set-questions", "import-answers", "restore", "resume"}:
+            sub.add_argument("--input", required=name != "resume", help="Authored JSON or saved questionnaire HTML, depending on command")
             if name == "set-questions":
-                sub.add_argument("--rebind-project", action="store_true", help="Bind an authored fixture without run identity to an empty initialized workspace")
-                sub.add_argument("--presentation-only", nargs="+", metavar="QUESTION_ID", help="Preserve answers for explicitly reviewed cosmetic edits to these questions; meaning must remain unchanged")
-        elif name in {"delegate", "reset-answers"}:
-            sub.add_argument("--input", help="Optional guarded workflow request JSON; omit to use the workspace's current saved state")
+                sub.add_argument("--rebind-project", action="store_true", help="Bind an authored fixture to an empty run while preserving its selected mode")
+                sub.add_argument("--presentation-only", nargs="+", metavar="QUESTION_ID", help="Preserve answers for explicitly reviewed cosmetic edits")
         elif name == "status":
-            sub.add_argument("--json", action="store_true", help="Print the full structured view")
-        elif name == "acknowledge":
-            sub.add_argument("--request-id", required=True, help="Exact accepted handoff read by the host")
-            sub.add_argument("--revision", type=int, required=True)
-            sub.add_argument("--answer-revision", type=int, required=True)
+            sub.add_argument("--json", action="store_true", help="Print full records and resume information")
         elif name == "checkpoint":
             sub.add_argument("--stage", type=int, required=True, choices=range(1, 8))
-            sub.add_argument("--revision", type=int, required=True, help="Question revision inspected by the host")
-            sub.add_argument("--answer-revision", type=int, required=True, help="Answer revision inspected by the host")
-            sub.add_argument("--summary", required=True, help="Work actually observed or completed")
-            sub.add_argument("--next-action", required=True, help="Concrete next action, or an explicit completion statement")
-            sub.add_argument("--remaining", action="append", default=[], help="Unfinished work; repeat for multiple items")
-            sub.add_argument("--request-id", help="Acknowledged handoff this work continues")
-        elif name == "answer":
+            sub.add_argument("--revision", type=int, required=True)
+            sub.add_argument("--answer-revision", type=int, required=True)
+            sub.add_argument("--summary", required=True)
+            sub.add_argument("--next-action", required=True)
+            sub.add_argument("--remaining", action="append", default=[])
+        elif name in {"answer", "resolve-input", "interpret-answer", "complete-input"}:
             sub.add_argument("--question", required=True)
-            values = sub.add_mutually_exclusive_group(required=True)
-            values.add_argument("--value-json", help='JSON value, e.g. "yes" or ["a","b"]')
-            values.add_argument("--value-file", help="UTF-8 JSON value file, avoiding shell quoting")
-            values.add_argument("--defer", action="store_true")
-            values.add_argument("--clear", action="store_true")
-            sub.add_argument("--actor", choices=("user", "ai"), default="user")
-            sub.add_argument("--rationale", default="")
-        elif name == "serve":
-            sub.add_argument("--timeout", type=float, default=3600)
-            sub.add_argument("--port", type=int, default=0)
-    sub = commands.add_parser("check-skill", help="Basic structural checks; does not evaluate skill behavior")
+            if name != "resolve-input":
+                values = sub.add_mutually_exclusive_group(required=True)
+                values.add_argument("--value-json", help="JSON answer or branch classification; null classifies no single-choice branch")
+                values.add_argument("--value-file", help="UTF-8 JSON value file, avoiding shell quoting")
+                if name == "answer":
+                    values.add_argument("--clear", action="store_true")
+            if name == "answer":
+                sub.add_argument("--actor", choices=("user", "ai"), default="user")
+            sub.add_argument("--rationale", required=name != "answer", default="")
+    sub = commands.add_parser("check-skill", help="Structural checks, not a behavioral evaluation")
     sub.add_argument("--path", required=True)
     return cli
 
@@ -72,32 +63,34 @@ def main(argv=None):
                       "semantic_question_quality_tested": False}
         elif name == "status":
             view = core.status(args.workspace, include_workflow=args.json)
-            result = view if args.json else {"project_id": view["questionnaire"]["project_id"], "run_id": view["questionnaire"]["run_id"], "revision": view["questionnaire"]["revision"],
-                "answer_revision": view["answers"]["answer_revision"], "counts": view["counts"],
+            result = view if args.json else {"project_id": view["questionnaire"]["project_id"], "run_id": view["questionnaire"]["run_id"],
+                "mode": view["questionnaire"]["mode"], "revision": view["questionnaire"]["revision"], "answer_revision": view["answers"]["answer_revision"],
+                "counts": view["counts"], "pending_input_ids": view["pending_input_ids"], "unresolved_branch_ids": view["unresolved_branch_ids"],
                 "traversal_complete": view["traversal_complete"], "ready_to_build": view["ready_to_build"]}
-        elif name == "answer":
+        elif name in {"answer", "interpret-answer", "complete-input"}:
             value = core.read_json(args.value_file) if args.value_file else json.loads(args.value_json) if args.value_json is not None else None
-            result = core.answer_one(args.workspace, args.question, value, args.actor, args.rationale, args.defer, args.clear)
+            if name == "answer":
+                result = core.answer_one(args.workspace, args.question, value, args.actor, args.rationale, args.clear)
+            elif name == "interpret-answer":
+                result = core.interpret_answer(args.workspace, args.question, value, args.rationale)
+            else:
+                result = core.complete_input(args.workspace, args.question, value, args.rationale)
+        elif name == "resolve-input":
+            result = core.resolve_input(args.workspace, args.question, args.rationale)
         elif name == "recommend":
             result = core.recommend(args.workspace)
         elif name == "render":
             result = core.render(args.workspace)
-        elif name == "serve":
-            from builder_server import serve
-            serve(args.workspace, args.timeout, args.port)
-            return 0
         elif name == "import-answers":
-            result = core.import_answers(args.workspace, core.read_json(args.input))
-        elif name == "delegate":
-            result = core.request_ai(args.workspace, core.read_json(args.input) if args.input else None)
+            result = core.import_answers(args.workspace, args.input)
+        elif name == "resume":
+            result = core.resume(args.workspace, args.input)
+        elif name == "restore":
+            result = core.restore_html(args.workspace, args.input)
         elif name == "reset-answers":
-            result = core.reset_answers(args.workspace, core.read_json(args.input) if args.input else None)
-        elif name == "submit":
-            result = core.submission(args.workspace)
-        elif name == "acknowledge":
-            result = core.acknowledge(args.workspace, args.request_id, args.revision, args.answer_revision)
+            result = core.reset_answers(args.workspace)
         elif name == "checkpoint":
-            result = core.checkpoint(args.workspace, args.stage, args.summary, args.next_action, args.remaining, args.request_id,
+            result = core.checkpoint(args.workspace, args.stage, args.summary, args.next_action, args.remaining,
                                      revision=args.revision, answer_revision=args.answer_revision)
         elif name == "brief":
             result = core.build_brief(args.workspace)

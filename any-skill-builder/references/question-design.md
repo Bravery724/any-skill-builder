@@ -1,6 +1,6 @@
 # Research and question quality
 
-Use this reference when researching a subject, writing a questionnaire, reviewing it, or revising deferred items.
+Use this reference when researching a subject, writing and reviewing questions, or revising choices after user feedback.
 
 ## Decide what needs discovering
 
@@ -24,11 +24,11 @@ Before writing cards, classify each candidate in the existing decision map:
 | A value needed when the finished skill runs, such as the next paper to analyze | Define a runtime input in the build plan rather than repeatedly asking for it during skill creation |
 | A decision already resolved in the conversation | Preserve its answer and rationale; do not ask again merely to populate the form |
 
-Importance expresses impact, not answer ownership. Every unanswered core and detail question can be delegated, including all core questions together. A choice that AI could recommend must still wait for the user's selected mode or explicit delegation. User deferrals remain separate. Avoid marking every question core; explain the material effect in the decision map.
+Importance expresses impact, not answer ownership. Full Auto can answer every core and detail question. In Questionnaire mode, unanswered questions are left for AI when the user saves and asks to continue. Do not fill blanks while the user is still answering. Avoid marking every question core; explain the material effect in the decision map.
 
 Treat explicit requirements as fixed constraints, not undecided preferences. Every ordinary option must respect them. For example, if the user requires owners to come only from supplied meeting notes, offer ways to represent missing owners; do not offer guessing an owner from the topic. If changing a constraint would materially help, explain the proposed change separately and obtain that specific decision before offering choices that depend on it. AI delegation does not authorize relaxing the original goal. Keep required basic verification in the build plan instead of asking whether to perform it.
 
-When predefined text choices cannot reasonably cover the answer space, include an "Other — describe" option with a conditional text follow-up using the existing option ID and `when` fields. Preserve the free response in the design rather than squeezing it into the closest preset. For image candidates, use deferral and new visual candidates rather than a fake "Other" image. An explicit "none" and deferral have different meanings. A deferral reason is useful but optional; retain it from the form or chat as answer rationale, and never demand a reason before allowing deferral.
+Every choice and image question includes the built-in "Other — describe" input. Preserve its meaningful free response rather than squeezing it into the closest preset. Do not author a fake Other image or duplicate conditional text question solely for that field. An explicit "none" is a meaningful answer; a blank leaves the decision to AI. For image questions, custom text may reject the shown candidates and describe a different direction.
 
 For multi-select questions, mark a "none" or other stand-alone choice with `exclusive: true`, as specified in [data-contract.md](data-contract.md). Review both each choice and plausible combinations. Do not assume the renderer recognizes a label's meaning. For other incompatible combinations, revise the question structure or use conditions so the form cannot present contradictory decisions as an ordinary valid configuration.
 
@@ -66,7 +66,7 @@ Review these criteria with short reasons:
 | Clarity | Is this one understandable decision rather than two questions joined together? |
 | Fair alternatives | Are plausible alternatives and their burdens presented fairly, without making one option sound universally good? |
 | Redundancy | Has the user or reliable existing context already answered it? |
-| Answerability | Are explanations/examples/candidates sufficient, and can the user write another answer or defer? |
+| Answerability | Are explanations/examples/candidates sufficient, and can the user describe another direction or leave the decision to AI? |
 | Applicability | Is this question relevant to the currently selected scope? |
 | Constraints and combinations | Does every option preserve explicit requirements, and are stand-alone multi-select choices marked exclusive? Can jointly selected choices be implemented consistently? |
 | Implementation | Can the decision be reflected in the generated skill and tested? |
@@ -83,31 +83,31 @@ For example, recommending related-work search may fit research-idea discovery, w
 
 ## Recommendations and automated answers
 
-Compute recommendations from the goal, evidence, feasibility, and benefit relative to complexity. Do not systematically choose the largest scope. Give the rationale and any assumptions. Supported recommendation values must match real options.
+Compute recommendations from the goal, evidence, feasibility, and benefit relative to complexity. Do not systematically choose the largest scope. Give the rationale and any assumptions. Use existing option IDs or a valid custom value supported by the data contract; never invent an option ID to make an unsupported recommendation appear selectable.
 
-In `auto`, the AI answers the same questions it would expose to a person and leaves the answers and reasons inspectable. In `hybrid`, these are editable suggestions. In either mode:
+In Full Auto, the AI answers the same meaningful questions it would expose to a person and retains the questions, reasons, and decisions without generating HTML. In Questionnaire mode, AI resolves blanks after the user saves and returns to chat. In either flow:
 
 - User choices take precedence.
-- User deferrals remain deferred.
+- Meaningful custom answers and rejections of the displayed choices remain constraints.
 - Unknown budget, hardware, accounts, access rights, private data, and personal preferences are not facts the AI may invent.
 - When a detail is genuinely needed only when the generated skill runs, propose a runtime input and explain it instead of guessing a value.
 - Check combinations for contradictions; question-by-question plausible defaults can be collectively incompatible.
 
 The `recommend` helper fills existing valid recommendations. It does not research, judge, or call a model. The host must actually author and review recommendations before using it.
 
-After decisions are recorded, summarize the main AI-selected directions in chat with their reasons and remaining assumptions. Keep the summary tied to current active answers, and mention which user choices or deferrals remain protected where useful. Proceed without an additional blanket approval gate. A detailed answer record remains available for later inspection or edits.
+After decisions are recorded, summarize the main AI-selected directions in chat with their reasons and remaining assumptions. Keep the summary tied to current active answers, and mention the important user choices being preserved where useful. Proceed without an additional blanket approval gate. A detailed answer record remains available for later inspection or edits.
 
 ## Many questions, small pages
 
 Group related decisions and ask upstream choices before their consequences. Use `when` dependencies for condition-specific questions. Keep defined candidate count, currently active count, and waiting/inactive branches distinct. Unknown future questions are not part of a fabricated final total or time estimate.
 
-Arrange authored groups so core directions generally precede related refinements, respecting dependencies. The renderer preserves the authored sequence instead of silently sorting questions by importance. A page containing core questions shows one short direct-answer recommendation with explicit permission to delegate; detailed reasoning remains in the existing disclosure. Do not introduce separate mandatory pages, repeated warning badges, or a second delegation control.
+Arrange authored groups so core directions generally precede related refinements, respecting dependencies. The renderer preserves the authored sequence instead of silently sorting questions by importance. Core questions show concise direct-answer guidance while remaining optional to answer; detailed reasoning stays in the existing disclosure. Do not introduce mandatory pages, repeated warning banners, or a separate delegation control.
 
-The form's page batching is adjustable presentation, not permission to drop questions. Maintain stable IDs through revisions. Reveal why and where questions were added, and preserve answers that remain valid. If a parent is deferred, dependent choices wait for that decision rather than treating the deferral as "no."
+The form's page batching is adjustable presentation, not permission to drop questions. Maintain stable IDs through revisions. Explain why questions were added, and preserve answers that remain valid. If a parent is unanswered or its custom meaning needs interpretation, dependent choices wait rather than treating it as "no."
 
-Every active question needs an explicit answer or deferral to finish a normal traversal. Finish can hand unanswered questions to AI from any page through explicit delegation; this handoff is not proof that those questions have been answered. The host completes eligible decisions and then revisits deferrals after the active traversal. Page navigation itself does not submit or require answers.
+Save answers is available on every page, even with no answers. Saving leaves blanks visibly unanswered; the host resolves them only after the user returns to chat. Navigation does not require answers or begin skill creation. There is no special defer state.
 
-## Image choices and revisiting them
+## Image choices and custom directions
 
 Use actual, relevant assets. For layout decisions, rendering multiple HTML mockups with the same content is often a useful starting point. For illustration or atmosphere, use appropriate image-generation/search tools. For an existing site, use accessible real references or screenshots. When the host lacks a needed capability, state the limitation and propose an available alternative; do not claim a placeholder is a generated image.
 
@@ -115,10 +115,10 @@ Use actual, relevant assets. For layout decisions, rendering multiple HTML mocku
 - Explain the attributes that differ: layout, density, hierarchy, color, typography, interactions.
 - If many attributes differ at once, ask which parts the user likes or dislikes, or split the decision.
 - Give each option a stable ID, an actual local image path, meaningful caption, and relevant traits. Record provenance in source notes.
-- Copy assets into the run's `assets/`; only files owned by this run should be served. Do not use arbitrary absolute filesystem paths in image options.
-- An image that fails to load is an error, not a user rejection or an implicit deferral.
+- Copy assets into the run's `assets/`; the standalone form embeds registered assets. Do not use arbitrary absolute filesystem paths in image options.
+- An image that fails to load is an error, not an answer or permission to choose for the user.
 
-After a full traversal, collect deferred items. Ask in chat about desired direction, disliked attributes, missing alternatives, or constraints. Generate new candidates from that feedback and say what changed. Revise the existing question ID/version, preserve old records, and reopen selection. The user may defer again. Do not force selection from an unchanged set or silently remove a deferred feature.
+A meaningful Other answer can explain disliked attributes, missing alternatives, or a new direction. Carry that into the design. If the user asks for revised candidates, create them, explain what changed, retain the question identity and history, and present the revised choice. Ask only when a material ambiguity remains; do not silently substitute a rejected candidate or remove the requested feature.
 
 Selecting an image is not sufficient implementation guidance. Carry both the chosen asset and its relevant visual attributes into the generated skill's instructions/references and evaluation.
 
@@ -126,6 +126,6 @@ Selecting an image is not sufficient implementation guidance. Carry both the cho
 
 Keep `question-review.md` in the run with: decision map, domain sources and gaps, important revisions/omissions, question-to-behavior examples, and unresolved assumptions. A separate reviewer should receive the goal, questionnaire, and evidence, not a claim that the draft is correct.
 
-When the questionnaire is used, collect useful failure evidence: repeated clarification, free answers not covered by options, edits after seeing results, and mismatches between answers and generated behavior. Diagnose why a question was deferred; a difficult important choice is not necessarily a bad question. Use demonstrated problems to improve future questions rather than accumulate universal rules from one case.
+When the questionnaire is used, collect useful failure evidence: repeated clarification, free answers not covered by options, edits after seeing results, and mismatches between answers and generated behavior. Investigate repeated blanks, unclear wording, and rejected candidates; a difficult important choice is not necessarily a bad question. Use demonstrated problems to improve future questions rather than accumulate universal rules from one case.
 
 Reference principles, not proof of this implementation: [GOV.UK form structure](https://www.gov.uk/service-manual/design/form-structure) describes identifying the purpose of each answer and branching; [Pew Research Center question writing](https://www.pewresearch.org/writing-survey-questions/) discusses wording, order, and compound questions. Validate their application through actual runs.

@@ -1,21 +1,18 @@
-"""Behavioral checks for skill-builder state and its local HTTP bridge."""
+"""Behavioral checks for skill-builder state and standalone HTML."""
 from __future__ import annotations
 
 import copy
-import http.client
 import json
 import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
-import threading
 import unittest
 
 PACKAGE = Path(__file__).resolve().parents[1] / "any-skill-builder"
 sys.path.insert(0, str(PACKAGE / "scripts"))
 import builder_core as core
-from builder_server import QuestionnaireServer
 
 CACHE = os.environ.get("SKILL_BUILDER_TEST_TMPDIR")
 if CACHE:
@@ -25,7 +22,7 @@ if CACHE:
 
 def questionnaire(project_id):
     return {
-        "schema_version": 1, "project_id": project_id, "revision": 1, "goal": "Create a paper-analysis skill", "mode": "user",
+        "schema_version": 1, "project_id": project_id, "revision": 1, "goal": "Create a paper-analysis skill", "mode": "questionnaire",
         "groups": [{"id": "scope", "label": "Scope"}, {"id": "output", "label": "Output"}],
         "sources": [{"id": "s1", "title": "Source fixture", "url": "https://example.org/paper", "kind": "paper",
                      "status": "read", "accessed_at": "2026-11-14", "notes": "Synthetic test evidence; not a real research claim."}],
@@ -101,19 +98,6 @@ class BackendTests(unittest.TestCase):
         with self.assertRaises(core.BuilderError):
             core.set_questions(self.root, bad)
 
-    def test_conditional_states_and_deferral_completion(self):
-        self.install()
-        self.assertEqual(core.status(self.root)["states"]["q2"], "waiting")
-        core.answer_one(self.root, "q1", defer=True)
-        core.answer_one(self.root, "q3", ["note"])
-        view = core.status(self.root)
-        self.assertEqual(view["counts"], {"total": 3, "active": 2, "answered": 1, "deferred": 1, "unanswered": 0, "waiting": 1, "inactive": 0})
-        self.assertTrue(view["traversal_complete"])
-        self.assertFalse(view["ready_to_build"])
-        result = core.submission(self.root, self.request_payload())
-        self.assertEqual(result["event"], "deferred_review")
-        with self.assertRaises(core.BuilderError):
-            core.build_brief(self.root)
 
     def test_parent_answer_change_removes_child_and_keeps_history(self):
         self.install()
@@ -138,9 +122,9 @@ class BackendTests(unittest.TestCase):
         self.assertNotIn("q2", view["answers"]["answers"])
         self.assertIn("q3", view["answers"]["answers"])
 
-    def test_auto_recommend_preserves_user_choice_and_deferral(self):
+    def test_auto_recommend_preserves_user_choices(self):
         self.install()
-        core.answer_one(self.root, "q1", defer=True)
+        core.answer_one(self.root, "q1", "no")
         core.answer_one(self.root, "q3", ["chart"])
         view = core.recommend(self.root)
         self.assertEqual(view["filled"], [])
@@ -362,40 +346,6 @@ class BackendTests(unittest.TestCase):
         with self.assertRaisesRegex(core.BuilderError, "Missing referenced file"):
             core.check_skill(skill)
 
-    def test_http_bridge_rejects_stale_cross_origin_and_premature_submit(self):
-        self.install()
-        server = QuestionnaireServer(self.root)
-        thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True)
-        thread.start()
-        def request(method, path, data=None, extra=None):
-            conn = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=3)
-            headers = {"Content-Type": "application/json"}
-            headers.update(extra or {})
-            conn.request(method, path, body=json.dumps(data) if data is not None else None, headers=headers)
-            response = conn.getresponse()
-            result = response.status, json.loads(response.read())
-            conn.close()
-            return result
-        try:
-            token = "?token=" + server.token
-            self.assertEqual(request("GET", "/api/state")[0], 401)
-            self.assertEqual(request("GET", "/api/state" + token)[0], 200)
-            self.assertEqual(request("POST", "/api/answers" + token, self.request_payload({}), {"Origin": "https://unrelated.example"})[0], 403)
-            self.assertEqual(request("POST", "/api/submit" + token, self.request_payload())[0], 422)
-            old = self.request_payload({"q1": {"status": "answered", "value": "no", "actor": "user"}})
-            self.assertEqual(request("POST", "/api/answers" + token, old)[0], 200)
-            self.assertEqual(request("POST", "/api/answers" + token, old)[0], 409)
-            self.assertEqual(request("GET", "/assets/../answers.json" + token)[0], 404)
-            core.answer_one(self.root, "q3", ["note"])
-            code, body = request("POST", "/api/submit" + token, self.request_payload())
-            self.assertEqual(code, 200)
-            self.assertEqual(body["event"], "submitted")
-            thread.join(3)
-            self.assertFalse(thread.is_alive())
-        finally:
-            if thread.is_alive():
-                server.shutdown()
-            server.server_close()
 
     def test_cli_invalid_json_is_friendly_nonzero(self):
         self.install()
@@ -405,16 +355,6 @@ class BackendTests(unittest.TestCase):
         self.assertNotIn("Traceback", run.stderr)
         self.assertEqual(json.loads(run.stderr)["error"], "io_or_json_error")
 
-    def test_serve_cli_emits_ready_then_timeout_and_keeps_answers(self):
-        self.install()
-        core.answer_one(self.root, "q1", "no")
-        run = subprocess.run([sys.executable, "-B", str(PACKAGE / "scripts" / "skill_builder.py"), "serve", "--workspace", str(self.root),
-                              "--timeout", "0.2"], text=True, capture_output=True, encoding="utf-8", timeout=8)
-        self.assertEqual(run.returncode, 0, run.stderr)
-        events = [json.loads(line) for line in run.stdout.splitlines()]
-        self.assertEqual([event["event"] for event in events], ["ready", "timeout"])
-        self.assertTrue(events[0]["url"].startswith("http://127.0.0.1:"))
-        self.assertEqual(core.status(self.root)["answers"]["answers"]["q1"]["value"], "no")
 
     def test_standalone_render_escapes_boot_data(self):
         self.data["goal"] = '</script><script>alert("untrusted source")</script>'
@@ -422,7 +362,7 @@ class BackendTests(unittest.TestCase):
         rendered = Path(core.render(self.root)["path"]).read_text(encoding="utf-8")
         self.assertNotIn(self.data["goal"], rendered)
         self.assertIn('\\u003c/script\\u003e', rendered)
-        self.assertIn('"transport": "offline"', rendered)
+        self.assertIn('"format": "any-skill-builder-questionnaire"', rendered)
         self.assertNotIn('<!--BOOT_JSON-->', rendered)
 
     def test_locale_defaults_region_variants_and_builtin_overrides(self):
@@ -489,8 +429,8 @@ class BackendTests(unittest.TestCase):
         imported = core.import_answers(self.root, core.read_json(export_path))
         self.assertEqual(imported["answers"]["answers"]["q2"]["value"], value)
         self.assertIn(value.splitlines()[0], (self.root / "answers.json").read_text(encoding="utf-8"))
-        for transport in ("offline", "live"):
-            rendered = core.render_html(self.root, transport=transport)
+        for _ in range(1):
+            rendered = core.render_html(self.root)
             boot_text = rendered.split('<script id="skill-builder-data" type="application/json">', 1)[1].split('</script>', 1)[0]
             boot = json.loads(boot_text)
             self.assertEqual(boot["locale"], self.data["locale"])

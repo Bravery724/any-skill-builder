@@ -1,6 +1,6 @@
 # Questionnaire and response data
 
-Use `schema_version: 1`. The canonical files in a run are `questions.json` and `answers.json`. Author question input in a separate file; `set-questions` validates it and manages revisions. Do not hand-edit response history to bypass validation.
+Use `schema_version: 1` for the questionnaire and answer envelope. Canonical files are `questions.json` and `answers.json`. Author question changes in a separate file and import them with `set-questions`; do not hand-edit history or versions to bypass validation.
 
 ## Minimal questionnaire
 
@@ -10,7 +10,7 @@ Use `schema_version: 1`. The canonical files in a run are `questions.json` and `
   "project_id": "paper-study",
   "revision": 1,
   "goal": "Create a paper analysis skill that develops testable ideas",
-  "mode": "user",
+  "mode": "questionnaire",
   "locale": {"language": "en", "direction": "ltr"},
   "groups": [{"id": "scope", "label": "Goal and scope"}],
   "sources": [],
@@ -20,18 +20,19 @@ Use `schema_version: 1`. The canonical files in a run are `questions.json` and `
       "version": 1,
       "group_id": "scope",
       "type": "single",
+      "importance": "core",
       "title": "Which sources should the skill compare?",
-      "help": "The research scope determines which evidence the analysis can use.",
+      "help": "The scope determines which evidence the analysis can use.",
       "decision": "Choose the evidence scope of the generated skill",
       "origin": "proposal",
       "source_ids": [],
       "options": [
-        {"id": "paper", "label": "Supplied papers", "effect": "Analyze supplied sources and explicitly mark unverified external claims"},
-        {"id": "related", "label": "Related research as well", "effect": "Search for and compare relevant prior and subsequent research"}
+        {"id": "paper", "label": "Supplied papers", "effect": "Analyze supplied material and mark unverified external claims"},
+        {"id": "related", "label": "Related research as well", "effect": "Compare relevant prior and subsequent research"}
       ],
       "recommendation": {
         "value": "related",
-        "rationale": "Comparisons may expose useful gaps for new ideas; use supplied material when external access is unavailable.",
+        "rationale": "Comparisons can reveal useful gaps; use supplied material when external access is unavailable.",
         "assumptions": ["External research is within the requested scope"]
       },
       "when": []
@@ -40,92 +41,121 @@ Use `schema_version: 1`. The canonical files in a run are `questions.json` and `
 }
 ```
 
-The example is original proposal text, not a claim that subject research has happened. Real research-backed questions should include inspected sources and an honest origin.
+This is original proposal text, not evidence that subject research happened. Link actual inspected sources for research-backed questions.
 
-## Fields
+## Questionnaire fields
 
-- `project_id`: human-readable project identifier. Match the initialized run; use lowercase letters, digits, and hyphens for portability. Different directories may share this name.
-- `run_id`: immutable UUID created by `init` in both canonical files. Authored questionnaire input may omit it; `set-questions` preserves the initialized value. Never copy another run's ID to make its answers importable. Exports and browser storage are bound to this ID, independently of the project name.
-- `revision`: questionnaire revision, managed on import by `set-questions`.
-- `mode`: `user`, `auto`, or `hybrid`.
-- `locale`: `{language,direction,messages?}`. `language` is a language tag, `direction` is `ltr` or `rtl`. Korean and English UI dictionaries are bundled; other languages use a complete translated dictionary with the same message keys and named placeholders. See `language-support.md`. This sets the form language, independently of the generated skill's output language.
-- `groups`: ordered `{id,label}` objects; the form splits long groups into pages without limiting total questions.
-- `sources`: `{id,title,url,kind,status,accessed_at,notes}`. `status` is `read`, `partial`, or `unavailable`. If present, `url` must be an HTTP(S) URL. For user materials, omit `url` (or use an empty string) and put a meaningful identifier in optional `path`, `title`, or `notes`. Notes identify relevant evidence, source version when needed, and limitations.
-- Question `id` and `version`: stable identity plus content version. Preserve ID when revising the same decision.
-- `type`: `single`, `multi`, `text`, or `image`.
-- `importance`: optional `core` or `detail`; omitted values behave as `detail`. Use `core` for decisions that materially change the skill's purpose, method, scope, or required resources. This controls concise guidance only, not validation, answer ownership, or permission to delegate. Every unanswered core question can be assigned to AI through the normal delegation flow. Order groups and questions deliberately; importance does not reorder them. When changing only this guidance on answered questions, use the explicit `set-questions --presentation-only` path to preserve their answers; unmarked changes use normal invalidation.
-- `decision`: how the answer changes the eventual skill.
-- `origin`: `source`, `inference`, `proposal`, or `user`.
-- `source_ids`: references to defined source IDs. Empty is legitimate for user preferences/original proposals, not a substitute for required subject research.
-- `options`: IDs, labels, optional descriptions, and behavioral `effect`. `single`/`image` answers are option IDs; `multi` answers are a nonempty list of valid distinct option IDs. Include an explicit "none" option when appropriate rather than treating blank as an answer.
-- For a `multi` option that cannot coexist with any other choice, set `exclusive: true`. For example: `{"id": "none", "label": "No extra sections", "effect": "Return only the required output", "exclusive": true}`. This applies to "none", "no extras", or any equivalent wording in any language. The helper does not infer exclusivity from labels or IDs. Review combinations before presenting the form; an exclusive option cannot be combined in answers or recommendations.
-- Image options add `image: "assets/filename.png"` and may add `traits: ["...", "..."]`. Use relative run-owned files and meaningful captions; do not pass arbitrary absolute paths. The backend records `image_sha256` on import. After changing image bytes, run `set-questions` again so the new image invalidates obsolete selections. Do not forge the stored hash.
-- Text answers are actual nonempty text. The user can type no additional preference or defer instead of having emptiness silently counted as answered.
-- `recommendation`: valid `value`, `rationale`, and explicit `assumptions`. Its presence is not a user choice.
+| Field | Meaning |
+| --- | --- |
+| `project_id` | Human-readable identifier matching the initialized run. A folder name alone does not establish identity. |
+| `run_id` | Immutable UUID created by `init`. Authored questions may omit it; saved exports must retain it. |
+| `revision` | Questionnaire revision managed by the helper. |
+| `mode` | `auto` or `questionnaire`. A fixture rebound into an empty run retains the initialized mode. Ordinary updates must match the run. |
+| `locale` | `{language,direction,messages?}`; see [language-support.md](language-support.md). |
+| `groups` | Ordered `{id,label}` objects. Pagination does not limit total questions. |
+| `sources` | Source records with ID, title, kind, access status, notes, and URL or user-material identifier. |
+| Question `id` / `version` | Stable decision identity and helper-managed content version. |
+| `type` | `single`, `multi`, `text`, or `image`. |
+| `importance` | Optional `core` or `detail`. Core recommends direct input but does not require it. |
+| `decision` | How the answer changes the finished skill. |
+| `origin` | `source`, `inference`, `proposal`, or `user`. |
+| `source_ids` | References to defined sources; empty is valid for original proposals or user preferences. |
+| `recommendation` | Valid `value`, meaningful `rationale`, and explicit `assumptions`. This is not a user answer. |
+
+Sources use `{id,title,url,kind,status,accessed_at,notes}`. Status is `read`, `partial`, or `unavailable`. HTTP(S) source URLs are supported. For user material without a URL, use a meaningful title, optional path, and notes. Record source versions when they affect interpretation. Unknown access is not a claim of reading.
+
+Each ordinary option has an ID, label, behavioral effect, and optional description. A multi-select option such as "none" that cannot coexist with other choices must use `exclusive: true`. The helper does not infer that from the label:
+
+```json
+{"id": "none", "label": "No extra sections", "effect": "Return only the required output", "exclusive": true}
+```
+
+Image options include `image: "assets/filename.png"` and optional `traits`. Use real run-owned files and meaningful captions. The helper records `image_sha256`; changing image bytes requires a new `set-questions` import so obsolete choices are invalidated. Do not forge image hashes or use arbitrary absolute paths.
+
+## Ordinary and custom values
+
+| Question | Ordinary value | Custom value |
+| --- | --- | --- |
+| Single / image | One option ID | `{"other":"Custom direction","selected":[]}` |
+| Multi | List of distinct option IDs | `{"other":"Additional direction","selected":["option-id"]}` |
+| Text | Nonempty text | The same text input; no duplicate Other field |
+
+Every choice/image question has a built-in **Other — describe** control. Do not add a fake image or a second conditional text question solely to create that control. An explicit ordinary "none" option remains a meaningful answer; a blank is different and is left for AI.
+
+A multi-select custom value retains ordinary selections alongside the text. Respect selection limits and exclusive options. Incomplete choices remain inspectable rather than being silently discarded or counted as a completed valid decision. Use the supported `complete-input` workflow when AI must finish a partial selection while retaining human choices.
+
+The browser records text without deciding whether it is sensible. The host reviews meaning after import. Do not use text length or punctuation alone to reject it. Meaningful "none", `0`, specialist terms, unusual preferences, and rejection of the displayed choices must be honored.
 
 ## Conditions
 
-`when` is an ALL list; empty means an unconditional question:
+`when` is an ALL list. Empty means unconditional:
 
 ```json
 [{"question_id":"q-scope","equals":"related"}]
 ```
 
-For a multi-select parent use `includes` with an option ID. Referenced questions and expected values must exist; cycles are invalid. Active answered parents can enable or disable the question. An unanswered or deferred parent leaves it waiting, not implicitly false.
+For a multi-select parent, use `includes` with an option ID. Referenced questions and option IDs must exist; cycles are invalid. Active answered parents can enable or disable a child. Unanswered parents leave children waiting rather than implying false.
 
-Changing a parent may invalidate dependent answers. Inspect the returned state rather than reusing a previously selected value because it still looks syntactically valid. Waiting and inactive questions are not included in active completion counts or generated design decisions.
+Custom answers may need a host interpretation before a predefined branch can be evaluated. Use `interpret-answer` with a reason to record the applicable ordinary branch value or JSON `null` when none matches. Preserve the user's original custom text. Do not silently force custom preferences into a preset.
 
-## Answers
+Parent changes can invalidate dependent answers. Inspect current status; a value remaining syntactically valid does not make its old context valid. Inactive answers do not control the final build.
+
+## Answer envelope
 
 ```json
 {
   "schema_version": 1,
   "project_id": "paper-study",
-  "run_id": "<copy the initialized run_id>",
+  "run_id": "<the initialized run_id>",
   "revision": 1,
   "answer_revision": 0,
   "answers": {
     "q-scope": {
-      "status": "answered", "value": "related", "actor": "user",
-      "rationale": "", "question_version": 1
+      "status": "answered",
+      "value": "related",
+      "actor": "user",
+      "rationale": "",
+      "question_version": 1
     }
   },
   "history": []
 }
 ```
 
-`status` is `answered` or `deferred`; absence is unanswered. Deferral has no active value. `actor` is `user` or `ai`. AI answers retain their rationale. No AI recommendation operation may overwrite user answers or user deferrals.
+Absence means unanswered. Active records identify their author as `user` or `ai`; AI decisions retain their rationale. The current format has no special defer answer. AI recommendation filling cannot overwrite meaningful user-owned choices.
 
-For a deferred answer, `rationale` may hold an optional user-provided reason. An "Other" choice is a normal stable option ID followed by a conditional text question; it is not a deferral and must not silently select a preset.
+The helper increments `answer_revision` when it accepts a change. Saved HTML carries its original baseline revision; it must not invent a newer revision. Imported files must match the run, project, question revision, and accepted answer baseline. Explicit clears and resets must remain clears, not be resurrected from browser storage or an older export.
 
-The backend increments `answer_revision` when it accepts a change. Browser/offline edits carry their loaded revision as the baseline; they must not invent a newer revision. Imports require matching `run_id`, project, questionnaire revision, and baseline answer revision. History is maintained by the backend. A live clear action sends `{question_id: null}` in the `changes` map, using the actual ID as the key.
+For clearly unusable custom/text input, `resolve-input` retains the raw input and rationale in history before allowing the unresolved part to be decided by AI. Meaningful ordinary selections remain protected. This command requires host judgment; it is not an automatic language or content filter.
 
-## Handoff and last progress
+## Saved HTML
 
-`handoff.json` records an accepted normal submission or AI-delegation request with its `request_id`, run/project identity, questionnaire revision, answer revision, and timestamp. A host receipt is added only by the explicit `acknowledge` command after the host reads that exact accepted state. Browser storage, downloading, and HTTP acceptance do not imply acknowledgment. Imported ordinary answer files remain drafts until an explicit `submit` registers the completed traversal; delegated request files use `delegate`.
+The standalone file contains a `<script id="skill-builder-data" type="application/json">` block. The importer reads that data without executing the document.
 
-`progress.json` records the host's last observed stage, summary, remaining work, next action, time, and versions. Creating a checkpoint requires the exact questionnaire and answer revisions the host just read; a concurrent change rejects the write instead of attaching an old summary to unseen answers. A checkpoint may refer to an acknowledged handoff. These records retain prior history and are private run data; do not place them in the generated skill or public package. Read the `workflow` portion of `status --json` to distinguish records that are current from those superseded by later edits, resets, or submissions. Neither a receipt nor a checkpoint certifies quality or proves an agent is still running. See [workflow.md](workflow.md) for commands and resumption rules.
+Its versioned wrapper includes:
 
-## View and transition
+- `format: "any-skill-builder-questionnaire"` and `format_version: 1`.
+- `saved_at` and a unique `export_id` when Save answers creates an answered file. An untouched template is not a saved answer export.
+- `base_answer_revision` and `questionnaire_sha256` for baseline/content checks.
+- `view`, including the questionnaire and answer envelope.
+- Resolved `locale` and registered `assets` embedded as data URLs.
+- `resume` hints with the original workspace, HTML path, run ID, and project ID.
 
-CLI `status --json` and the live server return `questionnaire`, canonical `answers`, per-question `states` (`active`, `waiting`, `inactive`), counts, `traversal_complete`, and `ready_to_build`. Plain `status` returns a concise summary instead of the full view.
+Path hints help locate known work; they are not permission to write to arbitrary paths. Restoration uses an explicit new destination. Text and JSON must be escaped safely when embedded. Image validation and safe relative asset paths still apply.
 
-- `traversal_complete`: no unanswered active questions, including all pages.
-- `ready_to_build`: traversal complete, no active deferrals, and no unresolved waiting decisions.
-- `deferred_review`: full traversal completed but user decisions still need chat discussion.
+Reopening a saved HTML uses the state embedded in that file. It must not replace deliberately cleared answers with an older local browser draft. Saving can happen on any page; blank questions remain blank until the host resolves them.
 
-Validate the latest view before building. Display current active totals honestly; do not represent all potential branches as currently unanswered or assume that the currently known total can never change.
+`import-answers` validates a saved export before applying it. `resume` checks the known path and matching saved siblings without silently choosing conflicting versions. Re-importing the same export is idempotent and does not erase later AI decisions. Use [workflow.md](workflow.md) for commands and conflict handling.
 
-## Explicit workflow requests
+## Status and progress
 
-AI delegation is a workflow request, not an answer status or an implicit recommendation click. Its scope is `unanswered`: answered and deferred records remain protected. The live server returns `ai_requested` to the active host. An offline form exports an explicit request for the host CLI to validate and apply; a downloaded file cannot wake a closed conversation.
+`status --json` exposes the questionnaire, canonical answers, dependency states, counts, and build readiness. Plain status is a compact summary.
 
-Reset is a separate explicit user action. It removes current answer/deferral records, preserves the questionnaire and run identity, and archives previous responses. Stale and foreign requests must fail before changing records. Reset alone does not imply delegation. The form's pending changes and offline reset intent are part of the import protocol, not permission to bypass baseline revision checks. See [workflow.md](workflow.md) for the CLI handoff.
+- **Active** questions currently apply.
+- **Waiting** questions need an unresolved parent or interpretation.
+- **Inactive** questions are outside the current branch.
+- **Ready to build** means the applicable design choices are valid and unresolved required decisions no longer block the build.
 
-## Browser recovery drafts
+Counts must distinguish active questions from all defined candidates and waiting branches. Saving an incomplete HTML is valid; it does not make all of its questions answered.
 
-When unfinished multi-select choices exist, a recovery download uses `{action: "restore_draft", answers: <canonical answer envelope>, partial_multi: {<question_id>: [<option_id>, ...]}, reset_pending: <boolean>}`. These selections are browser drafts, not valid answers or permission to delegate. The form validates identity, versions, question types, option IDs, and incomplete selection counts before restoring them. Existing reset intent remains explicit; recovery does not authorize a new reset by itself.
-
-Load this file through the matching standalone/offline questionnaire's import control to continue editing, then use Finish to create the normal completed-answer or delegation-request file. The live form does not expose that import control. If necessary, the host can render an offline copy of the existing run, without resetting it. Identity and revision checks still apply; never bypass them or silently merge a stale draft over newer decisions.
-
-Do not pass a browser recovery file to `import-answers`, `submit`, or `delegate` as a completed handoff. Ordinary Finish downloads and AI-request formats remain unchanged. If a user tries to import a `delegate_unanswered` request into the form, direct them to the skill-building chat without executing the request or replacing current answers.
+A checkpoint records the last observed stage, work, remaining items, next action, time, and exact question/answer revisions. It is not a heartbeat or quality certificate. Research, raw answers, paths, histories, and checkpoints are private run material, not reusable skill package contents.

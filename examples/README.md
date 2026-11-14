@@ -1,9 +1,11 @@
-# Example questionnaire
+# Public examples
 
-`questionnaire.json` is a small English proposal fixture for a weekly-update skill. It demonstrates a single choice, conditional follow-up, multi-select output, and AI recommendations. No research or personal facts are claimed.
+`questionnaire.json` is a small English proposal fixture for a weekly-update skill. It demonstrates a single choice, conditional follow-up, multi-select output, and AI recommendations. It does not claim subject research or personal facts.
 
-Use it with a fresh workspace as shown in the main [README](../README.md). `set-questions --rebind-project` safely binds this authored fixture to a different folder name only while the run is empty. Existing saved answers and run identities cannot be rebound this way.
+`weekly-update-questionnaire.json` adapts the completed example's historical questions to the current Questionnaire mode. The original `complete/questionnaire.json`, decisions, outputs, and evaluation evidence remain unchanged so their historical record stays inspectable.
 
-For real work, the host researches the requested subject and authors appropriate questions. Do not reuse this fixture as evidence that a topic has been investigated. Image questions require actual run-owned assets and provenance; this minimal fixture does not pretend to provide them.
+Use a fresh private workspace as shown in the main [README](../README.md). `set-questions --rebind-project` binds an authored fixture to another project name only while the run is empty and preserves the initialized mode. It cannot rebind saved answers or another run's identity.
 
-For a complete public demonstration, see [the weekly-update walkthrough](complete/README.md), including actual source notes, decisions, a finished skill, raw task inputs, and evaluation records.
+For real work, research the requested subject and author suitable questions. Do not treat a fixture as evidence that the topic has been investigated. Image choices require actual assets and provenance.
+
+See [the complete weekly-update walkthrough](complete/README.md) for source notes, decisions, a finished skill, raw task inputs, and recorded evaluation evidence. The [host-validation examples](host-validation/README.md) belong to the historical v0.2.3 CLI validation; they do not certify the redesigned offline workflow.

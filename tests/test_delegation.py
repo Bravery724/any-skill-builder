@@ -1,22 +1,18 @@
-"""AI handoff and explicit reset preserve user decisions and durable workflow state."""
+"""Automatic unanswered decisions preserve meaningful human input and branching."""
 from __future__ import annotations
-
 import copy
-import http.client
 import json
 import os
 from pathlib import Path
-import subprocess
 import sys
 import tempfile
-import threading
 import unittest
-from unittest.mock import patch
+import uuid
 
 PACKAGE = Path(__file__).resolve().parents[1] / "any-skill-builder"
 sys.path.insert(0, str(PACKAGE / "scripts"))
 import builder_core as core
-from builder_server import QuestionnaireHandler, QuestionnaireServer
+from test_backend import questionnaire
 
 
 class DelegationTests(unittest.TestCase):
@@ -24,287 +20,273 @@ class DelegationTests(unittest.TestCase):
         cache = os.environ.get("SKILL_BUILDER_TEST_TMPDIR")
         if cache:
             Path(cache).mkdir(parents=True, exist_ok=True)
-        self.temp = tempfile.TemporaryDirectory(prefix="delegation-", dir=cache)
+        self.temp = tempfile.TemporaryDirectory(prefix="offline-decisions-", dir=cache)
         self.parent = Path(self.temp.name)
         self.root = self.parent / "run"
-        result = core.init_workspace(self.root, "Create a study skill", "hybrid")
-        def question(qid, kind, dependency=None):
-            q = {"id": qid, "version": 1, "group_id": "scope", "type": kind, "title": qid,
-                 "decision": "Define " + qid, "origin": "proposal", "source_ids": [], "when": dependency or []}
-            if kind == "single":
-                q["options"] = [{"id": "yes", "label": "Yes", "effect": "Include"}, {"id": "no", "label": "No", "effect": "Omit"}]
-            q["recommendation"] = {"value": "yes" if kind == "single" else "Suggested environment", "rationale": "An explicit test proposal", "assumptions": []}
-            return q
-        self.data = {"schema_version": 1, "project_id": result["project_id"], "revision": 1,
-                     "goal": "Create a study skill", "mode": "hybrid", "groups": [{"id": "scope", "label": "Scope"}], "sources": [],
-                     "questions": [question("q1", "single"), question("q2", "text", [{"question_id": "q1", "equals": "yes"}]),
-                                   question("q3", "single"), question("q4", "text")]}
+        result = core.init_workspace(self.root, "Create a study skill")
+        self.data = questionnaire(result["project_id"])
         core.set_questions(self.root, self.data)
 
     def tearDown(self):
         self.temp.cleanup()
 
-    def partial(self):
-        core.answer_one(self.root, "q1", "yes", rationale="My explicit choice")
-        core.answer_one(self.root, "q2", "한글 · 日本語 · العربية", rationale="User environment")
-        core.answer_one(self.root, "q3", defer=True, rationale="Revisit after reviewing alternatives")
-        return core.status(self.root)
+    def boot(self):
+        text = core.render_html(self.root).split('<script id="skill-builder-data" type="application/json">')[1].split('</script>', 1)[0]
+        boot = json.loads(text)
+        boot.update(export_id=str(uuid.uuid4()), saved_at="2026-11-15T10:00:00Z")
+        boot["view"]["answers"].pop("pending_inputs", None)
+        return boot
 
-    def payload(self):
-        return core.answer_envelope_version(core.status(self.root)["answers"])
+    def multi(self, dependency=False):
+        data = core.status(self.root)["questionnaire"]
+        q = data["questions"][2]
+        q["min_choices"] = 2
+        q["options"].append({"id": "table", "label": "Table", "effect": "Compare source facts"})
+        q["recommendation"]["value"] = ["chart", "note"]
+        if dependency:
+            q["when"] = [{"question_id": "q1", "equals": "yes"}]
+        core.set_questions(self.root, data)
 
-    def snapshot(self):
-        return {p.name: p.read_bytes() for p in self.root.iterdir() if p.is_file() and p.name != ".builder.lock"}
+    def pending(self, selected, dependency=False):
+        self.multi(dependency)
+        core.answer_one(self.root, "q1", "yes")
+        boot = self.boot()
+        boot["drafts"] = {"q3": {"selected": selected, "other_enabled": False, "other_text": ""}}
+        return core.import_answers(self.root, boot)
 
-    def test_delegate_preserves_decisions_deferrals_history_and_mode(self):
-        before = self.partial()
-        result = core.request_ai(self.root, self.payload())
-        self.assertEqual(result["event"], "ai_requested")
-        self.assertEqual(result["scope"], "unanswered")
-        self.assertEqual(result["view"], before)
-        self.assertEqual(result["request"]["protected_question_ids"], ["q1", "q2", "q3"])
-        self.assertEqual(result["request"]["unanswered_question_ids"], ["q4"])
-        self.assertFalse(result["view"]["traversal_complete"])
-        self.assertEqual(core.read_json(self.root / "ai-request.json"), result["request"])
-        filled = core.recommend(self.root)
-        self.assertEqual(filled["filled"], ["q4"])
-        for qid, record in before["answers"]["answers"].items():
-            self.assertEqual(filled["answers"]["answers"][qid], record)
-        self.assertEqual(filled["answers"]["history"], before["answers"]["history"])
-        self.assertFalse(filled["ready_to_build"])
+    def test_full_auto_builds_decisions_without_creating_html(self):
+        auto = self.parent / "auto"
+        core.init_workspace(auto, "Create a study skill", "auto")
+        core.set_questions(auto, self.data, rebind_project=True)
+        self.assertEqual(core.status(auto)["questionnaire"]["mode"], "auto")
+        self.assertTrue(core.recommend(auto)["ready_to_build"])
+        core.build_brief(auto)
+        self.assertEqual(list(auto.glob("*.html")), [])
+        with self.assertRaises(core.BuilderError) as caught:
+            core.render(auto)
+        self.assertEqual(caught.exception.code, "auto_no_html")
+        self.assertEqual(list(auto.glob("*.html")), [])
 
-    def test_browser_recovery_file_cannot_submit_delegate_or_reset(self):
-        view = self.partial()
-        draft = {"action": "restore_draft", "answers": view["answers"],
-                 "partial_multi": {"unfinished": ["first-choice"]}, "reset_pending": True}
-        before = self.snapshot()
-        for operation in (core.import_answers, core.request_ai, core.reset_answers):
-            with self.subTest(operation=operation.__name__):
-                with self.assertRaises(core.BuilderError) as error:
-                    operation(self.root, draft)
-                self.assertEqual(error.exception.code, "browser_draft")
-                self.assertIn("same questionnaire", str(error.exception))
-                self.assertEqual(self.snapshot(), before)
-        path = self.parent / "browser-draft.json"
-        path.write_text(json.dumps(draft), encoding="utf-8")
-        result = subprocess.run([sys.executable, "-B", str(PACKAGE / "scripts" / "skill_builder.py"),
-                                 "import-answers", "--workspace", str(self.root), "--input", str(path)],
-                                capture_output=True, text=True, encoding="utf-8", timeout=10)
-        self.assertEqual(result.returncode, 2)
-        self.assertEqual(json.loads(result.stderr)["error"], "browser_draft")
-        self.assertEqual(self.snapshot(), before)
+    def test_question_update_cannot_change_an_explicit_run_mode(self):
+        data = core.status(self.root)["questionnaire"]
+        data["mode"] = "auto"
+        with self.assertRaises(core.BuilderError) as caught:
+            core.set_questions(self.root, data)
+        self.assertEqual(caught.exception.code, "mode_mismatch")
 
-    def test_delegate_same_live_request_is_idempotent_without_history_writes(self):
-        payload = self.payload()
-        first = core.request_ai(self.root, payload)
-        saved = self.snapshot()
-        second = core.request_ai(self.root, payload)
-        self.assertEqual(second, first)
-        self.assertEqual(self.snapshot(), saved)
-
-    def test_stale_foreign_and_malformed_requests_do_not_change_files(self):
-        self.partial()
-        valid = self.payload()
-        bad = [dict(valid, run_id="00000000-0000-0000-0000-000000000000"), dict(valid, project_id="another"),
-               dict(valid, revision=99), dict(valid, base_answer_revision=0), [], dict(valid, changes={})]
-        for operation in (core.request_ai, core.reset_answers):
-            for payload in bad:
-                with self.subTest(operation=operation.__name__, payload=payload):
-                    before = self.snapshot()
-                    with self.assertRaises(core.BuilderError):
-                        operation(self.root, payload)
-                    self.assertEqual(self.snapshot(), before)
-
-    def test_offline_delegate_imports_user_edits_once_and_requests_only_missing(self):
-        envelope = core.status(self.root)["answers"]
-        envelope["answers"]["q1"] = {"status": "answered", "actor": "user", "question_version": 1, "value": "no", "rationale": "Keep execution out"}
-        envelope["answers"]["q3"] = {"status": "deferred", "actor": "user", "question_version": 1, "rationale": "Need more options"}
-        request = {"action": "delegate_unanswered", "answers": envelope}
-        result = core.request_ai(self.root, request)
-        self.assertEqual(result["request"]["unanswered_question_ids"], ["q4"])
-        self.assertEqual(result["request"]["protected_question_ids"], ["q1", "q3"])
-        self.assertEqual(result["view"]["answers"]["answers"], envelope["answers"])
-        before = self.snapshot()
-        self.assertEqual(core.request_ai(self.root, request), result)
-        self.assertEqual(self.snapshot(), before)
-        core.answer_one(self.root, "q4", "Later user answer")
-        before = self.snapshot()
+    def test_missing_recommendation_stays_unanswered_and_ai_requires_reason(self):
+        data = core.status(self.root)["questionnaire"]
+        del data["questions"][0]["recommendation"]
+        core.set_questions(self.root, data)
+        view = core.recommend(self.root)
+        self.assertFalse(view["ready_to_build"])
+        self.assertNotIn("q1", view["answers"]["answers"])
         with self.assertRaises(core.BuilderError):
-            core.request_ai(self.root, request)
-        self.assertEqual(self.snapshot(), before)
+            core.answer_one(self.root, "q1", "no", actor="ai")
 
-    def test_invalid_offline_reset_delegate_is_atomic(self):
-        self.partial()
-        envelope = core.status(self.root)["answers"]
-        envelope["answers"] = {"q2": {"status": "answered", "actor": "user", "question_version": 1, "rationale": "", "value": "Parent is missing"}}
-        before = self.snapshot()
-        with self.assertRaisesRegex(core.BuilderError, "inactive or waiting"):
-            core.request_ai(self.root, {"action": "delegate_unanswered", "answers": envelope, "reset_all": True})
-        self.assertEqual(self.snapshot(), before)
+    def test_contextual_resolution_retains_original_text_and_rationale(self):
+        core.answer_one(self.root, "q1", "yes")
+        core.answer_one(self.root, "q2", ".")
+        view = core.resolve_input(self.root, "q2", "A lone dot does not specify an execution environment here.")
+        self.assertNotIn("q2", view["answers"]["answers"])
+        rejected = [x for x in view["answers"]["history"] if x["reason"] == "uninterpretable_input"]
+        self.assertEqual(rejected[0]["answer"]["value"], ".")
+        self.assertIn("environment", rejected[0]["rationale"])
+        self.assertIn("q2", core.recommend(self.root)["filled"])
 
-    def test_offline_foreign_stale_and_invalid_reset_history_leave_state_untouched(self):
-        self.partial()
-        original = {"action": "delegate_unanswered", "answers": core.status(self.root)["answers"], "reset_all": True}
-        invalid = []
-        for key, value in (("run_id", "00000000-0000-0000-0000-000000000000"), ("project_id", "another"), ("revision", 99), ("answer_revision", 0)):
-            item = copy.deepcopy(original)
-            item["answers"][key] = value
-            invalid.append(item)
-        item = copy.deepcopy(original)
-        item["reset_all"] = "true"
-        invalid.append(item)
-        item = copy.deepcopy(original)
-        item["answers"]["history"].append({"question_id": "not-a-question", "reason": "browser_reset_all", "answer": {}, "at": "now"})
-        invalid.append(item)
-        for request in invalid:
-            with self.subTest(request=request):
-                before = self.snapshot()
-                with self.assertRaises(core.BuilderError):
-                    core.request_ai(self.root, request)
-                self.assertEqual(self.snapshot(), before)
+    def test_short_meaningful_text_is_never_rejected_by_length(self):
+        core.answer_one(self.root, "q1", "yes")
+        for value in ("0", "없음", "No", "π", "使用しない"):
+            core.answer_one(self.root, "q2", value)
+            view = core.recommend(self.root)
+            self.assertEqual(view["answers"]["answers"]["q2"]["value"], value)
+            self.assertEqual(view["answers"]["answers"]["q2"]["actor"], "user")
 
-    def test_reset_archives_every_answer_and_deferral_without_changing_questions(self):
-        before = self.partial()
-        question_bytes = (self.root / "questions.json").read_bytes()
-        payload = self.payload()
-        result = core.reset_answers(self.root, payload)
-        self.assertEqual((self.root / "questions.json").read_bytes(), question_bytes)
-        self.assertEqual(result["answers"]["answers"], {})
-        self.assertEqual(result["answers"]["answer_revision"], before["answers"]["answer_revision"] + 1)
-        archived = {entry["question_id"]: entry["answer"] for entry in result["answers"]["history"] if entry["reason"] == "user_reset"}
-        self.assertEqual(archived, before["answers"]["answers"])
-        self.assertFalse((self.root / "ai-request.json").exists())
-        saved = self.snapshot()
-        self.assertEqual(core.reset_answers(self.root, payload), result)
-        self.assertEqual(core.reset_answers(self.root), result)
-        self.assertEqual(self.snapshot(), saved)
+    def test_contextual_resolution_cannot_discard_ordinary_options(self):
+        core.answer_one(self.root, "q1", "no")
+        with self.assertRaises(core.BuilderError):
+            core.resolve_input(self.root, "q1", "AI prefers the other option")
+        self.assertEqual(core.status(self.root)["answers"]["answers"]["q1"]["value"], "no")
 
-    def test_reset_preserves_prior_submission_and_invalidates_pending_request(self):
-        core.recommend(self.root)
-        core.submission(self.root, self.payload())
-        old = core.read_json(self.root / "submission.json")
-        requested = core.request_ai(self.root)
-        result = core.reset_answers(self.root)
-        self.assertEqual(core.read_json(self.root / "submission-history.json"), [old])
-        self.assertEqual(core.read_json(self.root / "submission.json")["event"], "answers_reset")
-        self.assertEqual(core.read_json(self.root / "ai-request.json"), requested["request"])
-        self.assertNotEqual(requested["request"]["answer_revision"], result["answers"]["answer_revision"])
+    def test_resolving_meaningless_other_preserves_valid_multi_selections(self):
+        core.answer_one(self.root, "q3", {"other": ".", "selected": ["note"]})
+        view = core.resolve_input(self.root, "q3", "The dot conveys no additional output request.")
+        self.assertEqual(view["answers"]["answers"]["q3"]["value"], ["note"])
+        self.assertEqual(view["answers"]["answers"]["q3"]["actor"], "user")
+        self.assertNotIn("q3", core.recommend(self.root)["filled"])
 
-    def test_offline_reset_keeps_browser_only_history_and_post_reset_answers(self):
-        self.partial()
-        envelope = core.status(self.root)["answers"]
-        snapshot = {"status": "answered", "actor": "user", "question_version": 1, "rationale": "Offline rationale", "value": "Browser-only answer"}
-        envelope["history"].append({"question_id": "q4", "answer": snapshot, "reason": "browser_reset_all", "at": "2026-11-14T00:00:00.000Z"})
-        envelope["answers"] = {"q1": {"status": "answered", "actor": "user", "question_version": 1, "rationale": "New deliberate choice", "value": "no"}}
-        request = {"action": "delegate_unanswered", "answers": envelope, "reset_all": True}
-        result = core.request_ai(self.root, request)
-        self.assertEqual(result["view"]["answers"]["answers"], envelope["answers"])
-        browser = [item for item in result["view"]["answers"]["history"] if item.get("source") == "offline_reset_export"]
-        self.assertEqual(len(browser), 1)
-        self.assertEqual(browser[0]["answer"], snapshot)
-        self.assertEqual(result["request"]["unanswered_question_ids"], ["q3", "q4"])
-        self.assertEqual(core.request_ai(self.root, request), result)
+    def test_custom_parent_waits_for_interpretation_without_discarding_text(self):
+        value = {"other": "Reproduce only after the runtime has been confirmed", "selected": []}
+        view = core.answer_one(self.root, "q1", value)
+        self.assertEqual(view["states"]["q2"], "waiting")
+        self.assertEqual(view["unresolved_branch_ids"], ["q1"])
+        self.assertFalse(core.recommend(self.root)["ready_to_build"])
+        view = core.interpret_answer(self.root, "q1", "yes", "The custom answer permits reproduction with a runtime prerequisite.")
+        self.assertEqual(view["states"]["q2"], "active")
+        self.assertEqual(view["answers"]["answers"]["q1"]["value"], value)
+        self.assertEqual(view["answers"]["answers"]["q1"]["actor"], "user")
+        self.assertTrue(core.recommend(self.root)["ready_to_build"])
 
-    def test_reset_wrapper_is_accepted_by_import_and_preserves_old_question_history(self):
-        envelope = core.status(self.root)["answers"]
-        snapshot = {"status": "answered", "actor": "user", "question_version": 1, "rationale": "", "value": "Old offline text"}
-        envelope["history"] = [{"question_id": "q4", "answer": snapshot, "reason": "browser_reset_all", "at": "2026-11-14T00:00:00Z"}]
-        first = core.import_answers(self.root, {"action": "reset_answers", "answers": envelope})
-        updated = copy.deepcopy(first["questionnaire"])
-        updated["questions"] = [q for q in updated["questions"] if q["id"] != "q4"]
-        changed = core.set_questions(self.root, updated)
-        second = core.import_answers(self.root, {"action": "reset_answers", "answers": changed["answers"]})
-        self.assertEqual(second["answers"]["history"], first["answers"]["history"])
+    def test_custom_parent_can_explicitly_match_no_existing_branch(self):
+        core.answer_one(self.root, "q1", {"other": "Only develop conceptual hypotheses", "selected": []})
+        view = core.interpret_answer(self.root, "q1", None, "This custom direction does not include code reproduction.")
+        self.assertEqual(view["states"]["q2"], "inactive")
 
-    def test_journal_recovers_request_and_import_together_after_interrupted_write(self):
-        envelope = core.status(self.root)["answers"]
-        envelope["answers"]["q1"] = {"status": "answered", "actor": "user", "question_version": 1, "rationale": "", "value": "no"}
-        request = {"action": "delegate_unanswered", "answers": envelope}
-        original = core.atomic_json
-        def interrupt(path, value):
-            if Path(path).name == "ai-request.json":
-                raise OSError("Simulated interruption before event write")
-            original(path, value)
-        with patch.object(core, "atomic_json", interrupt), self.assertRaises(OSError):
-            core.request_ai(self.root, request)
-        self.assertTrue((self.root / ".pending-state.json").exists())
-        view = core.status(self.root)
-        record = core.read_json(self.root / "ai-request.json")
-        self.assertEqual(view["answers"]["answers"], envelope["answers"])
-        self.assertEqual(record["answer_revision"], view["answers"]["answer_revision"])
-        self.assertFalse((self.root / ".pending-state.json").exists())
-        self.assertEqual(core.request_ai(self.root, request)["request"], record)
+    def test_brief_retains_custom_text_option_effects_and_branch_interpretation(self):
+        core.answer_one(self.root, "q1", {"other": "Conceptual study only", "selected": []})
+        core.interpret_answer(self.root, "q1", None, "No reproduction environment is needed.")
+        core.answer_one(self.root, "q3", {"other": "Also list open questions", "selected": ["note"]})
+        path = Path(core.build_brief(self.root)["path"])
+        body = path.read_text(encoding="utf-8")
+        self.assertIn("Custom direction: Also list open questions", body)
+        self.assertIn("Write research notes", body)
+        self.assertIn("Branch interpretation: null", body)
+        self.assertIn("No reproduction environment is needed.", body)
 
-    def test_http_reset_keeps_server_active_then_delegate_returns_host_event(self):
-        self.partial()
-        server = QuestionnaireServer(self.root)
-        thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True)
-        thread.start()
-        def post(route, payload):
-            conn = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=3)
-            conn.request("POST", route + "?token=" + server.token, json.dumps(payload), {"Content-Type": "application/json"})
-            response = conn.getresponse()
-            result = response.status, json.loads(response.read())
-            conn.close()
-            return result
-        try:
-            old_payload = self.payload()
-            self.assertEqual(post("/api/reset", old_payload)[0], 200)
-            self.assertTrue(thread.is_alive())
-            self.assertIsNone(server.final_event)
-            self.assertEqual(post("/api/delegate", old_payload)[0], 409)
-            code, response = post("/api/delegate", self.payload())
-            self.assertEqual((code, response["event"]), (200, "ai_requested"))
-            thread.join(3)
-            self.assertFalse(thread.is_alive())
-            self.assertEqual(server.final_event["scope"], "unanswered")
-            self.assertEqual(server.final_event["protected_question_ids"], [])
-        finally:
-            if thread.is_alive():
-                server.shutdown()
-            server.server_close()
+    def test_incomplete_multi_is_recorded_and_never_silently_replaced(self):
+        view = self.pending(["table"])
+        self.assertEqual(view["pending_input_ids"], ["q3"])
+        self.assertFalse(view["ready_to_build"])
+        view = core.recommend(self.root)
+        self.assertNotIn("q3", view["filled"])
+        self.assertEqual(view["answers"]["pending_inputs"]["q3"]["selected"], ["table"])
+        with self.assertRaises(core.BuilderError):
+            core.complete_input(self.root, "q3", ["chart", "note"], "Discarding table is not allowed")
+        view = core.complete_input(self.root, "q3", ["table", "note"], "Retain the table and add notes for context.")
+        answer = view["answers"]["answers"]["q3"]
+        self.assertEqual(answer["value"], ["table", "note"])
+        self.assertEqual(answer["user_selected"], ["table"])
+        self.assertEqual(view["pending_input_ids"], [])
 
-    def test_durable_handoff_survives_disconnected_response(self):
-        server = QuestionnaireServer(self.root)
-        thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True)
-        thread.start()
-        original = QuestionnaireHandler._send
-        def broken(handler, code, payload, *args, **kwargs):
-            if isinstance(payload, dict) and payload.get("event") == "ai_requested":
-                raise BrokenPipeError("Client disconnected")
-            return original(handler, code, payload, *args, **kwargs)
-        conn = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=3)
-        try:
-            with patch.object(QuestionnaireHandler, "_send", broken):
-                conn.request("POST", "/api/delegate?token=" + server.token, json.dumps(self.payload()), {"Content-Type": "application/json"})
-                with self.assertRaises(http.client.RemoteDisconnected):
-                    conn.getresponse()
-                thread.join(3)
-            self.assertFalse(thread.is_alive())
-            self.assertEqual(server.final_event["event"], "ai_requested")
-            self.assertTrue((self.root / "ai-request.json").is_file())
-        finally:
-            conn.close()
-            if thread.is_alive():
-                server.shutdown()
-            server.server_close()
+    def test_compatible_recommendation_completes_multi_and_records_human_portion(self):
+        self.pending(["chart"])
+        view = core.recommend(self.root)
+        self.assertEqual(view["answers"]["answers"]["q3"]["user_selected"], ["chart"])
+        self.assertTrue(view["ready_to_build"])
 
-    def test_cli_delegation_and_reset_export_commands(self):
-        self.partial()
-        script = PACKAGE / "scripts/skill_builder.py"
-        for command in ("delegate", "reset-answers"):
-            result = subprocess.run([sys.executable, "-B", str(script), command, "--workspace", str(self.root)],
-                                    capture_output=True, text=True, encoding="utf-8")
-            self.assertEqual(result.returncode, 0, result.stderr)
-            body = json.loads(result.stdout)
-            self.assertEqual(body.get("event"), "ai_requested" if command == "delegate" else None)
-        self.assertEqual(core.status(self.root)["answers"]["answers"], {})
-        path = self.parent / "delegate.json"
-        core.atomic_json(path, {"action": "delegate_unanswered", "answers": core.status(self.root)["answers"]})
-        result = subprocess.run([sys.executable, "-B", str(script), "delegate", "--workspace", str(self.root), "--input", str(path)],
-                                capture_output=True, text=True, encoding="utf-8")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(json.loads(result.stdout)["event"], "ai_requested")
+    def test_plain_ai_answer_cannot_bypass_partial_human_input_protection(self):
+        self.pending(["table"])
+        with self.assertRaises(core.BuilderError) as caught:
+            core.answer_one(self.root, "q3", ["chart", "note"], actor="ai", rationale="A different preferred combination")
+        self.assertEqual(caught.exception.code, "protected_input")
+        self.assertEqual(core.status(self.root)["answers"]["pending_inputs"]["q3"]["selected"], ["table"])
+
+    def test_question_revision_invalidates_partial_input(self):
+        self.pending(["table"])
+        data = core.status(self.root)["questionnaire"]
+        data["questions"][2]["options"][-1]["effect"] = "Produce a different table interpretation"
+        view = core.set_questions(self.root, data)
+        self.assertNotIn("q3", view["answers"].get("pending_inputs", {}))
+        self.assertTrue(any(x.get("pending_input", {}).get("selected") == ["table"] for x in view["answers"]["history"]))
+
+    def test_replacing_partial_input_keeps_the_previous_selection_in_history(self):
+        self.pending(["table"])
+        boot = self.boot()
+        boot["drafts"] = {"q3": {"selected": ["chart"], "other_enabled": False, "other_text": ""}}
+        view = core.import_answers(self.root, boot)
+        self.assertEqual(view["answers"]["pending_inputs"]["q3"]["selected"], ["chart"])
+        self.assertTrue(any(x.get("pending_input", {}).get("selected") == ["table"] for x in view["answers"]["history"]))
+
+    def test_parent_change_invalidates_partial_dependent_input(self):
+        self.pending(["table"], dependency=True)
+        view = core.answer_one(self.root, "q1", "no")
+        self.assertNotIn("q3", view["answers"].get("pending_inputs", {}))
+        self.assertEqual(view["states"]["q3"], "inactive")
+
+    def test_malformed_partial_selection_does_not_modify_state(self):
+        self.multi()
+        boot = self.boot()
+        boot["drafts"] = {"q3": {"selected": ["missing"], "other_enabled": False, "other_text": ""}}
+        before = core.status(self.root)["answers"]
+        with self.assertRaises(core.BuilderError):
+            core.import_answers(self.root, boot)
+        self.assertEqual(core.status(self.root)["answers"], before)
+
+    def test_blank_other_can_coexist_with_valid_multi_answer(self):
+        boot = self.boot()
+        boot["view"]["answers"]["answers"]["q3"] = {"status": "answered", "actor": "user", "question_version": 1, "value": ["note"], "rationale": ""}
+        boot["drafts"] = {"q3": {"selected": ["note"], "other_enabled": True, "other_text": ""}}
+        view = core.import_answers(self.root, boot)
+        self.assertEqual(view["answers"]["answers"]["q3"]["value"], ["note"])
+        self.assertEqual(view["pending_input_ids"], [])
+
+    def test_reset_retains_questions_and_archives_complete_and_partial_answers(self):
+        self.pending(["table"])
+        before = core.status(self.root)["questionnaire"]
+        view = core.reset_answers(self.root)
+        self.assertEqual(view["questionnaire"], before)
+        self.assertEqual(view["answers"]["answers"], {})
+        self.assertEqual(view["answers"].get("pending_inputs"), {})
+        self.assertTrue(any(x.get("pending_input") for x in view["answers"]["history"]))
+        self.assertEqual(core.reset_answers(self.root)["answers"], view["answers"])
+
+    def test_legacy_deferral_is_rejected_without_modifying_saved_files(self):
+        answers = core.read_json(self.root / "answers.json")
+        answers["answers"]["q1"] = {"status": "deferred", "actor": "user", "question_version": 1, "rationale": "Historical preference"}
+        core.atomic_json(self.root / "answers.json", answers)
+        before = (self.root / "answers.json").read_bytes()
+        with self.assertRaises(core.BuilderError) as caught:
+            core.status(self.root)
+        self.assertEqual(caught.exception.code, "unsupported_answer_status")
+        self.assertEqual((self.root / "answers.json").read_bytes(), before)
+
+    def conditional_custom_multi(self, *, partial=False):
+        data = core.status(self.root)["questionnaire"]
+        data["questions"][1]["when"] = [{"question_id": "q3", "includes": "note"}]
+        if partial:
+            data["questions"][2]["min_choices"] = 2
+            data["questions"][2]["recommendation"]["value"] = ["note", "chart"]
+        data["questions"].append({"id": "q4", "version": 1, "group_id": "scope", "type": "text",
+            "title": "Nested preference", "decision": "Nested behavior", "origin": "user", "source_ids": [],
+            "when": [{"question_id": "q2", "equals": "Keep my exact environment choice"}]})
+        core.set_questions(self.root, data)
+        core.answer_one(self.root, "q1", "no")
+        core.answer_one(self.root, "q3", {"other": ".", "selected": ["note"]})
+        core.answer_one(self.root, "q2", "Keep my exact environment choice")
+        core.answer_one(self.root, "q4", "Keep the nested human choice too")
+        return copy.deepcopy(core.status(self.root)["answers"]["answers"])
+
+    def test_interpreting_custom_multi_preserves_known_active_human_descendants(self):
+        before = self.conditional_custom_multi()
+        view = core.interpret_answer(self.root, "q3", ["note"], "The extra text adds no separate branch.")
+        self.assertEqual(view["answers"]["answers"]["q2"], before["q2"])
+        self.assertEqual(view["answers"]["answers"]["q4"], before["q4"])
+        self.assertNotIn("q2", core.recommend(self.root)["filled"])
+
+    def test_resolving_only_other_preserves_known_active_human_descendants(self):
+        before = self.conditional_custom_multi()
+        view = core.resolve_input(self.root, "q3", "The dot has no additional meaning in this output question.")
+        self.assertEqual(view["answers"]["answers"]["q3"]["value"], ["note"])
+        self.assertEqual(view["answers"]["answers"]["q2"], before["q2"])
+        self.assertEqual(view["answers"]["answers"]["q4"], before["q4"])
+
+    def test_resolve_to_pending_save_restore_and_ai_completion_preserve_explicit_branch(self):
+        before = self.conditional_custom_multi(partial=True)
+        view = core.resolve_input(self.root, "q3", "The dot is not an additional output preference.")
+        self.assertEqual(view["pending_input_ids"], ["q3"])
+        self.assertEqual(view["states"]["q2"], "active")
+        self.assertEqual(view["answers"]["answers"]["q2"], before["q2"])
+        boot = self.boot()
+        imported = core.import_answers(self.root, boot)
+        self.assertEqual(imported["answers"]["answers"]["q2"], before["q2"])
+        html = '<script id="skill-builder-data" type="application/json">' + json.dumps(boot).replace("<", "\\u003c") + '</script>'
+        file = self.parent / "pending.html"
+        file.write_text(html, encoding="utf-8")
+        restored = self.parent / "pending-restored"
+        snapshot = core.restore_html(restored, file)
+        self.assertEqual(snapshot["answers"]["answers"]["q2"], before["q2"])
+        for workspace in (self.root, restored):
+            completed = core.recommend(workspace)
+            self.assertTrue(completed["ready_to_build"])
+            self.assertEqual(completed["answers"]["answers"]["q2"], before["q2"])
+            self.assertEqual(completed["answers"]["answers"]["q4"], before["q4"])
+
+    def test_explicit_complete_input_preserves_human_child_on_known_selected_branch(self):
+        before = self.conditional_custom_multi(partial=True)
+        core.resolve_input(self.root, "q3", "The dot has no interpretable meaning.")
+        view = core.complete_input(self.root, "q3", ["note", "chart"], "Keep the selected note and add a chart.")
+        self.assertEqual(view["answers"]["answers"]["q2"], before["q2"])
+        self.assertEqual(view["answers"]["answers"]["q4"], before["q4"])
 
 
 if __name__ == "__main__":

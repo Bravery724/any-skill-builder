@@ -52,74 +52,10 @@ class RuntimeFixTests(unittest.TestCase):
         asset.write_bytes(b"")
         self.assertEqual(core.image_digest(asset), hashlib.sha256(b"").hexdigest())
 
-    def test_older_custom_locale_can_omit_new_optional_note_label(self):
-        messages = copy.deepcopy(core.locale_catalog()["en"])
-        messages.pop("defer_reason_label")
-        locale = core.resolve_locale({"language": "fr", "direction": "ltr", "messages": messages})
-        self.assertEqual(locale["messages"]["defer_reason_label"], "Reason for deferring (optional)")
-        messages["defer_reason_label"] = "Motif du report (facultatif)"
-        translated = core.resolve_locale({"language": "fr", "direction": "ltr", "messages": messages})
-        self.assertEqual(translated["messages"]["defer_reason_label"], "Motif du report (facultatif)")
 
-    def test_older_custom_locale_can_render_any_page_finish_controls(self):
-        added = {"delegate_selected", "delegation_note", "finish", "finish_missing", "finish_delegate",
-                 "continue_answering", "finish_live", "finish_offline", "ai_pending", "counts_delegated"}
-        messages = {key: value for key, value in core.locale_catalog()["en"].items() if key not in added}
-        self.fixture["locale"] = {"language": "fr", "direction": "ltr", "messages": messages}
-        core.set_questions(self.root, self.fixture)
-        rendered = core.render_html(self.root)
-        self.assertIn('id="finish"', rendered)
-        self.assertIn('id="finish-confirmation"', rendered)
-        resolved = core.resolve_locale(self.fixture["locale"])["messages"]
-        for key in added:
-            self.assertEqual(resolved[key], core.locale_catalog()["en"][key])
-        messages["finish"] = "Terminer"
-        self.assertEqual(core.resolve_locale(self.fixture["locale"])["messages"]["finish"], "Terminer")
 
-    def test_saved_custom_locale_can_omit_core_and_resume_guidance(self):
-        added = {"core_guidance", "resume_copy", "resume_copied", "resume_manual", "resume_message",
-                 "resume_offline_note", "resume_label"}
-        messages = {key: value for key, value in core.locale_catalog()["en"].items() if key not in added}
-        self.fixture["locale"] = {"language": "fr", "direction": "ltr", "messages": messages}
-        core.set_questions(self.root, self.fixture)
-        before = self.canonical_bytes()
-        core.render_html(self.root)
-        self.assertEqual(self.canonical_bytes(), before)
-        resolved = core.resolve_locale(self.fixture["locale"])["messages"]
-        for key in added:
-            self.assertEqual(resolved[key], core.locale_catalog()["en"][key])
-        self.assertFalse((self.root / "handoff.json").exists())
-        messages["core_guidance"] = "Votre avis est recommandé. Vous pouvez aussi déléguer ces choix."
-        self.assertEqual(core.resolve_locale(self.fixture["locale"])["messages"]["core_guidance"], messages["core_guidance"])
 
-    def test_saved_custom_locale_can_omit_browser_draft_messages(self):
-        added = {"draft_exported", "draft_imported", "invalid_draft", "ai_request_import_notice"}
-        messages = {key: value for key, value in core.locale_catalog()["en"].items() if key not in added}
-        self.fixture["locale"] = {"language": "fr", "direction": "ltr", "messages": messages}
-        core.set_questions(self.root, self.fixture)
-        before = self.canonical_bytes()
-        rendered = core.render_html(self.root)
-        self.assertIn("restore_draft", rendered)
-        self.assertEqual(self.canonical_bytes(), before)
-        resolved = core.resolve_locale(self.fixture["locale"])["messages"]
-        for key in added:
-            self.assertEqual(resolved[key], core.locale_catalog()["en"][key])
 
-    def test_saved_custom_locale_can_render_goal_summary_without_rewriting_records(self):
-        added = {"goal_label", "goal_expand", "goal_collapse"}
-        messages = {key: value for key, value in core.locale_catalog()["en"].items() if key not in added}
-        self.fixture["locale"] = {"language": "fr", "direction": "ltr", "messages": messages}
-        self.install_answered()
-        before = self.canonical_bytes()
-        rendered = core.render_html(self.root)
-        self.assertIn('id="goal-summary"', rendered)
-        self.assertIn('id="goal-label">Skill to build</p>', rendered)
-        self.assertEqual(self.canonical_bytes(), before)
-        translated = {"goal_label": "Compétence à créer", "goal_expand": "Afficher la demande complète", "goal_collapse": "Afficher moins"}
-        messages.update(translated)
-        resolved = core.resolve_locale(self.fixture["locale"])["messages"]
-        for key, value in translated.items():
-            self.assertEqual(resolved[key], value)
 
     def test_explicit_cosmetic_edit_preserves_answer_and_descendants(self):
         before = self.install_answered()
@@ -144,14 +80,14 @@ class RuntimeFixTests(unittest.TestCase):
                 "base_answer_revision": before["answers"]["answer_revision"], "changes": {},
             })
 
-    def test_cosmetic_edit_preserves_user_deferral(self):
+    def test_cosmetic_edit_preserves_custom_user_direction(self):
         core.set_questions(self.root, self.fixture)
-        before = core.answer_one(self.root, "workflow", defer=True, rationale="Need to discuss options")
+        before = core.answer_one(self.root, "workflow", {"other": "Draft only when evidence is sufficient", "selected": []})
         data = copy.deepcopy(before["questionnaire"])
         data["questions"][0]["title"] = "Which working style do you prefer?"
         result = core.set_questions(self.root, data, presentation_only=["workflow"])
         self.assertEqual(result["answers"]["answers"], before["answers"]["answers"])
-        self.assertEqual(result["counts"]["deferred"], 1)
+        self.assertEqual(result["counts"]["answered"], 1)
         self.assertFalse(result["ready_to_build"])
 
     def test_cosmetic_update_coexists_with_semantic_change_elsewhere(self):

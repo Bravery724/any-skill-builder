@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "project_id": "weekly-update-example",
+  "revision": 1,
+  "goal": "Create a weekly team-update skill from supplied project notes",
+  "mode": "questionnaire",
+  "locale": {
+    "language": "en",
+    "direction": "ltr"
+  },
+  "groups": [
+    {
+      "id": "readers",
+      "label": "Readers and evidence"
+    },
+    {
+      "id": "gaps",
+      "label": "Incomplete notes"
+    }
+  ],
+  "sources": [
+    {
+      "id": "gitlab-communication",
+      "title": "GitLab Communication handbook",
+      "url": "https://handbook.gitlab.com/handbook/communication/",
+      "kind": "professional-handbook",
+      "status": "partial",
+      "accessed_at": "2026-11-14",
+      "notes": "Read the asynchronous communication, internal communication, and issue cross-linking guidance. It supports giving readers explicit context and meaningful link descriptions; our defaults remain design inferences, not demonstrated performance results."
+    }
+  ],
+  "questions": [
+    {
+      "id": "readers",
+      "version": 1,
+      "group_id": "readers",
+      "type": "single",
+      "title": "Who needs to understand the update without attending the project meetings?",
+      "help": "The audience changes how much context belongs beside each change.",
+      "decision": "How much shared project knowledge the generated skill may assume",
+      "origin": "inference",
+      "source_ids": [
+        "gitlab-communication"
+      ],
+      "options": [
+        {
+          "id": "team",
+          "label": "The immediate project team",
+          "effect": "Keep context short when the notes establish shared terminology"
+        },
+        {
+          "id": "cross-functional",
+          "label": "Teammates and cross-functional partners",
+          "effect": "Explain unfamiliar project terms and connect changes with their supported consequence"
+        }
+      ],
+      "recommendation": {
+        "value": "cross-functional",
+        "rationale": "The example is intended to remain useful to people outside the project meetings.",
+        "assumptions": [
+          "Recipients are authorized to read the supplied material"
+        ]
+      },
+      "when": []
+    },
+    {
+      "id": "evidence",
+      "version": 1,
+      "group_id": "readers",
+      "type": "single",
+      "title": "Where should supplied evidence links appear?",
+      "decision": "How readers trace claims back to their supplied sources",
+      "origin": "inference",
+      "source_ids": [
+        "gitlab-communication"
+      ],
+      "options": [
+        {
+          "id": "inline",
+          "label": "Beside the relevant claim",
+          "effect": "Place descriptive source links next to the claims they support"
+        },
+        {
+          "id": "end",
+          "label": "In a short source list after the update",
+          "effect": "Group source links after the prose while keeping each claim-to-source relationship identifiable"
+        }
+      ],
+      "recommendation": {
+        "value": "inline",
+        "rationale": "Readers can check a significant statement without searching a separate list.",
+        "assumptions": [
+          "The notes contain shareable source links when links are needed"
+        ]
+      },
+      "when": []
+    },
+    {
+      "id": "missing-information",
+      "version": 1,
+      "group_id": "gaps",
+      "type": "single",
+      "title": "What should happen when the notes leave a material gap?",
+      "help": "A missing owner, unconfirmed date, or conflicting release status can change the meaning of the update.",
+      "decision": "Whether unresolved information delays drafting or stays visible in a useful draft",
+      "origin": "proposal",
+      "source_ids": [],
+      "options": [
+        {
+          "id": "draft-gaps",
+          "label": "Draft now and mark what is uncertain",
+          "effect": "Produce a draft with explicit gaps and focused follow-up where needed"
+        },
+        {
+          "id": "clarify-first",
+          "label": "Resolve material gaps before the final draft",
+          "effect": "Ask for the defined missing facts before producing the final draft"
+        }
+      ],
+      "recommendation": {
+        "value": "draft-gaps",
+        "rationale": "A reviewable draft remains useful when uncertainty is visible and no commitments are invented.",
+        "assumptions": [
+          "The draft is reviewed before external publication"
+        ]
+      },
+      "when": []
+    },
+    {
+      "id": "clarification-trigger",
+      "version": 1,
+      "group_id": "gaps",
+      "type": "text",
+      "title": "Which missing facts must be resolved before drafting?",
+      "help": "This is only needed for the clarification-first workflow.",
+      "decision": "Which gaps block the final draft rather than remain explicitly uncertain",
+      "origin": "proposal",
+      "source_ids": [],
+      "recommendation": {
+        "value": "Resolve contradictory release status, unconfirmed commitments, and unclear ownership of an urgent request.",
+        "rationale": "These details can change what the update asks someone to believe or do.",
+        "assumptions": [
+          "Minor wording gaps do not block drafting"
+        ]
+      },
+      "when": [
+        {
+          "question_id": "missing-information",
+          "equals": "clarify-first"
+        }
+      ]
+    }
+  ]
+}
