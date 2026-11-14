@@ -3,6 +3,7 @@
 ## 0.2.0 — 2026-11-14
 
 - Publish installation and release links, add an explicit Skills CLI installation path, and retain the dependency-free Python installer.
+- Resolve the hosted CI temporary directory at step scope, where the runner context is available.
 - Include user-facing usage guides with newly generated skills, add brief help for otherwise empty invocations, and clarify the builder's own picker description.
 - Complete download, installation, update, rollback, and removal guidance with explicit host requirements and publication checks.
 - Preserve incomplete multi-select choices in browser recovery files and explain how to return AI request files to the host.

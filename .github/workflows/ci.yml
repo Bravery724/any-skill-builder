@@ -24,7 +24,6 @@ jobs:
     env:
       PYTHONDONTWRITEBYTECODE: '1'
       PYTHONUTF8: '1'
-      SKILL_BUILDER_TEST_TMPDIR: ${{ runner.temp }}/skill-builder-tests
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -37,6 +36,8 @@ jobs:
           node-version: '24'
           package-manager-cache: false
       - name: Run Python checks
+        env:
+          SKILL_BUILDER_TEST_TMPDIR: ${{ runner.temp }}
         run: python -B -m unittest discover -s tests -p "test_*.py"
       - name: Run form state and composition checks
         run: node --test tests/test_form.mjs tests/test_form_notes.mjs tests/test_form_actions.mjs
