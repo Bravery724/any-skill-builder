@@ -39,11 +39,11 @@ Choose your host when prompted. Add `-g` for a shared installation. Keep `--skil
 
 ### Install with Python
 
-1. Download `any-skill-builder-0.3.0-source.zip` from [Releases](https://github.com/Bravery724/any-skill-builder/releases) and extract it.
+1. Download `any-skill-builder-0.4.0-source.zip` from [Releases](https://github.com/Bravery724/any-skill-builder/releases) and extract it.
 2. Enter the extracted source folder containing `README.md` and `tools/`, then run:
 
    ```sh
-   cd any-skill-builder-0.3.0-source
+   cd any-skill-builder-0.4.0-source
    python -B tools/install_skill.py --dest "~/.agents/skills"
    ```
 
@@ -56,7 +56,7 @@ The agent should show its stage, research the topic, resolve useful design choic
 
 For the smaller runtime ZIP, host paths, troubleshooting, safe updates, rollback, and removal, see [installation](docs/installation.md). The runtime ZIP contains the skill; the source ZIP adds tests, examples, and the installer.
 
-**Host evidence has a version boundary.** Supervised Claude Code CLI and Antigravity CLI questionnaire-to-skill runs were recorded for v0.2.3. They are [historical evidence](docs/host-validation.md), not verification of the redesigned v0.3.0 workflow or either IDE extension. See the [current offline validation](docs/offline-validation.md), [two recorded workflow examples](examples/offline-workflows/README.md), and CI for the checks actually run.
+**Host evidence has a version boundary.** Supervised Claude Code CLI and Antigravity CLI questionnaire-to-skill runs were recorded for v0.2.3. They are [historical evidence](docs/host-validation.md), not verification of later workflows or either IDE extension. See the [v0.3.0 offline validation](docs/offline-validation.md), [two recorded workflow examples](examples/offline-workflows/README.md), and CI for the checks actually run.
 
 ## Example requests
 
@@ -184,13 +184,35 @@ The host reviews the imported answers and authors recommendations before running
 
 Check three different things: helper correctness, question quality, and the created skill's real task behavior. Tests of the first do not prove the other two. The [evaluation helper](any-skill-builder/references/evaluation.md) checks existing artifacts, aggregates evidence-backed reviews, and compares runs only when recorded conditions match. It does not execute a model, invent review results, or optimize descriptions automatically.
 
+The [execution and improvement loop](any-skill-builder/references/evaluation-loop.md) makes the last stage concrete:
+
+1. Plan representative tasks and meaningful checks before inspecting their outputs. Preserve the skill and inputs for each iteration.
+2. Have an executor use the skill with only the real task and input. Use a separate reviewer where available; label author review honestly when it is the only option.
+3. Review both the outputs and the checks: could a wrong answer pass, is a key outcome missing, or is a claim unsupported?
+4. Correct supported failures and run the affected tasks again in a new iteration. Compare against no skill or the preserved old version when that comparison matters.
+5. Inspect actual execution records for repeated operations. Extract a reusable helper only when the observed repetition justifies it, then test the helper and rerun the affected skill tasks.
+
+Python prepares snapshots, task packets, and pending records; the host performs the actual model work and judgments. Earlier results remain available. Missing evidence stays untested, and weak-check findings remain visible even when individual assertions pass. The loop uses ordinary files and Markdown reports: Full Auto still creates no HTML, and Questionnaire still resumes from saved answers without a server or another approval round. A tie or insufficient evidence is an acceptable comparison result.
+
+To prepare the public example's two task cases in a fresh directory:
+
+```sh
+python -B any-skill-builder/scripts/prepare_evaluation.py --plan examples/evaluation-plan.json --skill examples/complete/weekly-team-update --out ../builder-runs/update-evaluation/iteration-1
+```
+
+This creates pending work, not test results. Give the reported executor packets to your host; record actual outputs and reviews before running `evaluate_skill.py`. See the [record format](any-skill-builder/references/evaluation.md) for evidence and review fields.
+
+The [v0.4.0 validation notes](docs/evaluation-validation.md) distinguish mechanical checks, actual host execution, and untested comparisons. A [recorded two-iteration example](examples/evaluation-loop/README.md) shows passing outputs whose evaluation still needed correction, followed by a fresh rerun.
+
 | Tool | Emphasis |
 | --- | --- |
-| Any Skill Builder | Subject research, meaningful conditional questions, automatic or saved-file decisions, and implementation traced to those decisions |
+| Any Skill Builder | Subject research, meaningful conditional questions, automatic or saved-file decisions, and evidence-backed execution and revision traced to those decisions |
 | [Anthropic skill-creator](https://github.com/anthropics/skills/tree/main/skills/skill-creator) | Skill iteration with evaluation workflows, benchmark aggregation, and description/trigger improvement tools |
 | [writing-skills](https://github.com/obra/superpowers/tree/main/skills/writing-skills) | Testing instructions through baseline failures, application, and behavioral rechecks |
 
 These approaches can complement each other. Research and evaluation are not exclusive to this project, and no benchmark superiority is claimed.
+
+The v0.4.0 additions adapt evaluation-process ideas from the linked Anthropic skill-creator through original implementation. No Anthropic source files are bundled.
 
 ## Check and package
 

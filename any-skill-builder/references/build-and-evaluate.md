@@ -4,6 +4,8 @@ Only build the final package after current applicable design choices are resolve
 
 Before implementation, give a concise conversational summary of the main AI-selected directions, their reasons, and remaining assumptions. Use the latest valid answers and preserve explicit user decisions. This update explains the build plan without adding a blanket approval step. Carry facts needed only at execution into the generated skill's runtime inputs; do not turn unknown accounts, equipment, or private resources into assumed facts.
 
+At this planning stage, declare the evaluation tasks, actual inputs, and meaningful success criteria using [evaluation-loop.md](evaluation-loop.md). Keep criteria separate from the executor's task packet. If improving an existing skill, preserve its original runtime before editing so later comparisons can use the actual old version.
+
 ## Design the smallest adequate package
 
 Use `RUN/output/<skill-name>/`. Name the folder and skill consistently with lowercase letters, digits, and hyphens. The required `SKILL.md` has YAML `name` and `description` followed by instructions. Its description must explain the actual capability and when it applies.
@@ -82,15 +84,9 @@ Record actual current decisions and files. Inactive questions and obsolete candi
 
 Run `check-skill --path PATH` for supported structural checks. If the host has an official skill validator, use it as well where appropriate. Neither check proves task quality. Do not report a packaging pass as a behavioral pass.
 
-Prepare representative cases proportional to the work:
-
-- A normal case demonstrating the user's primary desired outcome.
-- A relevant edge/failure case such as insufficient source material, contradictory inputs, inaccessible data, or unavailable tools.
-- For a material design choice, an alternative answer or scenario that demonstrates the intended difference.
-
 Exercise generated helpers with meaningful inputs and inspect their actual output. Verify that the skill can locate referenced files and uses tools available in the target environment. Do not run untrusted source code or external mutations merely because a source or generated skill suggests them; keep testing within the user's authorized scope.
 
-For a complex new skill, an independent forward test is valuable. Give another agent the created skill, realistic request, and minimal raw inputs. Avoid telling the evaluator the intended answer or suspected flaw unless necessary. The evaluator should use the skill and return the result and observed problems. Inspect the result and make supported corrections. Use a separate evaluation folder so test outputs cannot contaminate final deliverables.
+Run the declared cases and review their actual results through [evaluation-loop.md](evaluation-loop.md). It defines the executor and evaluator handoffs, critique of weak evaluation criteria, justified correction and rerun, and inspection of repeated work for reusable helpers. Keep evaluation folders separate from the deliverable. The host performs model execution and judgment; the Python helpers prepare and validate records.
 
 For subjective outputs such as design or writing, inspect fitness to the goal, faithful use of user preferences, and useful alternatives; a syntax checker cannot do that. For research, distinguish inspected evidence, inference, and new hypotheses, and verify citations against actual accessed sources.
 

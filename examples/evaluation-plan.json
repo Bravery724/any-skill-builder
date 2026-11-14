@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "name": "Weekly update task evaluation",
+  "cases": [
+    {
+      "id": "routine",
+      "prompt": "Write the weekly update requested in the supplied raw project notes. Return the update itself.",
+      "input_files": [
+        "complete/inputs/routine.md"
+      ],
+      "checks": [
+        {
+          "id": "issue-link-preserved",
+          "category": "mechanics",
+          "kind": "contains",
+          "artifact": "output",
+          "text": "https://example.invalid/atlas/issues/214"
+        },
+        {
+          "id": "measured-scope",
+          "category": "skill_output",
+          "kind": "review",
+          "criterion": "The 12 passing staging fixtures are not presented as a production reliability improvement."
+        },
+        {
+          "id": "no-invented-commitment",
+          "category": "skill_output",
+          "kind": "review",
+          "criterion": "The draft keeps production approval pending, identifies the access gap, and invents no owner or due date.",
+          "question_ids": [
+            "missing-information"
+          ]
+        },
+        {
+          "id": "reader-context",
+          "category": "skill_output",
+          "kind": "review",
+          "criterion": "A cross-functional reader can understand the changes and the specific request for help without decoding a list of unexplained labels.",
+          "question_ids": [
+            "readers",
+            "evidence"
+          ]
+        },
+        {
+          "id": "onboarding-work-preserved",
+          "category": "skill_output",
+          "kind": "review",
+          "criterion": "The update retains the completed onboarding checklist draft, Support's two clarification requests, and Luis's planned revision without inventing a due date."
+        }
+      ]
+    },
+    {
+      "id": "conflicting",
+      "prompt": "Write the weekly update requested in the supplied raw project notes. Return the update itself.",
+      "input_files": [
+        "complete/inputs/conflicting.md"
+      ],
+      "checks": [
+        {
+          "id": "issue-link-preserved",
+          "category": "mechanics",
+          "kind": "contains",
+          "artifact": "output",
+          "text": "https://example.invalid/atlas/issues/301"
+        },
+        {
+          "id": "conflict-visible",
+          "category": "skill_output",
+          "kind": "review",
+          "criterion": "The draft explicitly preserves conflicting release status and does not silently select one note as authoritative.",
+          "question_ids": [
+            "missing-information"
+          ]
+        },
+        {
+          "id": "tentative-date",
+          "category": "skill_output",
+          "kind": "review",
+          "criterion": "Wednesday remains an unconfirmed proposal; no release owner or measured benefit is invented."
+        },
+        {
+          "id": "completed-ui-work-preserved",
+          "category": "skill_output",
+          "kind": "review",
+          "criterion": "The update retains the completed export progress indicator and does not turn it into a measured user benefit."
+        }
+      ]
+    }
+  ]
+}

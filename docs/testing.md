@@ -54,4 +54,8 @@ The [complete public example](../examples/complete/README.md) includes recorded 
 
 Review useful decision coverage and answer-to-behavior mapping as well as final prose. The [evaluation helper](../any-skill-builder/references/evaluation.md) records artifact hashes and explicit untested results; it does not replace actually running tasks or reviewing judgment.
 
+For the [execution loop](../any-skill-builder/references/evaluation-loop.md), test iteration preparation from outside the source directory, preserved skill/input snapshots, pending records, and refusal to reuse an existing destination. Executor packets must not disclose grading checks or expected answers. Check execution-provenance records, evidence-backed critiques, repeated-operation observations, and helper-validation references; missing reviews must not become passing results. Existing schema-1 examples without optional loop records must reproduce their historical reports unchanged.
+
+Exercise a realistic host task separately from these unit checks. Keep the author, executor, and reviewer roles explicit, preserve actual outputs, and record why any correction or helper extraction was warranted. A synthetic fixture proves record handling, not independent model performance.
+
 The CI matrix covers Ubuntu/Windows, Python 3.10/3.13, and Node 24. A configured job is not a passed check until it runs. Inspect current commit results and state untested environments honestly.

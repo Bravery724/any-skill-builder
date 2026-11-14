@@ -2,6 +2,8 @@
 
 Use this guide after drafting a questionnaire or creating a skill. Evaluate the actual decisions and task results, not the number of files or questions. Keep evaluation records in the run directory, outside the installed skill. The host produces outputs and reviews them; `scripts/evaluate_skill.py` checks saved evidence and assembles a reproducible report. It does not call a model, launch another skill, execute commands from a manifest, or certify overall quality.
 
+Use [evaluation-loop.md](evaluation-loop.md) to plan cases before implementation and conduct actual execution, separate review, evaluation-quality critique, correction, and rerun. This reference defines the saved evidence format and reporting behavior.
+
 ## Choose useful cases
 
 Separate three kinds of evidence:
@@ -103,6 +105,37 @@ The quoted passage above is illustrative. Use only a passage present in the actu
 
 Use `status: "not_run"` with a reason for an unperformed review. Missing reviews remain untested. Invalid references or fabricated quotations are rejected rather than converted into passing evidence. Include failed judgments and corrections; a report should explain what still needs attention.
 
+## Execution, evaluation critique, and reuse records
+
+The following fields extend schema version 1 without changing older manifests. Use them for the prepared evaluation loop in [evaluation-loop.md](evaluation-loop.md). Older manifests that omit them retain their existing report format and do not retroactively acquire evidence of independent review.
+
+A completed case may add `execution` with `executor`, `relationship`, and `transcript`. The transcript value names a registered entry in that case's `artifacts` map. Save an actual execution record before referencing it. The relationship is `independent`, `self`, or `unknown`: for execution, independent means a fresh context separate from the skill author; self means the author's context. Names alone do not establish independence.
+
+The same case may add `eval_feedback`:
+
+| State | Fields |
+| --- | --- |
+| Not inspected | `status: "not_run"`, `reason` |
+| Inspected | `status: "completed"`, `reviewer`, `relationship`, `summary`, `findings` |
+
+For feedback, `independent` means separate from both the author and executor; `self` means the author or executor reviewed the results; `unknown` means that relationship is unavailable. Record the actual relationship rather than copying the preferred label from a task packet.
+
+Each finding contains `kind` (`weak_check`, `missing_check`, or `unsupported_claim`), a specific `reason`, and nonempty `evidence` using the existing artifact-plus-quote or artifact-plus-note format. An optional `check_id` must refer to a check in that case. Findings describe unresolved issues in that iteration; do not erase them after a later fix. An empty findings array requires an actual completed review and summary. It means no material issue was found in that review's scope, not that the criteria are universally sufficient.
+
+At the manifest root, `reuse_review` records inspection of repeated operations. It is either `{ "status": "not_run", "reason": "..." }` or a completed record containing `reviewer`, `relationship`, `summary`, `inspected_runs`, and `items`. Use actual run IDs in `inspected_runs`; each must include a completed case. Empty `items` is valid when the completed inspection found no useful reusable operation.
+
+Each reuse item has:
+
+- `id`, `operation`, `decision` (`extract` or `keep_inline`), and `reason`.
+- `occurrences`: evidence from at least two distinct completed `(run_id, case_id)` pairs. Each entry names `run_id`, `case_id`, and a registered `artifact`, with either an exact `quote` or an inspection `note`.
+- For `extract`, `helper`: the `run_id`, `case_id`, and registered `artifact` of the actual helper, plus a nonempty `validation` list of references containing `run_id`, `case_id`, and `check_id`. Every referenced check must have actually passed.
+
+Use `keep_inline` when the observed operation should remain task-specific. If inspection or verification has not occurred, use a pending review and preserve the prospective decision in revision notes rather than recording a completed extraction. After extraction, prepare a new candidate iteration, execute genuine affected cases, and cite that iteration's observed helper use and integration checks. Earlier discovery records remain in the previous iteration. The minimum structural evidence does not prove that the helper was useful or integrated correctly; the reviewer must inspect the operation and relevant results.
+
+`prepare_evaluation.py` also writes root-level `snapshots`: each snapshot has an `id` and `files` entries containing a relative `path` and SHA-256 value in `sha256`. The evaluator verifies these bytes and protects them from report overwrite. Treat snapshots as frozen execution inputs; revise the working skill and prepare a new iteration instead of editing an old snapshot.
+
+The extended report separates its `workflow` summary from ordinary output checks. `workflow.disposition` is `needs_attention` when the evaluation critique reports issues, `incomplete` when recorded reviews remain unperformed or a completed case lacks its execution record, or `reviewed` when the recorded review work is complete. `pending_execution_records` counts missing provenance separately from `pending_reviews`. `reviewed` is not a claim of successful outputs or independently authenticated execution. Read both the ordinary results and workflow findings. CLI failure or incomplete status includes the workflow disposition; a legacy manifest remains governed by its original checks.
+
 ## Run and compare
 
 From the repository root, for a run stored in a sibling directory:
@@ -113,7 +146,7 @@ python -B any-skill-builder/scripts/evaluate_skill.py --manifest ../runs/example
 
 From an installed skill, resolve `scripts/evaluate_skill.py` relative to its `SKILL.md`. The default reports are `evaluation-report.json` and `evaluation-report.md` beside the manifest. Use `--out PATH_PREFIX` for another prefix inside that evaluation directory. An existing different report requires `--overwrite`; input files, artifacts, and the manifest can never be overwritten by report generation.
 
-Exit codes: `0` means all recorded checks passed; `1` means at least one check failed, including a baseline failure; `2` means invalid records or a file error prevented evaluation; `3` means checks remain untested and none failed. Reports still contain failures and untested checks. A deliberate baseline failure is evidence to inspect, not a broken evaluator.
+Exit codes: `0` means all recorded checks passed and any recorded workflow reviews are complete without open findings; `1` means at least one check failed, including a baseline failure, or an evaluation critique has unresolved findings; `2` means invalid records or a file error prevented evaluation; `3` means checks or requested workflow reviews remain unperformed and there are no failures or open findings. Reports retain failures and pending work. A deliberate baseline failure is evidence to inspect, not a broken evaluator. An earlier iteration keeps its findings even when a later iteration records a successful correction.
 
 For a comparison, run the same shared case requests and inputs with and without the skill. Record the actual available model, reasoning effort, tools, and assigned budget in both run contexts. The helper reports `not comparable` if those fields are unknown or differ. It compares only check pairs exercised in both runs; missing reviews and unrun cases never count as wins. It reports changed assertion outcomes, not a general quality score or statistical claim. Inspect both outputs, preferably without revealing which version produced them to the reviewer.
 

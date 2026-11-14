@@ -8,9 +8,9 @@ Open [GitHub Releases](https://github.com/Bravery724/any-skill-builder/releases)
 
 | File | Use |
 | --- | --- |
-| `any-skill-builder-0.3.0-source.zip` | Recommended for the verified installer; includes tests, examples, and maintainer tools |
-| `any-skill-builder-0.3.0.zip` | Smaller runtime for manual installation; contains `any-skill-builder/` and all its resources |
-| `any-skill-builder-0.3.0-manifest.json` | File sizes and SHA-256 hashes for release verification |
+| `any-skill-builder-0.4.0-source.zip` | Recommended for the verified installer; includes tests, examples, and maintainer tools |
+| `any-skill-builder-0.4.0.zip` | Smaller runtime for manual installation; contains `any-skill-builder/` and all its resources |
+| `any-skill-builder-0.4.0-manifest.json` | File sizes and SHA-256 hashes for release verification |
 
 You can also use **Code → Download ZIP** or clone [the repository](https://github.com/Bravery724/any-skill-builder). That download is source, not the runtime-only ZIP. Extract it into a normal working directory with enough space, outside the host's skills directory and existing questionnaire runs.
 
@@ -33,7 +33,7 @@ npx skills add Bravery724/any-skill-builder --skill any-skill-builder --agent co
 The default source follows the repository's default branch. To install the published release instead:
 
 ```sh
-npx skills add Bravery724/any-skill-builder@v0.3.0 --skill any-skill-builder
+npx skills add Bravery724/any-skill-builder@v0.4.0 --skill any-skill-builder
 ```
 
 Keep the explicit skill name: this repository also contains generated example skills. Add `-g` only if you want a global installation. The CLI chooses paths according to its supported hosts; confirm the reported path and refresh the host before using the skill. Installing files does not certify another host's behavior.
@@ -42,12 +42,12 @@ The CLI has its own update and removal commands; see its [command reference](htt
 
 ## Install from source
 
-The source root is the extracted directory containing `README.md`, `tools/`, and `any-skill-builder/`. The named source release creates `any-skill-builder-0.3.0-source/`; a GitHub source download uses the repository/branch name instead.
+The source root is the extracted directory containing `README.md`, `tools/`, and `any-skill-builder/`. The named source release creates `any-skill-builder-0.4.0-source/`; a GitHub source download uses the repository/branch name instead.
 
 Open a terminal in its parent folder. For the named source release, these commands work in PowerShell and common POSIX shells. If the terminal already opens inside the source root, omit the `cd` line:
 
 ```sh
-cd any-skill-builder-0.3.0-source
+cd any-skill-builder-0.4.0-source
 python -B tools/install_skill.py --dest "~/.agents/skills"
 ```
 
@@ -115,6 +115,8 @@ Use this procedure for a source-installer installation or a manually copied runt
 6. Check the installed `VERSION`, run the structural check, refresh the host, and invoke the skill. To resume a project, give the host its existing run directory; do not call `init` for it again.
 
 Use Explorer, Finder, or your file manager for the folder move and replacement, checking exact paths before each operation. Updating the skill does not rewrite old HTML or migrate saved runs automatically. v0.3.0 replaces the previous connection and answer-handoff formats. Keep legacy files intact; inspect them and migrate meaningful decisions explicitly into a new run if the current helper rejects their format. Never erase unresolved intent merely to make an old file importable. For a compatible current run, rerender only after preserving any unsaved browser answers.
+
+v0.4.0 keeps the v0.3.0 questionnaire and saved-HTML formats. Its evaluation-loop records are optional extensions: existing evaluation manifests without those fields keep their previous report behavior. Prepare new iterations rather than rewriting earlier evidence.
 
 ### Roll back a failed update
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0 — 2026-11-15
+
+- Make execution, separate assessment, correction, and re-execution a concrete part of the existing seven-stage build workflow.
+- Prepare isolated evaluation iterations with skill/input snapshots, executor and reviewer packets, and pending records; the host still runs tasks and makes judgments.
+- Record execution provenance and critique weak checks, missing outcomes, and unsupported claims alongside evidence-backed results.
+- Review repeated operations across actual execution records before extracting reusable helpers, and retain the validation of extracted code.
+- Preserve Full Auto without HTML, saved-HTML Questionnaire continuation, and existing evaluation reports when the new optional records are absent.
+- Update usage and release documentation for the original implementation inspired by Anthropic's evaluation workflow.
+
 ## 0.3.0 — 2026-11-15
 
 - Offer two creation workflows: Full Auto completes researched decisions without generating HTML; Questionnaire exports an editable standalone form and resumes from its saved HTML.

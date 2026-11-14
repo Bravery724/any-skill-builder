@@ -47,6 +47,10 @@ To request only a questionnaire, say so. The agent stops after delivering it and
 
 A completed build includes the reusable skill, a concise usage guide, a starting request, and the checks and limits actually observed. Source files default to English; questions, chat, and task outputs follow your language unless you request otherwise.
 
+Before testing, the agent records suitable tasks and what a useful result must demonstrate. It then runs the skill, asks a separate evaluator to inspect the results when the host supports one, corrects observed problems, and reruns affected cases. The evaluator also looks for weak checks that could pass an incorrect result. Self-review and unperformed checks are identified honestly.
+
+If several actual tasks recreate the same useful operation, the agent considers adding a shared helper and tests its integration. This does not add code merely to make the package larger. Full Auto continues without HTML or mandatory feedback rounds; Questionnaire still waits only for your saved answers and continuation.
+
 For complex builds, consider a capable reasoning model and a higher reasoning-effort setting in your host. This can help with research and difficult decisions, but is not a guarantee or a measured success-rate claim for this builder. Reliable sources, useful examples, and actual tests still matter. The skill does not silently change your model, provider, or effort.
 
 The host must support local file access and Python 3.10 or newer. Research and image candidates use its available tools; no separate model API key is required. See the [host-specific installation guide](https://github.com/Bravery724/any-skill-builder/blob/main/docs/installation.md#claude-code-and-antigravity).

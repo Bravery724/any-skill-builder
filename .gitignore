@@ -37,4 +37,12 @@ coverage/
 /progress.json
 /.pending-state.json
 /.builder.lock
+/evaluation.json
+/evaluation-report.json
+/evaluation-report.md
+/plan.json
+/snapshots/
+/tasks/
+/results/
+/iteration-*/
 *.log

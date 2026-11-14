@@ -168,7 +168,7 @@ python -B SCRIPT brief --workspace RUN
 python -B SCRIPT check-skill --path CREATED_SKILL_DIRECTORY
 ```
 
-Create the skill under `RUN/output/`, with its usage guide and useful resources. Follow [build-and-evaluate.md](build-and-evaluate.md) for actual behavior checks. Structural success alone does not prove the skill works.
+During stage 5, declare realistic evaluation cases and criteria before implementation. Create the skill under `RUN/output/`, with its usage guide and useful resources. During stage 7, use the execution, separate review, correction, and rerun procedure in [evaluation-loop.md](evaluation-loop.md). Inspect observed repeated operations before deciding whether to extract a reusable helper. Follow [build-and-evaluate.md](build-and-evaluate.md) for packaging and delivery. Structural success alone does not prove the skill works.
 
 ## Files from earlier releases
 

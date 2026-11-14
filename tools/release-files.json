@@ -17,7 +17,9 @@
     "any-skill-builder/references/workflow.md",
     "any-skill-builder/scripts/builder_core.py",
     "any-skill-builder/scripts/evaluate_skill.py",
-    "any-skill-builder/scripts/skill_builder.py"
+    "any-skill-builder/scripts/skill_builder.py",
+    "any-skill-builder/references/evaluation-loop.md",
+    "any-skill-builder/scripts/prepare_evaluation.py"
   ],
   "source": [
     "docs/assets/demo.gif",
@@ -103,7 +105,17 @@
     "examples/offline-workflows/saved-html/clear-weekly-update/README.md",
     "examples/offline-workflows/saved-html/clear-weekly-update/LICENSE",
     "examples/offline-workflows/saved-html/input.md",
-    "examples/offline-workflows/saved-html/output.md"
+    "examples/offline-workflows/saved-html/output.md",
+    "tests/test_evaluation_workflow.py",
+    "examples/evaluation-plan.json",
+    "docs/evaluation-validation.md",
+    "examples/evaluation-loop/README.md",
+    "examples/evaluation-loop/iteration-1/report.md",
+    "examples/evaluation-loop/iteration-1/routine.md",
+    "examples/evaluation-loop/iteration-1/conflicting.md",
+    "examples/evaluation-loop/iteration-2/report.md",
+    "examples/evaluation-loop/iteration-2/routine.md",
+    "examples/evaluation-loop/iteration-2/conflicting.md"
   ],
   "optional": []
 }

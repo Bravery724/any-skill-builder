@@ -107,11 +107,13 @@ This semantic review belongs to the host AI after import. The offline browser ca
 
 When `status` reports `ready_to_build`, generate the brief and follow [references/build-and-evaluate.md](references/build-and-evaluate.md). Current active decisions control the implementation; stale and inapplicable answers do not.
 
+During stage 5, declare realistic evaluation tasks, raw inputs, and success criteria before seeing the generated outputs. During stage 7, follow [references/evaluation-loop.md](references/evaluation-loop.md): execute the skill in a fresh context where available, review the actual results separately, inspect the quality of the evaluation criteria, and rerun affected cases after supported corrections. Scale the work to the change and record any unavailable independence or execution capability. Neither mode gains a mandatory human review round or an evaluation HTML page.
+
 Create `RUN/output/<skill-name>/SKILL.md` and a concise `README.md` with usage, required inputs, example requests, expected results, and limits. Add only useful references, assets, and executable helpers. Use the actual target host's supported tools and format; Python is not mandatory for skills created by this builder. Include short picker metadata only when supported, and teach the generated skill to give brief help on an empty invocation while starting clear tasks directly.
 
 Require natural, conversational explanations in the user's language and level of politeness. Analysis must be readable, intuitive, and useful: connect the finding to its meaning, evidence, uncertainty, and the decision or action it informs. Use concrete examples where they help. A requested formal genre or output language takes precedence.
 
-Record `design.json` mapping decisions to features, files, and evaluation cases. Run `check-skill`, exercise executable helpers, and test realistic tasks and relevant failure cases. Check whether important alternative answers actually change behavior as intended. Correct observed failures; report limits honestly.
+Record `design.json` mapping decisions to features, files, and evaluation cases. Run `check-skill`, exercise executable helpers, and check whether important alternative answers actually change behavior as intended. Review execution records for useful repeated operations; extract a shared helper only when observed reuse justifies it, then test the helper and the skill that calls it. Preserve earlier results and report remaining limits honestly.
 
 For recorded artifacts, supported reviews, and comparisons under matched conditions, use [references/evaluation.md](references/evaluation.md) and `scripts/evaluate_skill.py`. The helper does not perform model tasks or invent reviews. Keep question quality, answer-to-behavior checks, and final task quality distinct from code tests.
 
