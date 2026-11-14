@@ -1,0 +1,48 @@
+name: Validate
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.10', '3.13']
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONUTF8: '1'
+      SKILL_BUILDER_TEST_TMPDIR: ${{ runner.temp }}/skill-builder-tests
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Run Python checks
+        run: python -B -m unittest discover -s tests -p "test_*.py"
+      - name: Run form state and composition checks
+        run: node --test tests/test_form.mjs tests/test_form_notes.mjs tests/test_form_actions.mjs
+      - name: Check release inputs
+        run: python -B tools/check_release.py
+      - name: Verify public example evidence and reports
+        run: python -B tools/check_example.py
+      - name: Build release archives
+        run: python -B tools/package_release.py

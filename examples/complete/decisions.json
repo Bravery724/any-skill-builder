@@ -1,0 +1,40 @@
+{
+  "kind": "authored_example_decisions",
+  "project_id": "weekly-update-example",
+  "note": "Original AI-selected design decisions for a public example; not an exported live user session.",
+  "choices": {
+    "readers": {
+      "value": "cross-functional",
+      "reason": "The stated use includes people who did not attend the project meetings."
+    },
+    "missing-information": {
+      "value": "draft-gaps",
+      "reason": "A useful draft can preserve uncertainty without inventing commitments."
+    },
+    "evidence": {
+      "value": "inline",
+      "reason": "Readers can connect each significant claim with its supplied source."
+    }
+  },
+  "inactive_questions": ["clarification-trigger"],
+  "traceability": [
+    {
+      "question_ids": ["readers"],
+      "behavior": "Explain unfamiliar project terms and the supported consequence of a change.",
+      "file": "weekly-team-update/SKILL.md",
+      "evaluation_cases": ["routine", "design-review"]
+    },
+    {
+      "question_ids": ["missing-information"],
+      "behavior": "Produce a draft with explicit gaps; retain contradictory status and tentative commitments.",
+      "file": "weekly-team-update/SKILL.md",
+      "evaluation_cases": ["routine", "conflicting", "design-review"]
+    },
+    {
+      "question_ids": ["evidence"],
+      "behavior": "Keep supplied source links beside supported claims.",
+      "file": "weekly-team-update/SKILL.md",
+      "evaluation_cases": ["routine", "conflicting"]
+    }
+  ]
+}

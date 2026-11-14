@@ -1,0 +1,502 @@
+{
+  "schema_version": 1,
+  "name": "weekly-team-update",
+  "manifest_sha256": "02844515da54e5e28972a8d6a737f3adc38f176b43a179b186914e91d2bcc7c5",
+  "cases": [
+    {
+      "id": "routine",
+      "prompt": "Use the supplied weekly-team-update skill to fulfill the request in inputs/routine.md. Read only the skill and this raw input. Return the update itself.",
+      "input_files": [
+        {
+          "path": "inputs/routine.md",
+          "sha256": "0b73b9a68890da6913d96571c9285cc6054b20f0c303858782f61f0d94c02587",
+          "bytes": 1309
+        }
+      ]
+    },
+    {
+      "id": "conflicting",
+      "prompt": "Use the supplied weekly-team-update skill to fulfill the request in inputs/conflicting.md. Read only the skill and this raw input. Return the update itself.",
+      "input_files": [
+        {
+          "path": "inputs/conflicting.md",
+          "sha256": "ffa592ef65515a669e3f6bc4ea84ce437f02dfc013af549b65213abffa538e38",
+          "bytes": 830
+        }
+      ]
+    },
+    {
+      "id": "design-review",
+      "prompt": "Perform the design review requested in inputs/design-review.md. Read the questionnaire, decisions, research notes, and generated skill, then explain the evidence and limitations.",
+      "input_files": [
+        {
+          "path": "inputs/design-review.md",
+          "sha256": "94fc457a9c4aee5e226da8826b103d7179471a327f19c11456e411c21e3e439b",
+          "bytes": 808
+        },
+        {
+          "path": "questionnaire.json",
+          "sha256": "aff12c0628af7182ba06e62b6f663f294bb1dfaa3c15b2aa53368d85a6f66700",
+          "bytes": 4871
+        },
+        {
+          "path": "decisions.json",
+          "sha256": "ac6b31a6b60255c87dff60466dd5c44a2cafd8379015e93cd035b8f274ef8a62",
+          "bytes": 1478
+        },
+        {
+          "path": "research.md",
+          "sha256": "c9c978b2c8e03249be5100c5da820310f9e029186249074f6447fc0f24e12732",
+          "bytes": 2708
+        },
+        {
+          "path": "weekly-team-update/SKILL.md",
+          "sha256": "a2c75ae6d785f5d8ff7d21cd5db6279fed307f4db4fd01f117e31e0a0a8f489d",
+          "bytes": 3096
+        }
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "id": "forward-example",
+      "variant": "with_skill",
+      "context": {
+        "model": null,
+        "effort": null,
+        "tools": null,
+        "budget": null
+      },
+      "cases": [
+        {
+          "case_id": "routine",
+          "execution_status": "completed",
+          "artifacts": {
+            "output": {
+              "path": "outputs/routine.md",
+              "exists": true,
+              "bytes": 1213,
+              "sha256": "cea817726e8e3d9443b0f01e658236a7c4d421e53fa8ccb12ddef00a401dafe1"
+            },
+            "input": {
+              "path": "inputs/routine.md",
+              "exists": true,
+              "bytes": 1309,
+              "sha256": "0b73b9a68890da6913d96571c9285cc6054b20f0c303858782f61f0d94c02587"
+            },
+            "skill": {
+              "path": "weekly-team-update/SKILL.md",
+              "exists": true,
+              "bytes": 3096,
+              "sha256": "a2c75ae6d785f5d8ff7d21cd5db6279fed307f4db4fd01f117e31e0a0a8f489d"
+            }
+          },
+          "checks": [
+            {
+              "id": "issue-link-preserved",
+              "category": "mechanics",
+              "method": "automatic",
+              "question_ids": [],
+              "status": "pass",
+              "reason": "Assertion matched.",
+              "artifact": "output",
+              "sha256": "cea817726e8e3d9443b0f01e658236a7c4d421e53fa8ccb12ddef00a401dafe1"
+            },
+            {
+              "id": "measured-scope",
+              "category": "skill_output",
+              "method": "reviewed",
+              "question_ids": [],
+              "status": "pass",
+              "reason": "The output reports 12 previously failing staging replay cases passing and expressly limits that evidence to the replay, with no claim of improved production reliability.",
+              "reviewer": "independent-review-agent",
+              "evidence": [
+                {
+                  "artifact": "output",
+                  "quote": "All 12 previously failing test cases passed in the staging replay.",
+                  "sha256": "cea817726e8e3d9443b0f01e658236a7c4d421e53fa8ccb12ddef00a401dafe1"
+                },
+                {
+                  "artifact": "output",
+                  "quote": "This evidence covers only those replay cases; we have no new production reliability measurement.",
+                  "sha256": "cea817726e8e3d9443b0f01e658236a7c4d421e53fa8ccb12ddef00a401dafe1"
+                },
+                {
+                  "artifact": "input",
+                  "quote": "The sample is limited to the replay fixtures; we have no new production reliability measurement.",
+                  "sha256": "0b73b9a68890da6913d96571c9285cc6054b20f0c303858782f61f0d94c02587"
+                }
+              ]
+            },
+            {
+              "id": "no-invented-commitment",
+              "category": "skill_output",
+              "method": "reviewed",
+              "question_ids": [
+                "missing-information"
+              ],
+              "status": "pass",
+              "reason": "The draft preserves pending approval, explains the missing staging-snapshot access, and asks for an owner without assigning one or inventing a deadline. Luis retains only the supplied next-week plan.",
+              "reviewer": "independent-review-agent",
+              "evidence": [
+                {
+                  "artifact": "output",
+                  "quote": "production rollout still awaits release approval.",
+                  "sha256": "cea817726e8e3d9443b0f01e658236a7c4d421e53fa8ccb12ddef00a401dafe1"
+                },
+                {
+                  "artifact": "output",
+                  "quote": "The nightly reconciliation test is blocked because its service account lacks access to the staging snapshot",
+                  "sha256": "cea817726e8e3d9443b0f01e658236a7c4d421e53fa8ccb12ddef00a401dafe1"
+                },
+                {
+                  "artifact": "output",
+                  "quote": "The access-request owner is unconfirmed, and no deadline was agreed.",
+                  "sha256": "cea817726e8e3d9443b0f01e658236a7c4d421e53fa8ccb12ddef00a401dafe1"
+                },
+                {
+                  "artifact": "output",
+                  "quote": "Luis plans to revise them next week; no specific date is committed.",
+                  "sha256": "cea817726e8e3d9443b0f01e658236a7c4d421e53fa8ccb12ddef00a401dafe1"
+                }
+              ]
+            },
+            {
+              "id": "reader-context",
+              "category": "skill_output",
+              "method": "reviewed",
+              "question_ids": [
+                "readers",
+                "evidence"
+              ],
+              "status": "pass",
+              "reason": "The prose explains the key testing terms and separates completed work from next actions. The request identifies the required access, its effect on the nightly test, and the fact that manual checks continue; descriptive links let readers trace the supplied claims.",
+              "reviewer": "independent-review-agent",
+              "evidence": [
+                {
+                  "artifact": "output",
+                  "quote": "staging, the pre-production test environment",
+                  "sha256": "cea817726e8e3d9443b0f01e658236a7c4d421e53fa8ccb12ddef00a401dafe1"
+                },
+                {
+                  "artifact": "output",
+                  "quote": "the staging snapshot, a saved copy of test-environment data",
+                  "sha256": "cea817726e8e3d9443b0f01e658236a7c4d421e53fa8ccb12ddef00a401dafe1"
+                },
+                {
+                  "artifact": "output",
+                  "quote": "Please identify an owner to request that access so the test can proceed.",
+                  "sha256": "cea817726e8e3d9443b0f01e658236a7c4d421e53fa8ccb12ddef00a401dafe1"
+                },
+                {
+                  "artifact": "output",
+                  "quote": "Manual staging checks are continuing and are not blocked by this access issue.",
+                  "sha256": "cea817726e8e3d9443b0f01e658236a7c4d421e53fa8ccb12ddef00a401dafe1"
+                },
+                {
+                  "artifact": "output",
+                  "quote": "[onboarding checklist draft](https://example.invalid/atlas/docs/onboarding)",
+                  "sha256": "cea817726e8e3d9443b0f01e658236a7c4d421e53fa8ccb12ddef00a401dafe1"
+                }
+              ]
+            }
+          ],
+          "counts": {
+            "pass": 4,
+            "fail": 0,
+            "not_run": 0
+          }
+        },
+        {
+          "case_id": "conflicting",
+          "execution_status": "completed",
+          "artifacts": {
+            "output": {
+              "path": "outputs/conflicting.md",
+              "exists": true,
+              "bytes": 937,
+              "sha256": "12a755495223d5223b31f973ab89977df1141f92e9f9cda694939596c45c7a87"
+            },
+            "input": {
+              "path": "inputs/conflicting.md",
+              "exists": true,
+              "bytes": 830,
+              "sha256": "ffa592ef65515a669e3f6bc4ea84ce437f02dfc013af549b65213abffa538e38"
+            },
+            "skill": {
+              "path": "weekly-team-update/SKILL.md",
+              "exists": true,
+              "bytes": 3096,
+              "sha256": "a2c75ae6d785f5d8ff7d21cd5db6279fed307f4db4fd01f117e31e0a0a8f489d"
+            }
+          },
+          "checks": [
+            {
+              "id": "issue-link-preserved",
+              "category": "mechanics",
+              "method": "automatic",
+              "question_ids": [],
+              "status": "pass",
+              "reason": "Assertion matched.",
+              "artifact": "output",
+              "sha256": "12a755495223d5223b31f973ab89977df1141f92e9f9cda694939596c45c7a87"
+            },
+            {
+              "id": "conflict-visible",
+              "category": "skill_output",
+              "method": "reviewed",
+              "question_ids": [
+                "missing-information"
+              ],
+              "status": "pass",
+              "reason": "The output states both incompatible availability claims, explains why neither can be preferred, and requests authoritative clarification instead of choosing a release status.",
+              "reviewer": "independent-review-agent",
+              "evidence": [
+                {
+                  "artifact": "output",
+                  "quote": "The meeting note says it is live for everyone, while the release tracker says it remains disabled by a feature flag",
+                  "sha256": "12a755495223d5223b31f973ab89977df1141f92e9f9cda694939596c45c7a87"
+                },
+                {
+                  "artifact": "output",
+                  "quote": "Neither note has a reliable timestamp or designated authority, so the supplied notes do not establish which status is correct.",
+                  "sha256": "12a755495223d5223b31f973ab89977df1141f92e9f9cda694939596c45c7a87"
+                },
+                {
+                  "artifact": "output",
+                  "quote": "please confirm which CSV export status is authoritative and who owns the release.",
+                  "sha256": "12a755495223d5223b31f973ab89977df1141f92e9f9cda694939596c45c7a87"
+                }
+              ]
+            },
+            {
+              "id": "tentative-date",
+              "category": "skill_output",
+              "method": "reviewed",
+              "question_ids": [],
+              "status": "pass",
+              "reason": "Wednesday remains an unaccepted proposal, the release owner stays unrecorded, and the progress indicator is described as completed without inventing a measured user benefit.",
+              "reviewer": "independent-review-agent",
+              "evidence": [
+                {
+                  "artifact": "output",
+                  "quote": "A colleague proposed Wednesday as a possible rollout day, but no approver accepted it.",
+                  "sha256": "12a755495223d5223b31f973ab89977df1141f92e9f9cda694939596c45c7a87"
+                },
+                {
+                  "artifact": "output",
+                  "quote": "It is not a committed release date, and no release owner is recorded.",
+                  "sha256": "12a755495223d5223b31f973ab89977df1141f92e9f9cda694939596c45c7a87"
+                },
+                {
+                  "artifact": "output",
+                  "quote": "The notes contain no user study or measured time saving.",
+                  "sha256": "12a755495223d5223b31f973ab89977df1141f92e9f9cda694939596c45c7a87"
+                }
+              ]
+            }
+          ],
+          "counts": {
+            "pass": 3,
+            "fail": 0,
+            "not_run": 0
+          }
+        },
+        {
+          "case_id": "design-review",
+          "execution_status": "completed",
+          "artifacts": {
+            "output": {
+              "path": "outputs/design-review.md",
+              "exists": true,
+              "bytes": 3790,
+              "sha256": "174c7b3ed8da25b843f3b42174ebf2e98fb4402b511d33a690727a211227f004"
+            },
+            "input": {
+              "path": "inputs/design-review.md",
+              "exists": true,
+              "bytes": 808,
+              "sha256": "94fc457a9c4aee5e226da8826b103d7179471a327f19c11456e411c21e3e439b"
+            },
+            "questionnaire": {
+              "path": "questionnaire.json",
+              "exists": true,
+              "bytes": 4871,
+              "sha256": "aff12c0628af7182ba06e62b6f663f294bb1dfaa3c15b2aa53368d85a6f66700"
+            },
+            "decisions": {
+              "path": "decisions.json",
+              "exists": true,
+              "bytes": 1478,
+              "sha256": "ac6b31a6b60255c87dff60466dd5c44a2cafd8379015e93cd035b8f274ef8a62"
+            },
+            "research": {
+              "path": "research.md",
+              "exists": true,
+              "bytes": 2708,
+              "sha256": "c9c978b2c8e03249be5100c5da820310f9e029186249074f6447fc0f24e12732"
+            },
+            "skill": {
+              "path": "weekly-team-update/SKILL.md",
+              "exists": true,
+              "bytes": 3096,
+              "sha256": "a2c75ae6d785f5d8ff7d21cd5db6279fed307f4db4fd01f117e31e0a0a8f489d"
+            }
+          },
+          "checks": [
+            {
+              "id": "decision-coverage",
+              "category": "question_quality",
+              "method": "reviewed",
+              "question_ids": [
+                "readers",
+                "evidence",
+                "missing-information"
+              ],
+              "status": "pass",
+              "reason": "The review maps audience, evidence placement, and missing-information policy to distinct literal skill instructions and observed draft behavior. It distinguishes source-supported reasoning from design inferences and proposals, and identifies recipient authorization as an unresolved scope decision.",
+              "reviewer": "independent-review-agent",
+              "evidence": [
+                {
+                  "artifact": "output",
+                  "quote": "`readers` controls assumed project knowledge.",
+                  "sha256": "174c7b3ed8da25b843f3b42174ebf2e98fb4402b511d33a690727a211227f004"
+                },
+                {
+                  "artifact": "output",
+                  "quote": "`evidence` controls source placement, independently of audience.",
+                  "sha256": "174c7b3ed8da25b843f3b42174ebf2e98fb4402b511d33a690727a211227f004"
+                },
+                {
+                  "artifact": "output",
+                  "quote": "`missing-information` controls whether material gaps delay the final draft.",
+                  "sha256": "174c7b3ed8da25b843f3b42174ebf2e98fb4402b511d33a690727a211227f004"
+                },
+                {
+                  "artifact": "output",
+                  "quote": "remain design inferences, not results established by the handbook.",
+                  "sha256": "174c7b3ed8da25b843f3b42174ebf2e98fb4402b511d33a690727a211227f004"
+                },
+                {
+                  "artifact": "output",
+                  "quote": "A material remaining gap is audience authorization for sensitive content.",
+                  "sha256": "174c7b3ed8da25b843f3b42174ebf2e98fb4402b511d33a690727a211227f004"
+                },
+                {
+                  "artifact": "skill",
+                  "quote": "Explain project terms that cross-functional readers would not recognize.",
+                  "sha256": "a2c75ae6d785f5d8ff7d21cd5db6279fed307f4db4fd01f117e31e0a0a8f489d"
+                },
+                {
+                  "artifact": "skill",
+                  "quote": "Put supplied source links beside the claim they support and use descriptive link text.",
+                  "sha256": "a2c75ae6d785f5d8ff7d21cd5db6279fed307f4db4fd01f117e31e0a0a8f489d"
+                },
+                {
+                  "artifact": "skill",
+                  "quote": "The selected workflow is to produce a useful draft first.",
+                  "sha256": "a2c75ae6d785f5d8ff7d21cd5db6279fed307f4db4fd01f117e31e0a0a8f489d"
+                }
+              ]
+            },
+            {
+              "id": "alternative-answer-effect",
+              "category": "question_quality",
+              "method": "reviewed",
+              "question_ids": [
+                "missing-information",
+                "clarification-trigger"
+              ],
+              "status": "pass",
+              "reason": "The review correctly makes clarification-trigger inactive for draft-gaps and active for clarify-first. It describes replacing draft-first instructions with questions before the final draft for selected blocking facts, treats the trigger recommendation as unselected, and explicitly says the alternative was not generated or executed.",
+              "reviewer": "independent-review-agent",
+              "evidence": [
+                {
+                  "artifact": "output",
+                  "quote": "If `missing-information` changed to `clarify-first`, `clarification-trigger` should become active because its condition is `missing-information == clarify-first`.",
+                  "sha256": "174c7b3ed8da25b843f3b42174ebf2e98fb4402b511d33a690727a211227f004"
+                },
+                {
+                  "artifact": "output",
+                  "quote": "With the current `draft-gaps` choice, it should stay inactive, as recorded in `decisions.json`.",
+                  "sha256": "174c7b3ed8da25b843f3b42174ebf2e98fb4402b511d33a690727a211227f004"
+                },
+                {
+                  "artifact": "output",
+                  "quote": "Its recommended answer is only a proposed threshold, not an already selected answer.",
+                  "sha256": "174c7b3ed8da25b843f3b42174ebf2e98fb4402b511d33a690727a211227f004"
+                },
+                {
+                  "artifact": "output",
+                  "quote": "the generated skill would need to replace draft-first handling with focused questions before the final draft when those facts are missing",
+                  "sha256": "174c7b3ed8da25b843f3b42174ebf2e98fb4402b511d33a690727a211227f004"
+                },
+                {
+                  "artifact": "output",
+                  "quote": "This alternative workflow has not been generated or executed here.",
+                  "sha256": "174c7b3ed8da25b843f3b42174ebf2e98fb4402b511d33a690727a211227f004"
+                },
+                {
+                  "artifact": "questionnaire",
+                  "quote": "\"when\": [{\"question_id\": \"missing-information\", \"equals\": \"clarify-first\"}]",
+                  "sha256": "aff12c0628af7182ba06e62b6f663f294bb1dfaa3c15b2aa53368d85a6f66700"
+                },
+                {
+                  "artifact": "decisions",
+                  "quote": "\"inactive_questions\": [\"clarification-trigger\"]",
+                  "sha256": "ac6b31a6b60255c87dff60466dd5c44a2cafd8379015e93cd035b8f274ef8a62"
+                }
+              ]
+            }
+          ],
+          "counts": {
+            "pass": 2,
+            "fail": 0,
+            "not_run": 0
+          }
+        }
+      ],
+      "counts": {
+        "pass": 9,
+        "fail": 0,
+        "not_run": 0
+      },
+      "by_category": {
+        "mechanics": {
+          "pass": 2,
+          "fail": 0,
+          "not_run": 0
+        },
+        "question_quality": {
+          "pass": 2,
+          "fail": 0,
+          "not_run": 0
+        },
+        "skill_output": {
+          "pass": 5,
+          "fail": 0,
+          "not_run": 0
+        }
+      },
+      "by_method": {
+        "automatic": {
+          "pass": 2,
+          "fail": 0,
+          "not_run": 0
+        },
+        "reviewed": {
+          "pass": 7,
+          "fail": 0,
+          "not_run": 0
+        }
+      }
+    }
+  ],
+  "comparisons": [],
+  "limits": [
+    "This tool does not execute a skill or call a model; it checks saved artifacts and recorded judgments.",
+    "Text matches do not prove useful questions, correct reasoning, or better skill quality.",
+    "Review conclusions and execution metadata are supplied by the evaluator; file hashes preserve the inspected evidence.",
+    "Comparison eligibility uses shared cases and declared context, not proof of identical real execution conditions."
+  ]
+}

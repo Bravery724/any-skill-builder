@@ -1,0 +1,346 @@
+{
+  "schema_version": 1,
+  "name": "weekly-team-update",
+  "cases": [
+    {
+      "id": "routine",
+      "prompt": "Use the supplied weekly-team-update skill to fulfill the request in inputs/routine.md. Read only the skill and this raw input. Return the update itself.",
+      "input_files": [
+        "inputs/routine.md"
+      ],
+      "checks": [
+        {
+          "id": "issue-link-preserved",
+          "category": "mechanics",
+          "kind": "contains",
+          "artifact": "output",
+          "text": "https://example.invalid/atlas/issues/214"
+        },
+        {
+          "id": "measured-scope",
+          "category": "skill_output",
+          "kind": "review",
+          "criterion": "The 12 passing staging fixtures are not presented as a production reliability improvement."
+        },
+        {
+          "id": "no-invented-commitment",
+          "category": "skill_output",
+          "kind": "review",
+          "criterion": "The draft keeps production approval pending, identifies the access gap, and invents no owner or due date.",
+          "question_ids": [
+            "missing-information"
+          ]
+        },
+        {
+          "id": "reader-context",
+          "category": "skill_output",
+          "kind": "review",
+          "criterion": "A cross-functional reader can understand the changes and the specific request for help without decoding a list of unexplained labels.",
+          "question_ids": [
+            "readers",
+            "evidence"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "conflicting",
+      "prompt": "Use the supplied weekly-team-update skill to fulfill the request in inputs/conflicting.md. Read only the skill and this raw input. Return the update itself.",
+      "input_files": [
+        "inputs/conflicting.md"
+      ],
+      "checks": [
+        {
+          "id": "issue-link-preserved",
+          "category": "mechanics",
+          "kind": "contains",
+          "artifact": "output",
+          "text": "https://example.invalid/atlas/issues/301"
+        },
+        {
+          "id": "conflict-visible",
+          "category": "skill_output",
+          "kind": "review",
+          "criterion": "The draft explicitly preserves conflicting release status and does not silently select one note as authoritative.",
+          "question_ids": [
+            "missing-information"
+          ]
+        },
+        {
+          "id": "tentative-date",
+          "category": "skill_output",
+          "kind": "review",
+          "criterion": "Wednesday remains an unconfirmed proposal; no release owner or measured benefit is invented."
+        }
+      ]
+    },
+    {
+      "id": "design-review",
+      "prompt": "Perform the design review requested in inputs/design-review.md. Read the questionnaire, decisions, research notes, and generated skill, then explain the evidence and limitations.",
+      "input_files": [
+        "inputs/design-review.md",
+        "questionnaire.json",
+        "decisions.json",
+        "research.md",
+        "weekly-team-update/SKILL.md"
+      ],
+      "checks": [
+        {
+          "id": "decision-coverage",
+          "category": "question_quality",
+          "kind": "review",
+          "criterion": "The review maps distinct questions to actual skill behavior, distinguishes evidence from proposals, and names a material scope gap.",
+          "question_ids": [
+            "readers",
+            "evidence",
+            "missing-information"
+          ]
+        },
+        {
+          "id": "alternative-answer-effect",
+          "category": "question_quality",
+          "kind": "review",
+          "criterion": "The review correctly explains the observable workflow change and conditional activation caused by choosing clarify-first, without claiming that alternative behavior has been executed.",
+          "question_ids": [
+            "missing-information",
+            "clarification-trigger"
+          ]
+        }
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "id": "forward-example",
+      "variant": "with_skill",
+      "context": {
+        "model": null,
+        "effort": null,
+        "tools": null,
+        "budget": null
+      },
+      "cases": [
+        {
+          "case_id": "routine",
+          "status": "completed",
+          "reason": "Forward execution was performed by an independent execution agent; this reviewer inspected the saved output against the raw input and skill.",
+          "artifacts": {
+            "output": "outputs/routine.md",
+            "input": "inputs/routine.md",
+            "skill": "weekly-team-update/SKILL.md"
+          },
+          "reviews": {
+            "measured-scope": {
+              "status": "pass",
+              "reason": "The output reports 12 previously failing staging replay cases passing and expressly limits that evidence to the replay, with no claim of improved production reliability.",
+              "reviewer": "independent-review-agent",
+              "evidence": [
+                {
+                  "artifact": "output",
+                  "quote": "All 12 previously failing test cases passed in the staging replay."
+                },
+                {
+                  "artifact": "output",
+                  "quote": "This evidence covers only those replay cases; we have no new production reliability measurement."
+                },
+                {
+                  "artifact": "input",
+                  "quote": "The sample is limited to the replay fixtures; we have no new production reliability measurement."
+                }
+              ]
+            },
+            "no-invented-commitment": {
+              "status": "pass",
+              "reason": "The draft preserves pending approval, explains the missing staging-snapshot access, and asks for an owner without assigning one or inventing a deadline. Luis retains only the supplied next-week plan.",
+              "reviewer": "independent-review-agent",
+              "evidence": [
+                {
+                  "artifact": "output",
+                  "quote": "production rollout still awaits release approval."
+                },
+                {
+                  "artifact": "output",
+                  "quote": "The nightly reconciliation test is blocked because its service account lacks access to the staging snapshot"
+                },
+                {
+                  "artifact": "output",
+                  "quote": "The access-request owner is unconfirmed, and no deadline was agreed."
+                },
+                {
+                  "artifact": "output",
+                  "quote": "Luis plans to revise them next week; no specific date is committed."
+                }
+              ]
+            },
+            "reader-context": {
+              "status": "pass",
+              "reason": "The prose explains the key testing terms and separates completed work from next actions. The request identifies the required access, its effect on the nightly test, and the fact that manual checks continue; descriptive links let readers trace the supplied claims.",
+              "reviewer": "independent-review-agent",
+              "evidence": [
+                {
+                  "artifact": "output",
+                  "quote": "staging, the pre-production test environment"
+                },
+                {
+                  "artifact": "output",
+                  "quote": "the staging snapshot, a saved copy of test-environment data"
+                },
+                {
+                  "artifact": "output",
+                  "quote": "Please identify an owner to request that access so the test can proceed."
+                },
+                {
+                  "artifact": "output",
+                  "quote": "Manual staging checks are continuing and are not blocked by this access issue."
+                },
+                {
+                  "artifact": "output",
+                  "quote": "[onboarding checklist draft](https://example.invalid/atlas/docs/onboarding)"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "case_id": "conflicting",
+          "status": "completed",
+          "reason": "Forward execution was performed by an independent execution agent; this reviewer inspected the saved output against the raw input and skill.",
+          "artifacts": {
+            "output": "outputs/conflicting.md",
+            "input": "inputs/conflicting.md",
+            "skill": "weekly-team-update/SKILL.md"
+          },
+          "reviews": {
+            "conflict-visible": {
+              "status": "pass",
+              "reason": "The output states both incompatible availability claims, explains why neither can be preferred, and requests authoritative clarification instead of choosing a release status.",
+              "reviewer": "independent-review-agent",
+              "evidence": [
+                {
+                  "artifact": "output",
+                  "quote": "The meeting note says it is live for everyone, while the release tracker says it remains disabled by a feature flag"
+                },
+                {
+                  "artifact": "output",
+                  "quote": "Neither note has a reliable timestamp or designated authority, so the supplied notes do not establish which status is correct."
+                },
+                {
+                  "artifact": "output",
+                  "quote": "please confirm which CSV export status is authoritative and who owns the release."
+                }
+              ]
+            },
+            "tentative-date": {
+              "status": "pass",
+              "reason": "Wednesday remains an unaccepted proposal, the release owner stays unrecorded, and the progress indicator is described as completed without inventing a measured user benefit.",
+              "reviewer": "independent-review-agent",
+              "evidence": [
+                {
+                  "artifact": "output",
+                  "quote": "A colleague proposed Wednesday as a possible rollout day, but no approver accepted it."
+                },
+                {
+                  "artifact": "output",
+                  "quote": "It is not a committed release date, and no release owner is recorded."
+                },
+                {
+                  "artifact": "output",
+                  "quote": "The notes contain no user study or measured time saving."
+                }
+              ]
+            }
+          }
+        },
+        {
+          "case_id": "design-review",
+          "status": "completed",
+          "reason": "The independent review agent performed the supplied design-review task and saved its review. The clarify-first alternative and a baseline were not executed.",
+          "artifacts": {
+            "output": "outputs/design-review.md",
+            "input": "inputs/design-review.md",
+            "questionnaire": "questionnaire.json",
+            "decisions": "decisions.json",
+            "research": "research.md",
+            "skill": "weekly-team-update/SKILL.md"
+          },
+          "reviews": {
+            "decision-coverage": {
+              "status": "pass",
+              "reason": "The review maps audience, evidence placement, and missing-information policy to distinct literal skill instructions and observed draft behavior. It distinguishes source-supported reasoning from design inferences and proposals, and identifies recipient authorization as an unresolved scope decision.",
+              "reviewer": "independent-review-agent",
+              "evidence": [
+                {
+                  "artifact": "output",
+                  "quote": "`readers` controls assumed project knowledge."
+                },
+                {
+                  "artifact": "output",
+                  "quote": "`evidence` controls source placement, independently of audience."
+                },
+                {
+                  "artifact": "output",
+                  "quote": "`missing-information` controls whether material gaps delay the final draft."
+                },
+                {
+                  "artifact": "output",
+                  "quote": "remain design inferences, not results established by the handbook."
+                },
+                {
+                  "artifact": "output",
+                  "quote": "A material remaining gap is audience authorization for sensitive content."
+                },
+                {
+                  "artifact": "skill",
+                  "quote": "Explain project terms that cross-functional readers would not recognize."
+                },
+                {
+                  "artifact": "skill",
+                  "quote": "Put supplied source links beside the claim they support and use descriptive link text."
+                },
+                {
+                  "artifact": "skill",
+                  "quote": "The selected workflow is to produce a useful draft first."
+                }
+              ]
+            },
+            "alternative-answer-effect": {
+              "status": "pass",
+              "reason": "The review correctly makes clarification-trigger inactive for draft-gaps and active for clarify-first. It describes replacing draft-first instructions with questions before the final draft for selected blocking facts, treats the trigger recommendation as unselected, and explicitly says the alternative was not generated or executed.",
+              "reviewer": "independent-review-agent",
+              "evidence": [
+                {
+                  "artifact": "output",
+                  "quote": "If `missing-information` changed to `clarify-first`, `clarification-trigger` should become active because its condition is `missing-information == clarify-first`."
+                },
+                {
+                  "artifact": "output",
+                  "quote": "With the current `draft-gaps` choice, it should stay inactive, as recorded in `decisions.json`."
+                },
+                {
+                  "artifact": "output",
+                  "quote": "Its recommended answer is only a proposed threshold, not an already selected answer."
+                },
+                {
+                  "artifact": "output",
+                  "quote": "the generated skill would need to replace draft-first handling with focused questions before the final draft when those facts are missing"
+                },
+                {
+                  "artifact": "output",
+                  "quote": "This alternative workflow has not been generated or executed here."
+                },
+                {
+                  "artifact": "questionnaire",
+                  "quote": "\"when\": [{\"question_id\": \"missing-information\", \"equals\": \"clarify-first\"}]"
+                },
+                {
+                  "artifact": "decisions",
+                  "quote": "\"inactive_questions\": [\"clarification-trigger\"]"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

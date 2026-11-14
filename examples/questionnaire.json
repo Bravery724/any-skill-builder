@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "project_id": "example",
+  "revision": 1,
+  "goal": "Build a weekly update skill",
+  "mode": "user",
+  "locale": {
+    "language": "en",
+    "direction": "ltr"
+  },
+  "groups": [
+    {
+      "id": "scope",
+      "label": "Working style"
+    },
+    {
+      "id": "delivery",
+      "label": "Output"
+    }
+  ],
+  "sources": [],
+  "questions": [
+    {
+      "id": "workflow",
+      "importance": "core",
+      "version": 1,
+      "group_id": "scope",
+      "type": "single",
+      "title": "What should happen when a note is unclear?",
+      "help": "Choose how the skill handles missing context.",
+      "decision": "Whether to draft with marked gaps or clarify before drafting",
+      "origin": "proposal",
+      "source_ids": [],
+      "options": [
+        {
+          "id": "draft",
+          "label": "Draft and mark the gaps",
+          "effect": "Create a useful draft while keeping uncertainty visible"
+        },
+        {
+          "id": "clarify",
+          "label": "Ask focused questions first",
+          "effect": "Resolve material gaps before producing the draft"
+        }
+      ],
+      "recommendation": {
+        "value": "draft",
+        "rationale": "A reviewable draft gives the reader context for the missing details.",
+        "assumptions": [
+          "Unconfirmed details must remain visibly uncertain"
+        ]
+      },
+      "when": []
+    },
+    {
+      "id": "clarification",
+      "version": 1,
+      "group_id": "scope",
+      "type": "text",
+      "title": "Which missing details should trigger a question?",
+      "help": "For example, ask about an uncertain deadline while leaving minor wording for the draft.",
+      "decision": "What counts as a material information gap",
+      "origin": "proposal",
+      "source_ids": [],
+      "recommendation": {
+        "value": "Ask about ownership, commitments, deadlines, or contradictory evidence that changes the meaning.",
+        "rationale": "These gaps can change what the update promises or attributes to someone.",
+        "assumptions": [
+          "No private facts are inferred"
+        ]
+      },
+      "when": [
+        {
+          "question_id": "workflow",
+          "equals": "clarify"
+        }
+      ]
+    },
+    {
+      "id": "outputs",
+      "version": 1,
+      "group_id": "delivery",
+      "type": "multi",
+      "title": "What should the weekly update include?",
+      "decision": "Which sections to produce",
+      "origin": "proposal",
+      "source_ids": [],
+      "options": [
+        {
+          "id": "progress",
+          "label": "Progress",
+          "effect": "Summarize completed work with its practical result"
+        },
+        {
+          "id": "next",
+          "label": "Next steps",
+          "effect": "List supported next actions without inventing owners or dates"
+        },
+        {
+          "id": "risks",
+          "label": "Risks and open questions",
+          "effect": "Keep blockers, assumptions, and unresolved items visible"
+        }
+      ],
+      "recommendation": {
+        "value": [
+          "progress",
+          "next",
+          "risks"
+        ],
+        "rationale": "Readers can see what changed, what comes next, and where help is needed.",
+        "assumptions": [
+          "Only the supplied notes support factual claims"
+        ]
+      },
+      "when": []
+    }
+  ]
+}
