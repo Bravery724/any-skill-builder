@@ -16,15 +16,21 @@ from builder_core import markdown_prose
 
 PERSONAL_HOME = re.compile(r"(?:[A-Za-z]:[/\\]Users[/\\][^\s/\\]+|/(?:Users|home)/[^\s/]+)")
 MARKDOWN_LINK = re.compile(r"!?\[[^\]\n]+\]\((?:<([^>]+)>|([^\s)]+))(?:\s+\"[^\"]*\")?\)")
+IMAGE_SIGNATURES = {
+    ".png": (b"\x89PNG\r\n\x1a\n",),
+    ".jpg": (b"\xff\xd8\xff",),
+    ".jpeg": (b"\xff\xd8\xff",),
+    ".gif": (b"GIF87a", b"GIF89a"),
+}
 
 
 def check_files(root: Path, paths: list[str]) -> list[str]:
     errors = []
     for relative in paths:
         path = root / relative
-        if path.suffix.lower() in {".png", ".jpg", ".jpeg"}:
-            signature = b"\x89PNG\r\n\x1a\n" if path.suffix.lower() == ".png" else b"\xff\xd8\xff"
-            if not path.read_bytes().startswith(signature):
+        signatures = IMAGE_SIGNATURES.get(path.suffix.lower())
+        if signatures is not None:
+            if not path.read_bytes().startswith(signatures):
                 errors.append(f"{relative}: invalid image signature")
             continue
         try:

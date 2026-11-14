@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.2 — 2026-11-14
+
+- Add a lightweight README GIF showing one request, the actual questionnaire, and the recorded finished skill, with a static alternative and documented evidence.
+- Show the saved goal at the top of the questionnaire; long requests expand from a two-line summary without changing answers or the current page.
+- Add English and Korean goal labels while preserving compatibility with existing custom locale dictionaries.
+- Accept GIF assets in release validation and verify their file signatures.
+
 ## 0.2.1 — 2026-11-14
 
 - Put copyable requests for AI-led creation, interactive design, and existing-skill improvement near the start of the README.

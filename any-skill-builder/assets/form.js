@@ -639,7 +639,23 @@
     return c;
   }
 
+  function updateGoal() {
+    const summary = $('goal-summary'), text = $('goal-text'), toggle = $('goal-toggle');
+    const goal = typeof questionnaire.goal === 'string' ? questionnaire.goal : '';
+    summary.hidden = !goal.trim();
+    $('goal-label').textContent = t('goal_label');
+    if (text.textContent !== goal) {
+      text.textContent = goal;
+      summary.dataset.expanded = 'false';
+    }
+    const expanded = summary.dataset.expanded === 'true';
+    toggle.textContent = t(expanded ? 'goal_collapse' : 'goal_expand');
+    toggle.setAttribute('aria-expanded', String(expanded));
+    toggle.hidden = !goal.trim() || !expanded && !(text.scrollHeight > text.clientHeight + 1);
+  }
+
   function render(force = false) {
+    updateGoal();
     const c = updateCounts();
     const focus = document.activeElement;
     const focusedQuestion = focus?.closest?.('.question')?.dataset.question;
@@ -1037,6 +1053,13 @@
     event.target.value = '';
   });
   $('transport-note').textContent = live ? t('transport_live') : t('transport_offline');
+  $('goal-toggle').addEventListener('click', () => {
+    const summary = $('goal-summary');
+    summary.dataset.expanded = String(summary.dataset.expanded !== 'true');
+    updateGoal();
+  });
+  window.addEventListener('resize', updateGoal);
+  if (typeof ResizeObserver === 'function') new ResizeObserver(updateGoal).observe($('goal-text'));
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') persistCurrentText(); });
   window.addEventListener('beforeunload', event => { persistCurrentText(); if (live && (queue.length || saving || paused || Object.keys(textDrafts).length || Object.keys(deferDrafts).length)) { event.preventDefault(); event.returnValue = ''; } });
   try {

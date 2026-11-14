@@ -30,6 +30,60 @@ function delegateAndFinish(env) {
   return env.api.finish();
 }
 
+for (const [language, label] of [['en', 'Skill to build'], ['ko', '만들 스킬']]) {
+  test(`The ${language} goal summary shows the saved request as text without changing answers`, t => {
+    const boot = makeBoot('live', language);
+    boot.view.questionnaire.goal = 'Build a skill: <img src=x onerror="alert(1)"> 한글 요청';
+    const env = createEnv(t, boot);
+    assert.equal(env.ids.get('goal-summary').hidden, false);
+    assert.equal(env.ids.get('goal-label').textContent, label);
+    assert.equal(env.ids.get('goal-text').textContent, boot.view.questionnaire.goal);
+    assert.equal(env.ids.get('goal-text').children.length, 0);
+    assert.equal(env.ids.get('goal-toggle').hidden, true);
+    assert.deepEqual(copy(env.api.answers), boot.view.answers);
+    assert.equal(env.requests.length, 0);
+  });
+}
+
+test('An overflowing goal can expand and collapse without losing answers or page position', t => {
+  const boot = makeBoot('offline');
+  boot.view.questionnaire.goal = 'Explain research clearly. '.repeat(30);
+  const env = createEnv(t, boot);
+  const summary = env.ids.get('goal-summary'), text = env.ids.get('goal-text'), toggle = env.ids.get('goal-toggle');
+  text.scrollHeight = 180;
+  Object.defineProperty(text, 'clientHeight', { get: () => summary.dataset.expanded === 'true' ? 180 : 48 });
+  env.api.render();
+  assert.equal(toggle.hidden, false);
+  assert.equal(toggle.getAttribute('aria-expanded'), 'false');
+  toggle.click();
+  assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+  assert.equal(toggle.textContent, 'Show less');
+  env.api.goPage(1);
+  assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+  const page = env.ids.get('range').textContent;
+  toggle.click();
+  assert.equal(toggle.getAttribute('aria-expanded'), 'false');
+  assert.equal(toggle.textContent, 'Show full request');
+  assert.equal(env.ids.get('range').textContent, page);
+  assert.equal(text.textContent, boot.view.questionnaire.goal);
+  assert.deepEqual(copy(env.api.answers), boot.view.answers);
+  assert.equal(env.requests.length, 0);
+});
+
+test('Loading the latest live record refreshes the goal summary with the saved goal', async t => {
+  const boot = makeBoot();
+  const env = createEnv(t, boot);
+  env.ids.get('refresh-state').click();
+  const request = env.pending.shift();
+  assert.match(request.request.url, /^\/api\/state/);
+  const fresh = copy(env.server);
+  fresh.questionnaire.goal = 'Create a skill for accessible interface reviews.';
+  request.resolve({ ok: true, json: async () => fresh });
+  await delay(0);
+  assert.equal(env.ids.get('goal-text').textContent, fresh.questionnaire.goal);
+  assert.deepEqual(copy(env.api.answers), boot.view.answers);
+});
+
 for (const questionType of ['single', 'image']) {
   test(`Clearing a ${questionType} selection saves an unanswered question before handing it to AI`, async t => {
     const boot = makeBoot();

@@ -10,9 +10,9 @@ Use it to **create a new skill**, **improve an existing skill**, or **work out t
 
 > **For complex skills:** choose a capable reasoning model and a higher reasoning-effort setting when your host offers one. This can help with research, useful questions, and difficult design choices. Better results still depend on sources, clear requirements, and testing. [Choose settings for your task](#model-and-reasoning-settings).
 
-![A real questionnaire rendered from the public example](docs/assets/questionnaire.jpg)
+![A one-line request becomes a questionnaire and a reusable skill](docs/assets/demo.gif)
 
-The screenshot uses fictional public example data. Open the [complete walkthrough](examples/complete/README.md) to follow the goal, sources, questions, decisions, generated skill, and observed evaluation results. The [small questionnaire fixture](examples/questionnaire.json) is also available for testing the helper alone.
+A 21-second edited replay using the real questionnaire and recorded skill from the fictional public example. The final result shows nine recorded checks: two automatic and seven reviewed. [Static questionnaire preview](docs/assets/questionnaire.jpg) · [Complete walkthrough](examples/complete/README.md) · [Demo details](docs/demo.md). The [small questionnaire fixture](examples/questionnaire.json) is also available for testing the helper alone.
 
 ## Quick start
 
@@ -32,11 +32,11 @@ After installation, refresh your host's skills and use the starting request belo
 
 ### Install with Python
 
-1. Open [Releases](https://github.com/Bravery724/any-skill-builder/releases) and download `any-skill-builder-0.2.1-source.zip`. Extract it. You can also use **Code → Download ZIP** and open its extracted root folder.
+1. Open [Releases](https://github.com/Bravery724/any-skill-builder/releases) and download `any-skill-builder-0.2.2-source.zip`. Extract it. You can also use **Code → Download ZIP** and open its extracted root folder.
 2. In a terminal, enter the extracted source folder containing `README.md` and `tools/`, then run the installer. From the parent of the named release folder:
 
    ```sh
-   cd any-skill-builder-0.2.1-source
+   cd any-skill-builder-0.2.2-source
    python -B tools/install_skill.py --dest "~/.agents/skills"
    ```
 
@@ -97,6 +97,7 @@ Choose the model and effort in your host's settings. Writing “think harder” 
 ## What it does
 
 - Connects each question to an actual design choice, with sources, recommendations, and explicit assumptions.
+- Keeps the saved skill goal above the questions, with a two-line summary and an expandable full request when needed.
 - Supports user answers, AI suggestions, or fully delegated AI decisions.
 - Offers a single AI-delegation toggle above the questions and a Finish action on every page, preserving existing answers and deferrals.
 - Resets all answers in one confirmed action while keeping the questionnaire and prior response history.

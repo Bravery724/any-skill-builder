@@ -13,6 +13,11 @@
 <main id="form-main" data-load-error="{{t:load_failed}}" data-regenerate="{{t:regenerate}}">
   <h1 class="sr-only">{{t:page_title}}</h1>
   <form id="questionnaire" novalidate>
+    <section class="goal-summary" id="goal-summary" aria-labelledby="goal-label" hidden>
+      <p class="goal-label" id="goal-label">{{t:goal_label}}</p>
+      <p class="goal-text" id="goal-text"></p>
+      <button type="button" class="text-button goal-toggle" id="goal-toggle" aria-expanded="false" aria-controls="goal-text" hidden>{{t:goal_expand}}</button>
+    </section>
     <div class="form-topbar">
       <div class="form-progress">
         <div class="statusbar"><span id="counts" aria-live="polite" aria-atomic="true">{{t:loading}}</span><span id="range"></span></div>

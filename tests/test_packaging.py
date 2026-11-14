@@ -125,6 +125,19 @@ class PackagingTests(unittest.TestCase):
         errors = check_files(self.root, ["README.md"])
         self.assertEqual(len(errors), 2)
 
+    def test_binary_gif_is_accepted_but_mislabeled_text_is_rejected(self):
+        gif = bytes.fromhex(
+            "47494638396101000100800000000000ffffff"
+            "2c00000000010001000002024401003b"
+        )
+        image = self.root / "demo.gif"
+        for header in (b"GIF87a", b"GIF89a"):
+            with self.subTest(header=header):
+                image.write_bytes(header + gif[6:])
+                self.assertEqual(check_files(self.root, ["demo.gif"]), [])
+        image.write_text("This is not a GIF image.\n", encoding="utf-8")
+        self.assertEqual(check_files(self.root, ["demo.gif"]), ["demo.gif: invalid image signature"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -15,6 +15,7 @@ export const delay = milliseconds => new Promise(resolve => setTimeout(resolve, 
 export function makeBoot(transport = 'live', language = 'en') {
   const questionnaire = {
     schema_version: 1, run_id: 'form-regression', project_id: 'form-regression', revision: 1,
+    goal: 'Create a reusable project update skill.',
     groups: [{ id: 'first', label: 'Scope' }, { id: 'second', label: 'Details' }],
     sources: [],
     questions: [
@@ -134,6 +135,7 @@ export function setup(boot = makeBoot(), storage = new Map()) {
   document.activeElement = document.body;
   for (const id of [
     'form-main', 'skill-builder-data', 'counts', 'notice', 'range', 'conditional-status',
+    'goal-summary', 'goal-label', 'goal-text', 'goal-toggle',
     'questionnaire', 'questions', 'previous', 'next', 'page-select', 'save-status', 'completion',
     'recovery', 'retry-save', 'export-recovery', 'refresh-state', 'recovery-message', 'image-caption',
     'enlarged-image', 'image-dialog', 'close-image', 'export-draft', 'import-draft', 'import-file', 'transport-note',

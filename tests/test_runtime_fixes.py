@@ -105,6 +105,22 @@ class RuntimeFixTests(unittest.TestCase):
         for key in added:
             self.assertEqual(resolved[key], core.locale_catalog()["en"][key])
 
+    def test_saved_custom_locale_can_render_goal_summary_without_rewriting_records(self):
+        added = {"goal_label", "goal_expand", "goal_collapse"}
+        messages = {key: value for key, value in core.locale_catalog()["en"].items() if key not in added}
+        self.fixture["locale"] = {"language": "fr", "direction": "ltr", "messages": messages}
+        self.install_answered()
+        before = self.canonical_bytes()
+        rendered = core.render_html(self.root)
+        self.assertIn('id="goal-summary"', rendered)
+        self.assertIn('id="goal-label">Skill to build</p>', rendered)
+        self.assertEqual(self.canonical_bytes(), before)
+        translated = {"goal_label": "Compétence à créer", "goal_expand": "Afficher la demande complète", "goal_collapse": "Afficher moins"}
+        messages.update(translated)
+        resolved = core.resolve_locale(self.fixture["locale"])["messages"]
+        for key, value in translated.items():
+            self.assertEqual(resolved[key], value)
+
     def test_explicit_cosmetic_edit_preserves_answer_and_descendants(self):
         before = self.install_answered()
         data = copy.deepcopy(before["questionnaire"])

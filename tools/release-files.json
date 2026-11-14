@@ -21,6 +21,7 @@
     "any-skill-builder/scripts/skill_builder.py"
   ],
   "source": [
+    "docs/assets/demo.gif",
     "docs/assets/questionnaire.jpg",
     ".editorconfig",
     ".gitattributes",
@@ -33,6 +34,7 @@
     "SECURITY.md",
     "VERSION",
     "docs/design.md",
+    "docs/demo.md",
     "docs/installation.md",
     "docs/releasing.md",
     "docs/testing.md",

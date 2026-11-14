@@ -20,6 +20,8 @@ Korean (`ko`) and English (`en`) have bundled dictionaries; their regional varia
 
 For compatibility with saved custom dictionaries, deferral-note, global-action, question-status, clear-selection, Finish, pending-delegation, core-question guidance, resume-copy, and browser-recovery messages are optional on read and use English fallbacks when absent. Recovery keys include `draft_exported`, `draft_imported`, `invalid_draft`, and `ai_request_import_notice`. Translate them with the other keys when authoring or intentionally refreshing a form. Keep recovery wording clear about unfinished selections and the need to return AI-request files to chat. Keep resume instructions in the conversation language while preserving the exact local workspace and run identifiers. Never insert a server token or authenticated URL into the copied message.
 
+The goal summary uses `goal_label`, `goal_expand`, and `goal_collapse`. These keys are also optional when reading older custom dictionaries and fall back to English; translate all three for newly authored interfaces. The summary displays the saved `questionnaire.goal` as plain text, with an expansion control only when needed. Keep that goal in the conversation language when authoring it; do not rewrite the saved request or answers simply to refresh this display.
+
 Translate question titles, help, option labels, descriptions, recommendation reasons, source summaries, and group labels into the questionnaire language. Preserve the actual meaning and tradeoffs. The source's original title, quoted technical term, or proper name may remain in its original language when useful. Recommendations and AI-created assumptions need the same language treatment as user-facing questions.
 
 ## Research and generate across languages

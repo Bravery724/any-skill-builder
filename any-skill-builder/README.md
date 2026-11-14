@@ -42,6 +42,8 @@ The host controls model and effort settings. Writing “think harder” does not
 
 The agent researches the subject and prepares a questionnaire or asks in chat. You can answer, leave questions for AI, or defer a decision for later discussion. Core questions recommend your input but remain delegatable.
 
+The questionnaire shows the saved goal above the questions so you can see what the skill is being built for. Long requests expand from a two-line summary; expanding the request does not change your answers.
+
 In the questionnaire, select **Let AI decide unanswered questions** if needed, then choose **Finish** on any page. Existing answers and deferrals stay protected. If Finish downloads a file, return it to the skill-building chat. A downloaded file does not restart a closed chat.
 
 ## What you receive

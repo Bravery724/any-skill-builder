@@ -31,7 +31,7 @@ OPTIONAL_LOCALE_MESSAGES = {"defer_reason_label", "delegate_unanswered", "reset_
                             "continue_answering", "finish_live", "finish_offline", "ai_pending", "counts_delegated",
                             "core_guidance", "resume_copy", "resume_copied", "resume_manual", "resume_message",
                             "resume_offline_note", "resume_label", "draft_exported", "draft_imported",
-                            "invalid_draft", "ai_request_import_notice"}
+                            "invalid_draft", "ai_request_import_notice", "goal_label", "goal_expand", "goal_collapse"}
 PLACEHOLDER = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
 LANGUAGE_TAG = re.compile(
     r"(?:(?:[a-z]{2,3}(?:-[a-z]{3}){0,3}|[a-z]{4,8})"
