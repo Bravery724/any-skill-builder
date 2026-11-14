@@ -81,6 +81,7 @@ flowchart LR
 | Host agent | Reads Agent Skills, accesses local files, and executes Python; research and image candidates use its available tools |
 | Runtime | Python 3.10+; a maintained 3.13+ release is recommended for a new installation; standard library only |
 | Questionnaire | A modern browser; live delivery also needs the local server and host task to remain active |
+| Optional Skills CLI installer | Node.js 22.20+; the Python and manual ZIP routes do not need Node.js |
 | Maintainer tests only | Node.js 22+ with the built-in test runner, `Blob`, and `Intl.Segmenter` |
 
 There are no runtime package downloads or bundled model credentials. Uploading a ZIP to an ordinary chat interface does not by itself provide the required file and command access. See the [verified environment scope](docs/installation.md#verified-scope) before assuming another host has been tested.
@@ -168,7 +169,7 @@ python -B tools/check_example.py
 python -B tools/package_release.py --out dist
 ```
 
-`check_example.py` checks the consistency of existing public evidence and reports; it does not run a new model evaluation. See [testing](docs/testing.md) for test scope and temporary-directory settings, and [releasing](docs/releasing.md) for package contents and publication steps. CI is configured for Ubuntu and Windows with Python 3.10/3.13 and Node 24; a configuration file alone is not proof of a completed hosted run.
+`check_example.py` checks the consistency of existing public evidence and reports; it does not run a new model evaluation. See [testing](docs/testing.md) for test scope and temporary-directory settings, and [releasing](docs/releasing.md) for package contents and publication steps. The [first successful hosted run](https://github.com/Bravery724/any-skill-builder/actions/runs/43591884294) passed all four Ubuntu/Windows and Python 3.10/3.13 combinations with Node 24. Check [current CI results](https://github.com/Bravery724/any-skill-builder/actions/workflows/ci.yml) for later commits.
 
 ## Limits
 

@@ -132,11 +132,12 @@ These observations were recorded on 2026-11-14. They are separate from compatibi
 | Environment or capability | Evidence |
 | --- | --- |
 | Windows, Python 3.10.11 | Backend suite run from a freshly extracted source ZIP; minimum-version compatibility exercised |
-| Windows, Node 25.2.1 | Form regression suite executed; Node is needed only for maintenance |
+| Windows, Node 25.2.1 | Form regression suite executed; Node is optional for end users choosing the Skills CLI route |
 | Windows, Python 3.15.2 | Installer, runtime ZIP commands, fresh-source checks, and reproducible packaging exercised |
 | Existing Codex desktop session | Installed skill is exposed in its skill catalog; this does not prove every host or every fresh-session discovery flow |
 | Chrome, Windows | Recorded checks cover 320/390/768/1100px layouts and live submission; native OS input methods and every language were not certified |
-| GitHub Actions | Configured for Ubuntu/Windows, Python 3.10/3.13, and Node 24; consult actual runs after publication rather than treating configuration as a pass |
-| Other hosts and repository-URL installers | Not verified by the filesystem installer; follow their own documented discovery rules |
+| GitHub Actions | [All four Ubuntu/Windows and Python 3.10/3.13 jobs passed with Node 24](https://github.com/Bravery724/any-skill-builder/actions/runs/43591884294), including Python tests, form tests, release checks, example evidence, and packaging; consult current runs for later commits |
+| Skills CLI 1.8.1, Windows | Installed from the public repository with explicit `--skill any-skill-builder --agent codex --copy --yes`; all 18 runtime source files matched, only the builder was installed, and init/import/validation/render commands passed |
+| Other hosts and installer modes | Host discovery, global installs, and other host-specific behavior were not exercised by these isolated installation checks |
 
 The host may use the browser workflow, a chat-only questionnaire, or offline HTML according to its available tools. See [testing](testing.md) for detailed test boundaries.
