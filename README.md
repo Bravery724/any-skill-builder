@@ -75,11 +75,11 @@ Choose your host when prompted. Add `-g` for a shared installation. Keep `--skil
 
 ### Install with Python
 
-1. Download `any-skill-builder-0.5.1-source.zip` from [Releases](https://github.com/Bravery724/any-skill-builder/releases) and extract it.
+1. Download `any-skill-builder-0.5.2-source.zip` from [Releases](https://github.com/Bravery724/any-skill-builder/releases) and extract it.
 2. Enter the extracted source folder containing `README.md` and `tools/`, then run:
 
    ```sh
-   cd any-skill-builder-0.5.1-source
+   cd any-skill-builder-0.5.2-source
    python -B tools/install_skill.py --dest "~/.agents/skills"
    ```
 

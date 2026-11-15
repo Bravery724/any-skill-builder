@@ -1822,22 +1822,18 @@ def build_decision_brief(workspace):
 
 
 def questionnaire_requirement_lines(workspace, review_state):
-    """Fixed requirements for a questionnaire brief: the accepted review's list, then any decision-list requirement it lacks."""
-    root = Path(workspace)
-    lines, seen = [], set()
-    review_path = root / "question-review.json"
+    """Fixed requirements for a questionnaire brief, from the accepted question review.
+
+    The review is the only source. In a run converted from a decision list, `prepare` already copies that list's
+    requirements into the review, so one the review no longer holds was released on purpose and stays out.
+    """
+    lines = []
+    review_path = Path(workspace) / "question-review.json"
     if review_state.get("passed") and review_path.exists():
         for requirement in read_json(review_path).get("requirements", []):
             basis = requirement["basis"]
-            seen.add(requirement["id"])
             if basis["kind"] != "goal":
                 lines.append(f"- {requirement['id']}: {requirement['statement']} (basis: {basis['kind']}, {basis['reference']})")
-    decisions_path = root / DECISIONS_FILE
-    if decisions_path.exists():
-        for requirement in read_json(decisions_path).get("requirements", []):
-            if isinstance(requirement, dict) and requirement.get("id") not in seen:
-                lines.append(f"- {requirement['id']}: {requirement['statement']} (basis: {requirement['basis']}; "
-                             "from the Full Auto decision list)")
     return lines or ["- None recorded beyond the goal."]
 
 

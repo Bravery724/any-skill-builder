@@ -203,22 +203,14 @@ class DecisionListTests(unittest.TestCase):
         self.assertTrue((self.root / "decisions.json").exists())
         self.assertEqual(self.cli("set-decisions", "--input", self.write(decisions), expected=2)["error"], "mode_mismatch")
 
-    def test_converted_run_keeps_fixed_requirements_in_the_review_and_the_brief(self):
-        decisions = decision_list()
-        self.record(decisions)
+    def converted_review(self):
+        """Convert the decision list to a questionnaire and return a passing synthetic review of it."""
+        self.record(decision_list())
         skeleton = self.parent / "skeleton.json"
         self.cli("decisions-to-questions", "--skeleton", skeleton)
         self.cli("set-questions", "--input", skeleton, "--from-decisions")
-
         review = review_questions.prepare(self.root / "questions.json", self.parent / "review-draft.json")
-        carried = [r for r in review["requirements"] if r["id"] == "staged-only"]
-        self.assertEqual(len(carried), 1)
-        self.assertEqual(carried[0]["statement"], "Write the message from staged changes only")
-        self.assertEqual(carried[0]["basis"]["kind"], "user")
-        self.assertEqual(carried[0]["basis"]["reference"], "user request")
-        for row in review["question_reviews"] + review["combinations"]:
-            self.assertEqual(row["requirement_ids"], ["goal", "staged-only"])
-
+        self.prepared = copy.deepcopy(review)
         review["status"] = "pass"
         review["reviewer"] = {"identity": "Test fixture reviewer", "relationship": "self"}
         for row in review["question_reviews"]:
@@ -232,13 +224,37 @@ class DecisionListTests(unittest.TestCase):
                                          inapplicable_question_ids=["body-style"])
         for key in ("localization", "fair_alternatives", "unknown_private_facts"):
             review[key].update(status="pass", reason="Synthetic fixture check.")
+        return review
+
+    def brief_after(self, review):
         self.cli("accept-review", "--input", self.write(review))
         self.cli("recommend")
         self.cli("brief")
-        brief = (self.root / "build-brief.md").read_text(encoding="utf-8")
+        return (self.root / "build-brief.md").read_text(encoding="utf-8")
+
+    def test_converted_run_keeps_fixed_requirements_in_the_review_and_the_brief(self):
+        review = self.converted_review()
+        carried = [r for r in self.prepared["requirements"] if r["id"] == "staged-only"]
+        self.assertEqual(len(carried), 1)
+        self.assertEqual(carried[0]["statement"], "Write the message from staged changes only")
+        self.assertEqual(carried[0]["basis"]["kind"], "user")
+        self.assertEqual(carried[0]["basis"]["reference"], "user request")
+        for row in self.prepared["question_reviews"] + self.prepared["combinations"]:
+            self.assertEqual(row["requirement_ids"], ["goal", "staged-only"])
+        brief = self.brief_after(review)
         self.assertIn("## Fixed requirements", brief)
         self.assertIn("- staged-only: Write the message from staged changes only (basis: user, user request)", brief)
         self.assertEqual(brief.count("staged-only:"), 1)
+
+    def test_requirement_released_in_the_review_stays_out_of_the_brief(self):
+        review = self.converted_review()
+        review["requirements"] = [r for r in review["requirements"] if r["id"] != "staged-only"]
+        for row in review["question_reviews"] + review["combinations"]:
+            row["requirement_ids"].remove("staged-only")
+        brief = self.brief_after(review)
+        self.assertIn("## Fixed requirements\n\n- None recorded beyond the goal.", brief)
+        self.assertNotIn("staged-only", brief)
+        self.assertTrue((self.root / "decisions.json").exists())
 
     def test_from_decisions_requires_a_decision_list_run(self):
         other = self.parent / "plain-auto"

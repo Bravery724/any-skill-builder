@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.2 — 2026-11-16
+
+- Questionnaire build briefs take their fixed requirements from the accepted question review only. In 0.5.1 the brief also added any decision-list requirement the review lacked, so a requirement released on purpose when a Full Auto run was converted could reappear as fixed and contradict the user's answer.
+
 ## 0.5.1 — 2026-11-16
 
 - Questionnaire build briefs now include a **Fixed requirements** section, taken from the accepted question review. Before, only Full Auto briefs listed them, so a constraint the review had recorded could be missed during the build.
