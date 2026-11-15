@@ -28,9 +28,9 @@ Turn a rough idea into a researched, usable agent skill. Discover meaningful req
 
 ## How it works
 
-[![How Any Skill Builder works: request, research, decisions or questionnaire, build, evaluate, install](docs/assets/how-it-works.gif)](docs/assets/how-it-works.mp4)
+https://github.com/user-attachments/assets/a59cf189-5203-441e-8061-d57a2307f453
 
-A short animated walkthrough of both modes. [Watch the full video with narration captions (MP4)](docs/assets/how-it-works.mp4).
+A 70-second walkthrough of both modes, with narration and captions: request, research, decisions or questionnaire, build, test, and install. [Download the MP4](docs/assets/how-it-works.mp4).
 
 ## Two ways to build
 
