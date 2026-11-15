@@ -28,7 +28,7 @@ Turn a rough idea into a researched, usable agent skill. Discover meaningful req
 
 ## How it works
 
-https://github.com/user-attachments/assets/edcd68fb-5fa1-48ed-8278-2b0c822adb51
+https://github.com/user-attachments/assets/3d10f534-74e7-4cd4-a69c-369cc3844fce
 
 An 80-second walkthrough with narration and captions. It starts on the whole workflow, then zooms into each step: request, research, Full Auto or questionnaire, build, test with up to two fix rounds, and install.
 
