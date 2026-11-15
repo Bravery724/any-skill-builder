@@ -46,7 +46,7 @@ python -B SCRIPT decisions-to-questions --workspace RUN --skeleton NEW_SKELETON_
 python -B SCRIPT set-questions --workspace RUN --input EDITED_SKELETON_JSON --from-decisions
 ```
 
-The skeleton carries every decision as a question: `question` becomes the title, `affects` the decision, option tradeoffs the effects, and the choice, reason, and assumptions the recommendation. Fixed requirements are printed for the review. Add only display text (help, option descriptions where the effect is unclear, group labels) in the conversation's language. Ask a new question only when the user wants to choose something the list recorded as fixed by the request. `--from-decisions` switches the run to questionnaire mode and requires a question review; then follow the ordinary review and render steps below. `decisions.json` stays in the run as the record of the original choices.
+The skeleton carries every decision as a question: `question` becomes the title, `affects` the decision, option tradeoffs the effects, and the choice, reason, and assumptions the recommendation. Fixed requirements are printed, and the review template from `prepare` already lists them; keep them there. Add only display text (help, option descriptions where the effect is unclear, group labels) in the conversation's language. Ask a new question only when the user wants to choose something the list recorded as fixed by the request. `--from-decisions` switches the run to questionnaire mode and requires a question review; then follow the ordinary review and render steps below. `decisions.json` stays in the run as the record of the original choices.
 
 ## Author and review questions
 

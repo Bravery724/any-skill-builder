@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.1 — 2026-11-16
+
+- Questionnaire build briefs now include a **Fixed requirements** section, taken from the accepted question review. Before, only Full Auto briefs listed them, so a constraint the review had recorded could be missed during the build.
+- When a Full Auto run is converted with `set-questions --from-decisions`, the question review template from `prepare` lists the decision list's fixed requirements and attaches them to every question and combination. The brief also adds any decision-list requirement the review lacks.
+- `docs/full-auto-validation.md` records a re-check of the harder evaluation rules: a new Full Auto build wrote a trap case and a fake-secret case, and both skill versions ran five times on the held-out input that had exposed the earlier error.
+
 ## 0.5.0 — 2026-11-15
 
 - Commands that change a run (`set-questions`, `answer`, `recommend`, `import-answers`, `resume`, `reset-answers` and similar) print a short summary instead of the full questionnaire and answer records, which were 40-60 KB per call. `--full` restores the old output, `--out FILE` saves it, and `status --json` is unchanged.

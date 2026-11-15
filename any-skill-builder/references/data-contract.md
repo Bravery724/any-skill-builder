@@ -230,6 +230,6 @@ The fields map one to one onto the questionnaire, so `decisions-to-questions` ca
 | `options[].tradeoff` | `options[].effect` |
 | `choice`, `reason`, `assumptions` | `recommendation.value`, `.rationale`, `.assumptions` |
 | `id`, `type`, `importance`, `origin`, `source_ids`, `when`, `group_id`, `groups`, `sources` | same names |
-| `requirements` | printed by `decisions-to-questions` for the question review's `requirements` |
+| `requirements` | printed by `decisions-to-questions` and copied into the question review's `requirements` by `prepare` |
 
 Only display text is added after conversion: question `help`, option descriptions where the effect is unclear, and group labels.

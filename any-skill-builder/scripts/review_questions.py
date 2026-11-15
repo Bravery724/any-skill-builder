@@ -138,6 +138,32 @@ def visible_fields(questionnaire):
     return fields, originals
 
 
+def _decision_requirements(run, questionnaire):
+    """Fixed requirements from a Full Auto decision list that this questionnaire run was converted from."""
+    path = Path(run) / core.DECISIONS_FILE
+    if questionnaire.get("mode") != "questionnaire" or not path.exists():
+        return []
+    try:
+        decisions = core.read_json(path)
+    except (OSError, ValueError) as exc:
+        raise ReviewError(f"Cannot read the decision list's requirements: {exc}", "review_io_error") from exc
+    sources = {source["id"] for source in questionnaire["sources"]}
+    carried, used = [], {"goal"}
+    for requirement in decisions.get("requirements", []) if isinstance(decisions, dict) else []:
+        if not isinstance(requirement, dict):
+            continue
+        rid = requirement["id"] if requirement["id"] not in used else f"decision-{requirement['id']}"
+        if rid in used:
+            continue
+        used.add(rid)
+        basis = requirement["basis"]
+        note = f"Carried over from the Full Auto decision list ({core.DECISIONS_FILE}, requirement {requirement['id']})."
+        carried.append({"id": rid, "statement": requirement["statement"],
+                        "basis": {"kind": "source", "reference": basis, "evidence": note} if basis in sources
+                        else {"kind": "user", "reference": basis, "evidence": note}})
+    return carried
+
+
 def prepare(questions_path, out_path):
     """Write a pending review template; never overwrite an existing file."""
     questionnaire, digest = _questions(questions_path)
@@ -169,6 +195,12 @@ def prepare(questions_path, out_path):
         "unknown_private_facts": {"question_ids": question_ids, "status": "pending", "reason": ""},
         "findings": [],
     }
+    carried = _decision_requirements(Path(questions_path).parent, questionnaire)
+    if carried:
+        review["requirements"] += carried
+        ids = [requirement["id"] for requirement in carried]
+        for row in review["question_reviews"] + review["combinations"]:
+            row["requirement_ids"] += ids
     try:
         core.atomic_json(destination, review)
     except OSError as exc:

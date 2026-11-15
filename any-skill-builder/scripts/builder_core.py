@@ -1821,6 +1821,26 @@ def build_decision_brief(workspace):
     return {"event": "brief_created", "path": str(path.resolve())}
 
 
+def questionnaire_requirement_lines(workspace, review_state):
+    """Fixed requirements for a questionnaire brief: the accepted review's list, then any decision-list requirement it lacks."""
+    root = Path(workspace)
+    lines, seen = [], set()
+    review_path = root / "question-review.json"
+    if review_state.get("passed") and review_path.exists():
+        for requirement in read_json(review_path).get("requirements", []):
+            basis = requirement["basis"]
+            seen.add(requirement["id"])
+            if basis["kind"] != "goal":
+                lines.append(f"- {requirement['id']}: {requirement['statement']} (basis: {basis['kind']}, {basis['reference']})")
+    decisions_path = root / DECISIONS_FILE
+    if decisions_path.exists():
+        for requirement in read_json(decisions_path).get("requirements", []):
+            if isinstance(requirement, dict) and requirement.get("id") not in seen:
+                lines.append(f"- {requirement['id']}: {requirement['statement']} (basis: {requirement['basis']}; "
+                             "from the Full Auto decision list)")
+    return lines or ["- None recorded beyond the goal."]
+
+
 def build_brief(workspace):
     if decision_list_in_use(workspace):
         return build_decision_brief(workspace)
@@ -1829,7 +1849,9 @@ def build_brief(workspace):
     questionnaire, envelope = view["questionnaire"], view["answers"]
     lines = ["# Skill build brief", "", f"Project: {questionnaire['project_id']}", f"Run identity: {questionnaire['run_id']}",
              f"Questionnaire revision: {questionnaire['revision']}; answer revision: {envelope['answer_revision']}",
-             "", "## Goal", "", questionnaire["goal"], "", "## Active decisions", ""]
+             "", "## Goal", "", questionnaire["goal"], "", "## Fixed requirements", ""]
+    lines += questionnaire_requirement_lines(workspace, view["question_review"])
+    lines += ["", "## Active decisions", ""]
     for q in questionnaire["questions"]:
         if view["states"][q["id"]] != "active":
             continue

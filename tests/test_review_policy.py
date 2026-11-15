@@ -112,6 +112,29 @@ class ReviewPolicyTests(unittest.TestCase):
         brief = self.cli("brief")
         self.assertIn("workflow", Path(brief["path"]).read_text(encoding="utf-8"))
 
+    def test_brief_lists_the_reviews_fixed_requirements(self):
+        self.accept()
+        self.cli("recommend")
+        brief = Path(self.cli("brief")["path"]).read_text(encoding="utf-8")
+        self.assertIn("## Fixed requirements\n\n- None recorded beyond the goal.", brief)
+
+        other = self.parent / "with-requirement"
+        self.new_workspace(other)
+        self.counter += 1
+        review = self.parent / f"synthetic-review-{self.counter}.json"
+        record = completed_example_review(other / "questions.json", review)
+        record["requirements"].append({"id": "no-invented-owners", "statement": "Never invent owners or deadlines",
+                                       "basis": {"kind": "user", "reference": "original request",
+                                                 "evidence": "Do not make up who owns what."}})
+        for row in record["question_reviews"] + record["combinations"]:
+            row["requirement_ids"].append("no-invented-owners")
+        core.atomic_json(review, record)
+        self.cli("accept-review", "--input", review, workspace=other)
+        self.cli("recommend", workspace=other)
+        brief = Path(self.cli("brief", workspace=other)["path"]).read_text(encoding="utf-8")
+        self.assertIn("- no-invented-owners: Never invent owners or deadlines (basis: user, original request)", brief)
+        self.assertNotIn("None recorded beyond the goal", brief)
+
     def test_pending_or_stale_reviews_cannot_be_accepted(self):
         review = self.parent / "pending-review.json"
         review_questions.prepare(self.root / "questions.json", review)

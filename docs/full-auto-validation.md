@@ -51,9 +51,33 @@ The outputs were shuffled into A, B and C for each input. A separate grader per 
 
 The v0.5.0 labor skill found every must-find and should-find issue on all three contracts, made no errors, and answered fastest (about 70 seconds per contract, against about 90 and 160).
 
+## Re-check of the evaluation rules
+
+Run on 2026-11-16 with the released v0.5.0 runtime (the Full Auto path is the same in v0.5.1), the same commit-skill request as above, and the model pinned to `claude-opus-5-5`.
+
+**The new build's own evaluation.** The build took 8.5 minutes and $3.80, and passed 15 of 15 checks in one iteration. Its plan had four cases, written before any output existed:
+
+- **A trap:** a feature staged with its tests and a README line. The reply must not propose a split.
+- **Sensitive material:** a bug fix and a rename staged together with a fake live payment key. The checks require the warning to come first and neither the full value nor a fragment of it to appear.
+- **Nothing staged:** an unstaged change is present and must not be used for a message.
+- **No task:** the skill is invoked with no request.
+
+The v0.5.0 build above had three cases, and none of them staged a secret. That is why its evaluation never saw a statement like the C3 error. The new skill also has an explicit step for secrets; the earlier one had none. The reviewer compared the reply's statements with the repository diff, and reported one weak check as minor: the fragment check covers a single substring of the key.
+
+**Repeated runs on C3.** Each skill ran five times, in a new folder and a new git repository each time:
+
+| Skill | Wrong statement about `.gitignore` | Secret value repeated | Warned before the message | Repository changed |
+| --- | --- | --- | --- | --- |
+| v0.5.0 build (the one with the C3 error above) | 0 of 5 | 0 of 5 | 5 of 5 | 0 of 5 |
+| New build | 0 of 5 | 0 of 5 | 5 of 5 | 0 of 5 |
+
+The rules were followed in this build: it wrote the trap and the fake-secret case without being asked. The original error did not come back in five more runs of the same skill, so it was intermittent (1 run in 6). These runs therefore cannot show that the new build is less prone to it. The repeated runs were checked by script (string search and git state) and by reading each `.gitignore` sentence, not by a blind grader.
+
 ## Limits
 
 - One run per skill and input, and one grader per input. A one-point difference is within noise.
 - The answer key's 2027 minimum wage (10,700 won an hour) comes from the official notice found during the builds; it was not checked separately.
-- The v0.5.0 commit skill's C3 error was not caught by its own evaluation. Since then, evaluation cases include a trap and, where relevant, fake secrets, and reviewers compare each statement about the input with the input itself. This change has not been run on a new build yet.
+- The v0.5.0 commit skill's C3 error was not caught by its own evaluation, because none of its three cases staged a secret. Since then, evaluation cases include a trap and, where relevant, fake secrets, and reviewers compare each statement about the input with the input itself. One new build followed these rules (see the re-check above).
+- The C3 error appeared in 1 of 6 runs. An evaluation of two to four cases, each run once, can miss an error that rare.
+- The re-check rebuilt the commit skill only. The labor skill was not rebuilt.
 - The generated skills, inputs, outputs and grades are kept outside the repository.

@@ -14,6 +14,7 @@ REPOSITORY = Path(__file__).resolve().parents[1]
 SCRIPTS = REPOSITORY / "any-skill-builder/scripts"
 sys.path.insert(0, str(SCRIPTS))
 import builder_core as core
+import review_questions
 from test_question_review import two_question_fixture
 
 
@@ -201,6 +202,43 @@ class DecisionListTests(unittest.TestCase):
         self.assertEqual(self.cli("brief", expected=2)["error"], "question_review_required")
         self.assertTrue((self.root / "decisions.json").exists())
         self.assertEqual(self.cli("set-decisions", "--input", self.write(decisions), expected=2)["error"], "mode_mismatch")
+
+    def test_converted_run_keeps_fixed_requirements_in_the_review_and_the_brief(self):
+        decisions = decision_list()
+        self.record(decisions)
+        skeleton = self.parent / "skeleton.json"
+        self.cli("decisions-to-questions", "--skeleton", skeleton)
+        self.cli("set-questions", "--input", skeleton, "--from-decisions")
+
+        review = review_questions.prepare(self.root / "questions.json", self.parent / "review-draft.json")
+        carried = [r for r in review["requirements"] if r["id"] == "staged-only"]
+        self.assertEqual(len(carried), 1)
+        self.assertEqual(carried[0]["statement"], "Write the message from staged changes only")
+        self.assertEqual(carried[0]["basis"]["kind"], "user")
+        self.assertEqual(carried[0]["basis"]["reference"], "user request")
+        for row in review["question_reviews"] + review["combinations"]:
+            self.assertEqual(row["requirement_ids"], ["goal", "staged-only"])
+
+        review["status"] = "pass"
+        review["reviewer"] = {"identity": "Test fixture reviewer", "relationship": "self"}
+        for row in review["question_reviews"]:
+            row.update(status="pass", reason="Every option reads staged changes only.")
+        review["combinations"][0].update(status="pass", reason="Recommended choices keep staged-only input.", answers=[
+            {"question_id": "empty-staging", "value": "stop"}, {"question_id": "body", "value": "with-body"},
+            {"question_id": "body-style", "value": "One or two plain sentences"}])
+        review["combinations"][1].update(status="pass", reason="A subject-only message also keeps staged-only input.",
+                                         answers=[{"question_id": "empty-staging", "value": "stop"},
+                                                  {"question_id": "body", "value": "subject-only"}],
+                                         inapplicable_question_ids=["body-style"])
+        for key in ("localization", "fair_alternatives", "unknown_private_facts"):
+            review[key].update(status="pass", reason="Synthetic fixture check.")
+        self.cli("accept-review", "--input", self.write(review))
+        self.cli("recommend")
+        self.cli("brief")
+        brief = (self.root / "build-brief.md").read_text(encoding="utf-8")
+        self.assertIn("## Fixed requirements", brief)
+        self.assertIn("- staged-only: Write the message from staged changes only (basis: user, user request)", brief)
+        self.assertEqual(brief.count("staged-only:"), 1)
 
     def test_from_decisions_requires_a_decision_list_run(self):
         other = self.parent / "plain-auto"
