@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { setup, makeBoot, copy, select, inputValue } from './form_harness.mjs';
+import { setup, makeBoot, copy, select, inputValue, catalog } from './form_harness.mjs';
 
 function envFor(t, boot = makeBoot()) { const env = setup(boot); t.after(() => env.dispose()); assert.ok(env.api, env.ids.get('notice').textContent); return env; }
 function goto(env, id) { env.api.goPage(env.api.pages.findIndex(page => page.questions.some(q => q.id === id))); }
@@ -229,6 +229,18 @@ test('Unusual text remains user input for semantic review by the host, not brows
     assert.equal(env.api.answers.answers.text.value, text);
     assert.equal(env.api.answers.answers.text.actor, 'user');
   }
+});
+
+test('A page holds up to four questions and the recommended option is marked on the card', t => {
+  const boot = makeBoot();
+  boot.view.questionnaire.questions[2].recommendation = { value: 'b', rationale: 'Shorter output', assumptions: [] };
+  const env = envFor(t, boot);
+  assert.deepEqual(copy(env.api.pages.map(page => page.questions.length)), [3, 1]);
+  const badges = env.card('other').querySelectorAll('.recommended-badge');
+  assert.equal(badges.length, 1);
+  assert.equal(badges[0].textContent, catalog.en.recommended_badge);
+  assert.equal(badges[0].closest('.option').querySelector('input').value, 'b');
+  assert.equal(env.card('gate').querySelectorAll('.recommended-badge').length, 0);
 });
 
 test('Long questions can be paged through without filling all answers', t => {

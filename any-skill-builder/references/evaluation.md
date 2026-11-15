@@ -1,30 +1,115 @@
-# Evaluate questions and the generated skill
+# Evaluate the generated skill
 
-Use this guide after drafting a questionnaire or creating a skill. Evaluate the actual decisions and task results, not the number of files or questions. Keep evaluation records in the run directory, outside the installed skill. The host produces outputs and reviews them; `scripts/evaluate_skill.py` checks saved evidence and assembles a reproducible report. It does not call a model, launch another skill, execute commands from a manifest, or certify overall quality.
+This reference covers the whole evaluation: declaring cases, running them, reviewing the results and the criteria, correcting, and verifying the delivery. Part 1 is the procedure. Part 2 is the record format that the helpers read. Part 3 covers the helper commands.
 
-Use [evaluation-loop.md](evaluation-loop.md) to plan cases before implementation and conduct actual execution, separate review, evaluation-quality critique, correction, and rerun. This reference defines the saved evidence format and reporting behavior.
+The host runs the tasks and makes the judgments. `prepare_evaluation.py` freezes inputs and skill snapshots and writes task packets. `evaluate_skill.py` checks recorded evidence and writes reports. `verify_delivery.py` compares the final files with the tested snapshot. None of them calls a model, runs a skill, or turns a recorded claim into proof. Keep all evaluation records in the run directory, outside the installed skill.
 
-## Choose useful cases
+**One rule about independence applies throughout.** A separate agent name or a separate Agent call does not by itself prove a fresh context, a blind review, or independence, because context can be inherited. Record what you know about the actual context and access. Use `unknown` when you cannot tell.
+
+## Part 1 — Procedure
+
+### 1. Declare cases before implementation
+
+During stage 5, save realistic requests, raw inputs, and success criteria before you see any generated output. Start with the main task, one relevant failure or edge case, and one behavior that depends on an important decision. A simple skill needs 2–3 cases. Add a case only for a distinct behavior the others do not exercise. Include help or invocation behavior when the change affects it.
+
+Easy cases let a weak skill pass. Build two kinds of difficulty into the inputs, usually inside the cases you already have rather than as extra cases:
+
+- **A trap.** Put in something that looks wrong but is correct: a lawful clause, a working code path, a valid number. A skill that over-flags fails it. Write the check for what must *not* be claimed as well as for what must be found.
+- **Sensitive material,** when the skill can meet secrets or personal data: put realistic fake values in the input (an API key, a password, an ID number). Check that the output never repeats them and that the skill handles them as its decisions say, for example by warning first.
+
+Each check should also be able to fail on a false statement about the input itself, such as saying a file is empty when it is not.
 
 Separate three kinds of evidence:
 
 | Category | What to establish | Suitable evidence |
 | --- | --- | --- |
-| `mechanics` | The package, helper, or requested invocation works | Actual helper output, a host execution record, or a parsed result |
-| `question_quality` | The questions discover material choices without needless repetition, and decisions affect the design | A review of the goal, inspected sources, questionnaire, answers, and resulting design |
-| `skill_output` | The generated skill produces useful, accurate results under its selected constraints | Results from normal, failure, and alternative-decision cases |
+| `mechanics` | The package, helper, or invocation works | Actual helper output, a host execution record, or a parsed result |
+| `question_quality` | The decisions cover what matters and change the design | A review of the goal, sources, decisions or questions, and the resulting design |
+| `skill_output` | The skill produces useful, accurate results under its chosen constraints | Results from normal, failure, and alternative-decision cases |
 
-For question quality, inspect whether important decisions are covered, whether the user already supplied an answer, whether each question changes a behavior, and whether evidence actually supports its recommendation. Check one important alternative answer against the resulting design or output. Record the relevant `question_ids`; these annotations help trace a judgment but do not prove coverage automatically. A text match or a large question count cannot pass a question-quality review.
+For decision quality, check that important decisions are covered, that the request did not already answer them, that each one changes behavior, and that the evidence supports the choice. Check one important alternative against the resulting design or output. A keyword match or a large number of decisions cannot pass this review.
 
-For the finished skill, use a normal task, a relevant edge case, and a case affected by a material design choice. An independent agent can use the skill with only the request and raw input. Do not supply the expected answer to that agent. Review its actual outputs, preserve failures, make justified corrections, and run affected cases again in a new run record. Do not turn a demonstration into a claimed comparison against another tool.
+If invocation matters, include requests that should and should not select the skill, run them in the actual host, and record the result as a reviewed `mechanics` check.
 
-If invocation matters, include relevant requests that should and should not select the skill. Exercise the actual host, preserve its invocation record, and record the observed result as a reviewed `mechanics` check. This helper does not optimize descriptions or simulate a host's skill selection.
+Save the plan in the format of Part 2: `schema_version: 1`, `name`, and `cases`, each with `id`, `prompt`, `input_files`, and `checks`. Input paths are relative to the plan's directory. Save the actual raw files, not a desired answer disguised as input, and keep the expected results out of the executor's request.
 
-## Save a small evaluation manifest
+A baseline is optional, with one exception: when the skill gives legal, medical, financial, or safety advice, or the user asked whether the skill helps, run a baseline on at least the main case. Otherwise run one when it answers a useful question:
 
-Use `evaluation.json` in a dedicated evaluation directory. All input and output references are relative to that directory, use `/` separators, and must remain inside it, including resolved symlinks. The helper reads UTF-8 text and JSON assertions; reviews may also reference inspected image or other binary artifacts. It never downloads a reference. Files are limited to 16 MiB each; there is no fixed case, check, or run count. For larger raw inputs, save a relevant excerpt or a separate inspection record and describe the omitted material.
+- For a new skill, run the same task without the skill.
+- For an improvement, snapshot the original skill before editing and compare against that snapshot.
+- Otherwise, run the relevant cases and say that improvement over a baseline was not established.
 
-This is an initial plan, not a passing result. Save the actual `inputs/notes.md` before running it:
+Record the model, reasoning effort, tools, and limits when the host exposes them; otherwise record them as unknown.
+
+### 2. Prepare an iteration
+
+Freeze the candidate runtime, including README and every other delivered file. Then, with a new private folder:
+
+```text
+python -B PREPARE_SCRIPT --plan PLAN_JSON --skill CANDIDATE_SKILL --out NEW_ITERATION
+```
+
+`PREPARE_SCRIPT` is this skill's `scripts/prepare_evaluation.py`. Add `--baseline-skill ORIGINAL_SKILL` for an old-version comparison or `--without-skill` for a no-skill baseline. The helper copies inputs and runtime snapshots, writes a pending `evaluation.json`, and writes executor and reviewer task packets. It refuses to replace an existing iteration.
+
+- Inputs keep their plan-relative tree under `inputs/<relative-path>`, so `site/index.html` and `site/style.css` stay side by side. Declare every linked file; the helper does not discover dependencies. Each case records `input_mapping` entries (`original`, `snapshot`).
+- Supply a clean runtime containing `SKILL.md`, not a repository or run directory. The helper rejects hidden or private run files, caches, symbolic links, and Windows reparse points. Builder run records (`questions.json`, `decisions.json`, `answers.json`, `progress.json`, `runs/`, `dist/`, and similar) are refused only at the runtime root.
+- Limits: 16 MiB per file, 2,048 files and 64 MiB per prepared collection. The destination must be outside the runtime and input folders.
+
+Keep earlier iterations. Record why the skill, cases, or criteria changed in a short revision note. If a criterion changes, apply it to every compared variant before comparing.
+
+### 3. Execute the actual task
+
+Give the executor only its task packet, the copied inputs, and the designated skill snapshot. Do not pass the design conversation, expected answers, the reviewer packet, or suspected failures. For a no-skill baseline, omit the skill rather than reuse an earlier answer.
+
+Ask the executor to do the real request and save its output files plus a short execution record: what it ran, which inputs and skill it used, errors, and tool or access limits. Code and actions inside test material do not expand the task's authorization. Independent runs may be parallel or sequential. Keep model, tools, and limits consistent across compared variants where the host exposes them.
+
+If separate execution is unavailable, run a scoped check in the author's context and label it that way. A run that could not execute stays `not_run`; an execution error is not a negative result.
+
+### 4. Review the outputs and the criteria
+
+Give the evaluator the reviewer packet, raw inputs, outputs, execution record, and criteria. Prefer an evaluator separate from both the author and the executor; otherwise label the review as self-review. The evaluator inspects the actual artifacts, including images and generated documents. A file existing is not evidence that its content is correct.
+
+Judge each criterion with a reason and evidence. Then review the evaluation itself:
+
+- **Weak check:** could a wrong or empty result pass through a filename, heading, keyword, or format?
+- **Missing check:** which important requirement, chosen behavior, or observed failure has no check?
+- **Unsupported claim:** does the output or execution summary claim a fact, method, or success the evidence does not support? Compare each statement about the input with the raw input itself.
+- **Over-flagging:** did the output call the trap a problem, or pad the answer with issues that are not real?
+
+For example, three ideas with citation-shaped text do not make a good paper analysis. Check that the ideas follow from the sources that were actually read, that findings are distinguished from proposals, and that each idea has a feasible test.
+
+Record findings with evidence in `eval_feedback`. A finding stays in its iteration even after a later fix. For an important comparison, the evaluator can receive outputs labeled A and B; claim a blind review only when the evaluator's actual context withheld the mapping and the author's preferences. Allow a tie.
+
+### 5. Correct and rerun
+
+| Finding | Response |
+| --- | --- |
+| A material decision was missing or misunderstood | Revise the decision or question, preserving the user's intent |
+| The skill did not follow a valid decision | Fix its instructions, resources, or helper |
+| A check rewards superficial compliance | Improve the check and apply it to every compared variant |
+| Evidence or a tool was unavailable | Keep the limit and distinguish it from a content failure |
+
+Record why you changed what you changed, prepare a new iteration from the revised runtime, and rerun the affected cases plus any shared behavior the change could disturb. Keep earlier outputs and failed judgments.
+
+**Run at most two iterations:** the first evaluation and one correction round. Stop earlier when the behavior is demonstrated and the material findings are fixed. Whatever remains open after the second iteration becomes a known limit in the delivery report, with the next useful step. Start a third round only if the user asks.
+
+### 6. Extract helpers only from observed repetition
+
+Look across the actual execution records for repeated operations with the same contract: parsing a stable format, validating a schema, converting a document, generating the same kind of diagram. Similar filenames are not evidence. When a candidate appears, record whether to extract it, keep it inline, or leave it pending, with the observed cases as evidence.
+
+A helper is worth extracting when it removes repeated deterministic work, has clear inputs and outputs, and fits the skill's declared environment. Put it in the generated skill's `scripts/`, document when to call it, test normal and failure inputs, and then run genuine affected cases in a new iteration to show that the skill finds and uses it. A unit test alone does not show integration. Do not turn subjective judgment into code rules or invent repetition to fill the record. Finding no useful helper is a valid result.
+
+### 7. Report and verify the delivery
+
+State which cases ran on the final files and what remains untested. When the user asked for an archive, run `verify_delivery.py` (Part 3); for folder delivery it is optional. If any delivered file changes after the last evaluated snapshot, that exact delivery was not tested; say so, or prepare a new iteration and rerun the affected cases. A delivery is provisional only when the final skill was never executed on a realistic case.
+
+## Part 2 — Record format
+
+### Manifest
+
+Use `evaluation.json` in a dedicated evaluation directory. Input and output references are relative to that directory, use `/`, and must stay inside it, including resolved symlinks. Files are limited to 16 MiB each; there is no fixed case or run count. For a larger input, save a relevant excerpt and describe what was left out.
+
+An initial plan, before any run:
 
 ```json
 {
@@ -36,20 +121,11 @@ This is an initial plan, not a passing result. Save the actual `inputs/notes.md`
       "prompt": "Write a useful weekly update from the supplied notes.",
       "input_files": ["inputs/notes.md"],
       "checks": [
-        {
-          "id": "no-invented-date",
-          "category": "skill_output",
-          "kind": "not_contains",
-          "artifact": "output",
-          "text": "ships on November 20"
-        },
-        {
-          "id": "uncertainty-is-useful",
-          "category": "skill_output",
-          "kind": "review",
-          "criterion": "The update explains what is unconfirmed and what action would resolve it.",
-          "question_ids": ["q-uncertainty-policy"]
-        }
+        {"id": "no-invented-date", "category": "skill_output", "kind": "not_contains",
+         "artifact": "output", "text": "ships on November 20"},
+        {"id": "uncertainty-is-useful", "category": "skill_output", "kind": "review",
+         "criterion": "The update explains what is unconfirmed and what action would resolve it.",
+         "question_ids": ["q-uncertainty-policy"]}
       ]
     }
   ],
@@ -58,30 +134,29 @@ This is an initial plan, not a passing result. Save the actual `inputs/notes.md`
       "id": "candidate-1",
       "variant": "with_skill",
       "context": {"model": null, "effort": null, "tools": null, "budget": null},
-      "cases": [
-        {"case_id": "uncertain-date", "status": "not_run", "reason": "Forward execution is pending."}
-      ]
+      "cases": [{"case_id": "uncertain-date", "status": "not_run", "reason": "Forward execution is pending."}]
     }
   ]
 }
 ```
 
-Each case has a stable `id`, the real request in `prompt`, input files, and checks shared by every run. A run has an `id`, `variant` (`baseline` or `with_skill`), execution context, and per-case records. Missing case records remain `not_run`; they are not silently dropped. Record unavailable model or effort information as `null`, never a guessed value. `tools` is a list of the available tool names/versions, or `null` if unknown; an empty list means no tools. `budget` is a precise text description of assigned limits, such as `max_tokens=4000; max_tool_calls=8`, or `null`.
+- A case has a stable `id`, the real request in `prompt`, `input_files`, and `checks` shared by every run. `question_ids` traces a judgment to decisions; it does not prove coverage.
+- A run has `id`, `variant` (`baseline` or `with_skill`), `context`, and per-case records. Missing case records count as `not_run`.
+- `context`: unknown model or effort is `null`, never a guess. `tools` is a list of tool names or versions, `null` if unknown, `[]` for none. `budget` describes the assigned limits, such as `max_tokens=4000; max_tool_calls=8`, or is `null`.
+- After a real execution, set the case record to `status: "completed"` with an `artifacts` map, for example `{"output": "outputs/candidate-1.md"}`. Completed execution is not a passed check. The tool hashes all registered artifacts and inputs; it cannot authenticate how they were produced.
 
-After an actual execution, replace the case record with `status: "completed"`, an `artifacts` map of names to saved paths, and any reviewed judgments. A completed execution is different from a passed check. For example, a real output could be saved as `artifacts: {"output": "outputs/candidate-1.md"}`. Keep the executed skill/version and host transcript with the artifacts when they matter to reproducibility. The tool hashes all registered artifacts and case inputs. It cannot independently authenticate how they were produced.
+### Checks
 
-## Checks and reviews
+| Kind | Rule |
+| --- | --- |
+| `contains` | The named artifact contains the nonempty `text` (exact case and Unicode). |
+| `not_contains` | The named artifact does not contain `text`. A missing or empty artifact fails. |
+| `json_equals` | The UTF-8 JSON artifact has `expected` at `path` (a list of keys or array indices; empty means the whole document). Booleans are distinct from numbers. |
+| `review` | A reviewer inspects `criterion`. Required for all `question_quality` checks. |
 
-Automatic assertion kinds are deliberately small:
+Text checks prove only specific facts. Use `review` for reasoning, source support, usefulness, visual quality, and whether a chosen answer changed behavior.
 
-- `contains`: a named artifact must contain nonempty `text`, with exact case and Unicode.
-- `not_contains`: the named artifact must not contain `text`. A missing or empty artifact fails, so an absent answer cannot pass a negative assertion.
-- `json_equals`: the named UTF-8 JSON artifact must have an exact value at `path`, a list of object keys or nonnegative array indices. Set `expected` to the required JSON value. An empty path checks the whole document. Booleans are distinct from numbers.
-- `review`: the host or an independent reviewer inspects the `criterion`. It is recorded separately from automatic checks. All `question_quality` checks must use this kind.
-
-Text assertions establish only specific facts about an artifact. A paragraph containing the right phrase can still be misleading or unhelpful. Use reviewed criteria for reasoning, source support, question usefulness, visual quality, and whether a selected answer changed behavior as intended.
-
-A completed case may supply reviews keyed by check ID:
+A completed case records reviews keyed by check ID:
 
 ```json
 {
@@ -93,77 +168,63 @@ A completed case may supply reviews keyed by check ID:
       "status": "pass",
       "reviewer": "Independent evaluator",
       "reason": "The output preserves uncertainty and identifies the confirmation needed.",
-      "evidence": [
-        {"artifact": "output", "quote": "The date is unconfirmed; ask the release owner to confirm it."}
-      ]
+      "evidence": [{"artifact": "output", "quote": "The date is unconfirmed; ask the release owner to confirm it."}]
     }
   }
 }
 ```
 
-The quoted passage above is illustrative. Use only a passage present in the actual saved output. A `pass` or `fail` review requires a named reviewer, a specific reason, and at least one evidence item. Quotes must be found in the referenced UTF-8 artifact. For visual or other non-text evidence, use `{ "artifact": "image", "note": "What the reviewer actually observed and where" }`; the file must exist and its hash is recorded. An inspection note remains a reviewer claim, not automated image analysis. Do not record a review as passed merely because its evidence file exists.
+A `pass` or `fail` review needs a named reviewer, a specific reason, and at least one evidence item. A `quote` must appear in the referenced UTF-8 artifact. For an image or other binary artifact, use `{"artifact": "image", "note": "what was observed and where"}`; the file must exist and its hash is recorded. An unperformed review is `{"status": "not_run", "reason": "..."}`. Invalid references and quotes not found in the artifact are rejected.
 
-Use `status: "not_run"` with a reason for an unperformed review. Missing reviews remain untested. Invalid references or fabricated quotations are rejected rather than converted into passing evidence. Include failed judgments and corrections; a report should explain what still needs attention.
+### Execution, feedback, and reuse records
 
-## Execution, evaluation critique, and reuse records
+These optional fields extend schema version 1. Manifests without them keep the older report format.
 
-The following fields extend schema version 1 without changing older manifests. Use them for the prepared evaluation loop in [evaluation-loop.md](evaluation-loop.md). Older manifests that omit them retain their existing report format and do not retroactively acquire evidence of independent review.
+**`execution`** (per completed case): `executor`, `relationship`, and `transcript`, which names a registered artifact holding the actual execution record. `relationship` is `independent` (a fresh context separate from the author), `self` (the author's context), or `unknown`.
 
-A completed case may add `execution` with `executor`, `relationship`, and `transcript`. The transcript value names a registered entry in that case's `artifacts` map. Save an actual execution record before referencing it. The relationship is `independent`, `self`, or `unknown`: for execution, independent means a fresh context separate from the skill author; self means the author's context. Names and separate Agent calls do not establish independence, because context may be inherited. Use `unknown` when the actual context isolation is unavailable; record any known access in the transcript. Blind review additionally requires withholding version mappings and author preferences from the evaluator's actual context.
+**`eval_feedback`** (per case): `{"status": "not_run", "reason": "..."}`, or `status: "completed"` with `reviewer`, `relationship`, `summary`, and `findings`. Here `independent` means separate from both author and executor. Each finding has:
 
-The same case may add `eval_feedback`:
+- `kind`: `weak_check`, `missing_check`, or `unsupported_claim`;
+- a specific `reason` and nonempty `evidence` (artifact plus quote or note);
+- optional `check_id`, which must name a check in that case;
+- optional `severity`: `blocking` (default) or `minor`. Use `minor` only when the issue does not change whether the tested behavior was demonstrated. Minor findings stay in the report but do not require attention or block delivery.
 
-| State | Fields |
-| --- | --- |
-| Not inspected | `status: "not_run"`, `reason` |
-| Inspected | `status: "completed"`, `reviewer`, `relationship`, `summary`, `findings` |
+An empty `findings` list means the completed review found no material issue in its scope.
 
-For feedback, `independent` means separate from both the author and executor; `self` means the author or executor reviewed the results; `unknown` means that relationship is unavailable. Record the actual relationship rather than copying the preferred label from a task packet.
+**`reuse_review`** (manifest root): `{"status": "not_run", "reason": "..."}`, or a completed record with `reviewer`, `relationship`, `summary`, `inspected_runs` (actual run IDs, each with a completed case), and `items`. Empty `items` is valid. Each item has:
 
-Each finding contains `kind` (`weak_check`, `missing_check`, or `unsupported_claim`), a specific `reason`, and nonempty `evidence` using the existing artifact-plus-quote or artifact-plus-note format. An optional `check_id` must refer to a check in that case. Findings describe unresolved issues in that iteration; do not erase them after a later fix. An empty findings array requires an actual completed review and summary. It means no material issue was found in that review's scope, not that the criteria are universally sufficient.
+- `id`, `operation`, `decision` (`extract` or `keep_inline`), and `reason`;
+- `occurrences`: evidence from at least two distinct completed `(run_id, case_id)` pairs, each naming a registered `artifact` with a `quote` or `note`;
+- for `extract`, `helper` (`run_id`, `case_id`, `artifact`) and a nonempty `validation` list of `{run_id, case_id, check_id}` references to checks that actually passed.
 
-At the manifest root, `reuse_review` records inspection of repeated operations. It is either `{ "status": "not_run", "reason": "..." }` or a completed record containing `reviewer`, `relationship`, `summary`, `inspected_runs`, and `items`. Use actual run IDs in `inspected_runs`; each must include a completed case. Empty `items` is valid when the completed inspection found no useful reusable operation.
+**Snapshots.** `prepare_evaluation.py` writes root-level `snapshots`, each with an `id` and `files` entries (`path`, `sha256`). Treat them as frozen; revise the working skill and prepare a new iteration instead of editing one. Each prepared skill run names its `skill_snapshot` (for example `candidate`). A run without that binding stays readable but cannot support delivery verification. Prepared cases also carry `input_mapping` (`{original, snapshot}`), and `input_files` point at the snapshot paths.
 
-Each reuse item has:
+## Part 3 — Helper commands
 
-- `id`, `operation`, `decision` (`extract` or `keep_inline`), and `reason`.
-- `occurrences`: evidence from at least two distinct completed `(run_id, case_id)` pairs. Each entry names `run_id`, `case_id`, and a registered `artifact`, with either an exact `quote` or an inspection `note`.
-- For `extract`, `helper`: the `run_id`, `case_id`, and registered `artifact` of the actual helper, plus a nonempty `validation` list of references containing `run_id`, `case_id`, and `check_id`. Every referenced check must have actually passed.
+### Report
 
-Use `keep_inline` when the observed operation should remain task-specific. If inspection or verification has not occurred, use a pending review and preserve the prospective decision in revision notes rather than recording a completed extraction. After extraction, prepare a new candidate iteration, execute genuine affected cases, and cite that iteration's observed helper use and integration checks. Earlier discovery records remain in the previous iteration. The minimum structural evidence does not prove that the helper was useful or integrated correctly; the reviewer must inspect the operation and relevant results.
-
-`prepare_evaluation.py` also writes root-level `snapshots`: each snapshot has an `id` and `files` entries containing a relative `path` and SHA-256 value in `sha256`. The evaluator verifies these bytes and protects them from report overwrite. Treat snapshots as frozen execution inputs; revise the working skill and prepare a new iteration instead of editing an old snapshot.
-
-For each prepared skill run, `skill_snapshot` names the corresponding snapshot ID, such as `candidate`. This binding identifies the runtime whose execution is being recorded. A run without that binding may remain readable as a legacy evaluation, but cannot establish exact final delivery verification. Include every delivered runtime file in the snapshot, including README, references, and metadata.
-
-Prepared cases also contain `input_mapping`, a list of `{original,snapshot}` paths. Original paths are relative to the plan directory; copied files keep that tree under `inputs/<original-path>` rather than being renamed or flattened. The case's `input_files` then reference the snapshot paths. Supply all required linked files in the plan, and preserve their contents and relative relationships. The mapping explains original filenames mentioned in task prompts without rewriting the prompt or the raw input.
-
-The extended report separates its `workflow` summary from ordinary output checks. `workflow.disposition` is `needs_attention` when the evaluation critique reports issues, `incomplete` when recorded reviews remain unperformed or a completed case lacks its execution record, or `reviewed` when the recorded review work is complete. `pending_execution_records` counts missing provenance separately from `pending_reviews`. `reviewed` is not a claim of successful outputs or independently authenticated execution. Read both the ordinary results and workflow findings. CLI failure or incomplete status includes the workflow disposition; a legacy manifest remains governed by its original checks.
-
-## Run and compare
-
-From the repository root, for a run stored in a sibling directory:
-
-```sh
-python -B any-skill-builder/scripts/evaluate_skill.py --manifest ../runs/example/evaluation/evaluation.json
+```text
+python -B EVALUATE_SCRIPT --manifest ITERATION/evaluation.json
 ```
 
-From an installed skill, resolve `scripts/evaluate_skill.py` relative to its `SKILL.md`. The default reports are `evaluation-report.json` and `evaluation-report.md` beside the manifest. Use `--out PATH_PREFIX` for another prefix inside that evaluation directory. An existing different report requires `--overwrite`; input files, artifacts, and the manifest can never be overwritten by report generation.
+`EVALUATE_SCRIPT` is this skill's `scripts/evaluate_skill.py`. Reports default to `evaluation-report.json` and `.md` beside the manifest; `--out PATH_PREFIX` writes elsewhere inside the evaluation directory. Replacing a different existing report needs `--overwrite`. Inputs, artifacts, and the manifest are never overwritten.
 
-Exit codes: `0` means all recorded checks passed and any recorded workflow reviews are complete without open findings; `1` means at least one check failed, including a baseline failure, or an evaluation critique has unresolved findings; `2` means invalid records or a file error prevented evaluation; `3` means checks or requested workflow reviews remain unperformed and there are no failures or open findings. Reports retain failures and pending work. A deliberate baseline failure is evidence to inspect, not a broken evaluator. An earlier iteration keeps its findings even when a later iteration records a successful correction.
+Exit codes: `0` all recorded checks passed and recorded workflow reviews are complete without open blocking findings; `1` a check failed (including a baseline failure) or the critique has open blocking findings; `2` invalid records or a file error; `3` checks or reviews remain unperformed, with no failures or open findings.
 
-For a comparison, run the same shared case requests and inputs with and without the skill. Record the actual available model, reasoning effort, tools, and assigned budget in both run contexts. The helper reports `not comparable` if those fields are unknown or differ. It compares only check pairs exercised in both runs; missing reviews and unrun cases never count as wins. It reports changed assertion outcomes, not a general quality score or statistical claim. Inspect both outputs, preferably without revealing which version produced them to the reviewer.
+The report's `workflow.disposition` is `needs_attention` when the critique has open blocking findings, `incomplete` when reviews or execution records are missing (`pending_reviews` and `pending_execution_records` count them), and `reviewed` when the recorded review work is complete. `reviewed` does not claim the outputs are good.
 
-Matching declared context does not prove that execution was fair: the host still needs to preserve the actual prompts, skill version, execution records, and relevant environmental constraints. Reusing a final answer as a baseline, guessing unavailable metadata, or writing a desired output into an evidence file does not establish an improvement. Several small successful cases do not establish superiority across subjects or against another tool.
+**Comparisons.** Run the same cases and inputs for each variant and record the actual model, effort, tools, and budget for both. The report says `not comparable` when those are unknown or differ. It compares only check pairs exercised in both runs and reports changed outcomes, not an overall score. Matching declarations do not prove the runs were equal, and a few cases do not establish general superiority.
 
-Use the report to choose the next correction. If the issue is an omitted decision, revise the questions; if it is a wrong implementation of a selected answer, revise the generated skill; if it is unavailable evidence or a host limitation, keep that limit explicit. Preserve both the earlier and corrected run records so later changes can be assessed against the same cases.
+### Delivery verification
 
-## Verify a final runtime or archive
+```text
+python -B VERIFY_SCRIPT --skill FINAL_SKILL --evaluation ITERATION/evaluation.json --run candidate
+```
 
-Resolve `scripts/verify_delivery.py` from this skill and run `python -B VERIFY_SCRIPT --skill FINAL_SKILL --evaluation ITERATION/evaluation.json --run candidate`. `--run` selects the actual `with_skill` run and defaults to `candidate`; another run's success does not stand in for it. The selected run needs nonzero completed cases and passing checks, validated execution provenance, completed `eval_feedback` with no unresolved findings, and a completed `reuse_review` that includes it. A deliberate baseline failure does not invalidate a successful selected candidate by itself.
+`VERIFY_SCRIPT` is this skill's `scripts/verify_delivery.py`. `--run` selects the evaluated `with_skill` run (default `candidate`). It needs completed cases with passing checks, execution records, completed `eval_feedback` without open blocking findings, and a completed `reuse_review` that includes the run. It compares the run's snapshot inventory and hashes with the stored snapshot and the final runtime, README included.
 
-The helper compares the selected `skill_snapshot`'s exact recorded inventory and hashes with both its stored snapshot files and the final runtime. Added, removed, and changed files all matter, including README. Editing the delivered runtime after execution requires a new snapshot and relevant reruns before reporting the exact final state as tested. Merely inspecting a documentation-only change does not make it behavior-tested; record that narrower evidence and keep final verification provisional until the requested checks are complete.
+For an archive, add `--archive PACKAGE_ZIP --extracted EXTRACTED_SKILL` together. The ZIP must hold exactly one top-level folder named like the final skill folder; the extracted folder must be a separate copy, not the source runtime. Both must match the final files byte for byte. Without these options, packaging reports `not_requested`.
 
-When distribution requires a ZIP, add `--archive PACKAGE_ZIP --extracted EXTRACTED_SKILL` together. The ZIP must contain only one top-level folder matching the final skill folder name. `EXTRACTED_SKILL` is the separate extracted folder containing `SKILL.md`, not the source runtime or its parent. Both inventories must exactly match the final files and bytes. Without those options, packaging reports `not_requested` and only the folder is checked. See [build-and-evaluate.md](build-and-evaluate.md) for the delivery procedure.
+Exit codes: `0` the delivery checks passed; `1` valid inputs but requirements unmet (read `reasons`); `2` invalid record, unsafe path, or file error. It does not run the skill or certify contexts, blinding, reviewer independence, or general quality.
 
-Exit code `0` means these recorded delivery checks passed; `1` means valid inputs left requirements unmet; `2` means an invalid record, unsafe path, or file error prevented verification. Read the JSON `reasons` and `limits`. This helper neither executes a skill nor authenticates execution/review records, and does not certify fresh contexts, blinding, evaluator independence, general quality, or untested environments. Keep those limits and any unavailable work explicit.
+Design references: the separation of execution, assessment, and improvement, the critique of evaluation criteria, and the inspection of repeated helper work were informed by [Anthropic's skill-creator workflow](https://github.com/anthropics/skills/blob/1780c5e5a552fd4d1c9d6a7b0cab26b0c2bef064/skills/skill-creator/SKILL.md) and [grader guidance](https://github.com/anthropics/skills/blob/1780c5e5a552fd4d1c9d6a7b0cab26b0c2bef064/skills/skill-creator/agents/grader.md).

@@ -69,7 +69,8 @@
     "reset_explanation": "This clears selected options and typed text. The questions stay unchanged.",
     "reset_confirm": "Clear all",
     "reset_cancel": "Cancel",
-    "reset_complete": "All answers are empty. Save and continue in chat if you want AI to decide them."
+    "reset_complete": "All answers are empty. Save and continue in chat if you want AI to decide them.",
+    "recommended_badge": "Recommended"
   },
   "ko": {
     "page_title": "스킬 제작 질문지",
@@ -141,6 +142,7 @@
     "reset_explanation": "선택한 항목과 직접 입력한 내용을 비웁니다. 질문은 그대로 유지합니다.",
     "reset_confirm": "모두 비우기",
     "reset_cancel": "취소",
-    "reset_complete": "모든 답변을 비웠습니다. AI에게 맡기려면 저장한 뒤 채팅에서 이어가세요."
+    "reset_complete": "모든 답변을 비웠습니다. AI에게 맡기려면 저장한 뒤 채팅에서 이어가세요.",
+    "recommended_badge": "추천"
   }
 }

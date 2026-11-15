@@ -344,8 +344,8 @@ def _validate(review, questionnaire, findings):
         _id(finding["id"], path + ".id")
         _require(finding["id"] not in finding_ids, path + ".id", "Duplicate finding ID.")
         finding_ids.add(finding["id"])
-        _require(isinstance(finding["status"], str) and finding["status"] in {"open", "resolved"},
-                 path + ".status", "Finding must be open or resolved.")
+        _require(isinstance(finding["status"], str) and finding["status"] in {"open", "resolved", "accepted"},
+                 path + ".status", "Finding must be open, resolved, or accepted.")
         _require(isinstance(finding["area"], str) and finding["area"] in {
             "requirements", "options", "combinations", "localization", "fair_alternatives", "unknown_private_facts"},
             path + ".area", "Unknown review area.")
@@ -354,6 +354,11 @@ def _validate(review, questionnaire, findings):
         _text(finding["resolution"], path + ".resolution", empty=finding["status"] == "open")
         if finding["status"] == "open":
             findings.append({"code": "open_finding", "path": path, "message": finding["description"]})
+        elif finding["status"] == "accepted":
+            # A known limit left after the revision cap. Fixed requirements and private facts cannot be waived.
+            _require(finding["area"] not in {"requirements", "unknown_private_facts"}, path + ".status",
+                     "Requirement and private-fact findings must be resolved, not accepted.")
+            findings.append({"code": "accepted_finding", "path": path, "message": finding["description"]})
 
 
 def check(questions_path, review_path):

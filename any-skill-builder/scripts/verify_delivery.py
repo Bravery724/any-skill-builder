@@ -195,8 +195,8 @@ def verify(skill_path, evaluation_path, run_id="candidate", archive=None, extrac
             feedback = case.get("eval_feedback", {})
             if feedback.get("status") != "completed":
                 reasons.append(f"Case {label} has no completed evaluation feedback.")
-            elif feedback.get("findings"):
-                reasons.append(f"Case {label} has unresolved workflow findings.")
+            elif any(item.get("severity", "blocking") == "blocking" for item in feedback.get("findings", [])):
+                reasons.append(f"Case {label} has unresolved workflow findings marked blocking.")
         reuse = report.get("reuse_review", {})
         if reuse.get("status") != "completed" or run_id not in reuse.get("inspected_runs", []):
             reasons.append("A completed reuse review must include the selected run.")

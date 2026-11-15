@@ -1,6 +1,6 @@
 # Recorded offline workflow examples
 
-These fictional examples were created on 2026-11-15 using the redesigned builder. Two separate execution agents read the current skill instructions and used the actual Python helper. They did not copy the earlier generated examples. Each agent authored and exercised its own resulting skill; these output reviews are not blinded or independent quality measurements.
+These fictional examples were created on 2026-11-15 using the redesigned builder. Two separate execution agents read the current skill instructions and used the actual Python helper. They did not copy the earlier generated examples. Each agent authored and exercised its own resulting skill; these output reviews are not blinded or independent quality measurements. They were recorded with v0.3.0; since v0.5.0, Full Auto records a decision list (`decisions.json`) instead of resolving authored questions.
 
 | Workflow | Actual build | Selected input and output |
 | --- | --- | --- |

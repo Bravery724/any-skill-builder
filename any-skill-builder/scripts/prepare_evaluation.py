@@ -14,9 +14,25 @@ import evaluate_skill as evaluation
 
 MAX_TOTAL_BYTES = 64 * 1024 * 1024
 MAX_FILES = 2048
-FORBIDDEN = {".git", ".agents", ".codex", ".claude", ".gemini", ".venv", "venv", "node_modules", "__pycache__",
-             "dist", "runs", "demo-runs", "test-results", ".builder.lock", "answers.json", "questions.json",
-             "imports.json", "questionnaire-export.json", ".pending-state.json", "progress.json"}
+# Version control, host configuration, environments, and caches are rejected at any depth.
+FORBIDDEN_ANYWHERE = {".git", ".agents", ".codex", ".claude", ".gemini", ".venv", "venv", "node_modules", "__pycache__"}
+# Builder run records and build outputs are rejected only at the runtime root, so a skill may still ship
+# resources such as assets/questions.json or templates/progress.json.
+FORBIDDEN_AT_ROOT = {"dist", "runs", "demo-runs", "test-results", ".builder.lock", "answers.json", "questions.json", "decisions.json",
+                     "imports.json", "questionnaire-export.json", ".pending-state.json", "progress.json"}
+# Hidden files may hold credentials or local state; only these placeholder/config names are accepted.
+ALLOWED_HIDDEN = {".gitignore", ".gitkeep", ".gitattributes", ".editorconfig"}
+
+
+def excluded_part(parts):
+    """Return the path component that keeps a file out of a clean runtime snapshot, or None."""
+    for index, part in enumerate(parts):
+        lowered = part.lower()
+        if lowered in FORBIDDEN_ANYWHERE or (index == 0 and lowered in FORBIDDEN_AT_ROOT):
+            return part
+        if part.startswith(".") and lowered not in ALLOWED_HIDDEN:
+            return part
+    return None
 
 
 def portable_relative(relative):
@@ -116,8 +132,10 @@ def prepare(plan_path, skill_path, output, baseline_skill=None, without_skill=Fa
                 evaluation.require(entries <= MAX_FILES, "Skill runtime exceeds 2048 entries; select a smaller runtime.")
                 safe_source(path)
                 parts = path.relative_to(source).parts
-                evaluation.require(not any(part.lower() in FORBIDDEN or part.startswith(".") for part in parts),
-                                   "Skill snapshot contains hidden, cached, or private run files; use a clean runtime directory.")
+                blocked = excluded_part(parts)
+                evaluation.require(blocked is None,
+                                   f"Skill snapshot contains a hidden, cached, or private run path ({PurePosixPath(*parts)}: "
+                                   f"{blocked}); use a clean runtime directory.")
                 if path.is_dir():
                     pending.append(path)
                 else:

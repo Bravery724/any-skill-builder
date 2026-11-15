@@ -12,7 +12,7 @@ The host agent makes semantic decisions. The runtime keeps those decisions consi
 
 ## Two workflows
 
-Full Auto performs research and question review, records AI decisions with reasons, and builds the skill without rendering HTML.
+Full Auto performs research, records its decisions in a short decision list (question, alternatives with tradeoffs, choice, reason, sources) with a single check, and builds the skill without rendering HTML. The list maps field for field onto the questionnaire, so a run can be converted when the user wants to answer.
 
 Questionnaire performs the same research and question review, then exports a self-contained HTML. The user answers, saves, and returns to chat. The host finds the matching saved file, imports meaningful answers, decides blanks, and builds. There is no live connection to keep open and no special defer state.
 

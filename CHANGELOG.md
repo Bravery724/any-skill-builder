@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.5.0 — 2026-11-15
+
+- Commands that change a run (`set-questions`, `answer`, `recommend`, `import-answers`, `resume`, `reset-answers` and similar) print a short summary instead of the full questionnaire and answer records, which were 40-60 KB per call. `--full` restores the old output, `--out FILE` saves it, and `status --json` is unchanged.
+- `check-skill` now matches the official skill validator: it rejects unknown frontmatter fields, angle brackets in `description`, and `compatibility` over 500 characters.
+- `prepare_evaluation.py` rejects builder run records (`answers.json`, `questions.json`, `progress.json`, `runs/`, `dist/`, and similar) only at the runtime root, accepts `.gitignore`, `.gitkeep`, `.gitattributes` and `.editorconfig`, and names the refused path in its error.
+- Full Auto records its decisions in a short decision list (`decisions.json`: question, alternatives with tradeoffs, choice, reason, assumptions, sources) with a single check (fixed requirements kept, no ruled-out choice, no invented private facts) instead of a questionnaire with a SHA-bound review. New commands: `set-decisions` validates and stores the list and `brief` builds from it; `decisions-to-questions` writes a questionnaire skeleton from the same fields, and `set-questions --from-decisions` switches the run to Questionnaire mode. Existing Full Auto runs with `questions.json` keep working.
+- Iteration caps: one revision after the first question review (remaining non-requirement findings can be marked `accepted` and are reported), and at most two evaluation iterations with 2-3 cases for a simple skill; a no-skill baseline is optional except for legal, medical, financial or safety advice, or when the user asks whether the skill helps.
+- Harder evaluation inputs: cases include a trap (something that looks wrong but is correct, so over-flagging fails) and, when the skill can meet secrets or personal data, fake sensitive values the output must not repeat. Reviewers compare each statement about the input with the raw input and check for over-flagging. This follows a blind comparison in which the builder's own checks passed but a held-out case still exposed an error.
+- `verify_delivery.py` is required for archive delivery and optional for folder delivery. A delivery is provisional only when the final skill was never executed on a realistic case.
+- The agent states the expected scope and rough duration when the work starts.
+- `set-questions` fills omitted `schema_version`, `project_id`, `mode` and `revision` from the run and reports which it filled; identity and revision errors now show the expected and supplied values.
+- Questionnaire: up to four questions per page (an image question counts as two), a Recommended badge on the recommended option, and a saved filename of `questionnaire-<project_id>-r<revision>-answers.html`, which `resume` still finds.
+- After delivery the agent offers to install the skill, naming the destination, and installs only after the user agrees.
+- Instructions tightened: SKILL.md states each rule once with fewer repeated disclaimers (about 2,350 words, down from 2,930), and the evaluation procedure (`evaluation-loop.md`) and record format are merged into one `references/evaluation.md`.
+- Research rule: facts the skill depends on in legal, medical, financial or safety matters, and figures that change over time, are checked in the primary source (statute, official notice, vendor documentation); a source counts as `read` only if it was opened, and unreachable primary sources are recorded as known limits.
+- New skill description: it names both modes and claims plain skill creation, Full Auto and improvement requests, while leaving description-only trigger tuning and benchmark-only requests to skill-creator. In an isolated A/B test (3 runs per case) those requests went from 0/9 to 9/9, and skill-creator's own cases stayed 6/6.
+- Evaluation findings take an optional `severity` (`blocking` by default, or `minor`); minor findings are reported but no longer block `evaluate_skill.py` or `verify_delivery.py`.
+
 ## 0.4.1 — 2026-11-15
 
 - Require version-bound question-review records for new CLI authoring, with fixed requirement coverage, contrasting applicable answer combinations, fair alternatives, private-fact handling and complete visible-text localization.

@@ -193,6 +193,23 @@ class QuestionReviewTests(unittest.TestCase):
         record["findings"][0].update(status="resolved", resolution="Existing help already states the timing tradeoff; checked both options.")
         self.assertTrue(self.checked(record)["passed"])
 
+    def test_accepted_findings_pass_visibly_but_cannot_waive_requirements(self):
+        record = self.completed()
+        record["findings"] = [{"id": "wordy", "status": "accepted", "area": "options",
+                               "question_ids": ["outputs"], "description": "Risk option label is longer than the others.",
+                               "resolution": "Left after the revision cap; the label is still clear and the user is told."}]
+        report = self.checked(record)
+        self.assertTrue(report["passed"])
+        self.assertIn("accepted_finding", {finding["code"] for finding in report["findings"]})
+        for area in ("requirements", "unknown_private_facts"):
+            with self.subTest(area=area):
+                record["findings"][0]["area"] = area
+                report = self.checked(record)
+                self.assertFalse(report["passed"])
+                self.assertEqual(report["status"], "invalid")
+        record["findings"][0].update(area="options", resolution="")
+        self.assertFalse(self.checked(record)["passed"])
+
     def test_combination_references_values_and_duplicates_are_checked(self):
         original = self.completed()
         mutations = [

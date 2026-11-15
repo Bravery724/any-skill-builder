@@ -307,6 +307,22 @@ Use ``[Example](missing-again.md) `inside` `` for longer code spans.
         with self.assertRaisesRegex(core.BuilderError, "required.md"):
             core.check_skill(self.root)
 
+    def test_frontmatter_matches_the_official_validator(self):
+        def write(header):
+            (self.root / "SKILL.md").write_text("---\n" + header + "---\n\nBody.\n", encoding="utf-8")
+        write("name: sample-skill\ndescription: Explain sources.\nlicense: MIT\ncompatibility: Needs Python 3.10.\n"
+              "allowed-tools: Read\nmetadata:\n  owner: team\n")
+        self.assertIn("allowed frontmatter fields", core.check_skill(self.root)["checks"])
+        write("name: sample-skill\ndescription: Explain sources.\nversion: 2\n")
+        with self.assertRaisesRegex(core.BuilderError, "Unexpected frontmatter field.*version"):
+            core.check_skill(self.root)
+        self.write_skill("Explain <sources> on request.")
+        with self.assertRaisesRegex(core.BuilderError, "angle brackets"):
+            core.check_skill(self.root)
+        write("name: sample-skill\ndescription: Explain sources.\ncompatibility: " + "x" * 501 + "\n")
+        with self.assertRaisesRegex(core.BuilderError, "compatibility exceeds 500"):
+            core.check_skill(self.root)
+
     def test_path_escape_is_still_rejected(self):
         self.write_skill("Explain sources.", "[Reference](../outside.md)\n")
         with self.assertRaisesRegex(core.BuilderError, "escapes skill folder"):

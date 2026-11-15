@@ -235,13 +235,52 @@ class ReviewPolicyTests(unittest.TestCase):
         payload = json.dumps(boot, ensure_ascii=False).replace("<", "\\u003c")
         saved.write_text('<!doctype html><script id="skill-builder-data" type="application/json">' + payload + '</script>', encoding="utf-8")
         (self.root / "question-review.json").unlink()
-        imported = self.cli("import-answers", "--input", saved)
+        imported = self.cli("import-answers", "--input", saved, "--full")
         self.assertTrue(imported["traversal_complete"])
         self.assertFalse(imported["ready_to_build"])
         self.assertTrue(imported["question_review"]["required"])
         self.assertFalse(imported["question_review"]["passed"])
         self.assertEqual(imported["answers"]["answers"]["workflow"]["actor"], "user")
         self.assertEqual(imported["answers"]["answers"]["workflow"]["value"], "clarify")
+
+    def test_set_questions_fills_omitted_identity_and_names_expected_values(self):
+        current = core.read_json(self.root / "questions.json")
+        authored = {key: value for key, value in copy.deepcopy(current).items()
+                    if key not in {"schema_version", "project_id", "run_id", "mode", "revision"}}
+        authored["questions"][0]["help"] = "Edited help text."
+        result = self.cli("set-questions", "--input", self.write_json(authored))
+        self.assertEqual(result["identity_filled_from_run"], ["schema_version", "project_id", "mode", "revision"])
+        self.assertEqual(result["revision"], current["revision"] + 1)
+        for key, value, code in (("project_id", "other-project", "wrong_project"), ("mode", "auto", "mode_mismatch"),
+                                 ("revision", 1, "stale_revision")):
+            with self.subTest(key=key):
+                wrong = {**authored, key: value}
+                error = self.cli("set-questions", "--input", self.write_json(wrong), expected=2)
+                self.assertEqual(error["error"], code)
+                self.assertIn(repr(value), error["message"])
+
+    def write_json(self, value):
+        self.counter += 1
+        path = self.parent / f"authored-{self.counter}.json"
+        core.atomic_json(path, value)
+        return path
+
+    def test_routine_commands_print_a_summary_unless_full_output_is_requested(self):
+        self.accept()
+        summary = self.cli("answer", "--question", "workflow", "--value-json", '"clarify"')
+        self.assertNotIn("questionnaire", summary)
+        self.assertNotIn("answers", summary)
+        self.assertEqual(summary["run_id"], core.read_json(self.root / "questions.json")["run_id"])
+        self.assertIn("answer_revision", summary)
+        self.assertIn("ready_to_build", summary)
+        self.assertIn("states", summary)
+        saved = self.parent / "full-answer-view.json"
+        summary = self.cli("answer", "--question", "workflow", "--value-json", '"clarify"', "--out", saved)
+        self.assertIn(str(saved), summary["full_view"])
+        self.assertEqual(core.read_json(saved)["answers"]["answers"]["workflow"]["value"], "clarify")
+        full = self.cli("answer", "--question", "workflow", "--value-json", '"clarify"', "--full")
+        self.assertEqual(full["answers"]["answers"]["workflow"]["value"], "clarify")
+        self.assertIn("questionnaire", self.cli("status", "--json"))
 
     def test_recommend_checks_review_inside_the_same_lock_as_read_and_commit(self):
         self.accept()

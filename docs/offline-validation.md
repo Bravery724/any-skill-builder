@@ -1,6 +1,6 @@
 # Offline workflow validation — v0.3.0
 
-Recorded on 2026-11-15. This page describes observed checks for the two-workflow redesign. Earlier [Claude Code and Antigravity CLI validation](host-validation.md) belongs to v0.2.3 and does not certify the new workflow or either IDE extension.
+Recorded on 2026-11-15. This page describes observed checks for the two-workflow redesign. Earlier [Claude Code and Antigravity CLI validation](host-validation.md) belongs to v0.2.3 and does not certify the new workflow or either IDE extension. Since v0.5.0, Full Auto records a decision list instead of authoring and reviewing questions; see the [v0.5.0 Full Auto validation](full-auto-validation.md).
 
 ## Creation and continuation
 

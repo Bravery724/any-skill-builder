@@ -196,6 +196,12 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(result["execution"]["checks"]["pass"], 1)
         self.assertIn("unresolved workflow", " ".join(result["reasons"]))
 
+    def test_minor_findings_do_not_block_delivery(self):
+        self.record["eval_feedback"]["findings"] = [{"kind": "weak_check", "severity": "minor", "reason": "Keyword check is loose but adequate here.",
+                                                       "evidence": [{"artifact": "output", "quote": "unconfirmed"}]}]
+        code, result = self.check()
+        self.assertEqual(code, 0, result)
+
     def test_empty_cases_or_checks_are_invalid_instead_of_vacuously_passing(self):
         original = copy.deepcopy(self.document)
         for mutate in (lambda: self.document.update(cases=[]),

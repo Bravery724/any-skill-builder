@@ -8,9 +8,9 @@ Open [GitHub Releases](https://github.com/Bravery724/any-skill-builder/releases)
 
 | File | Use |
 | --- | --- |
-| `any-skill-builder-0.4.1-source.zip` | Recommended for the verified installer; includes tests, examples, and maintainer tools |
-| `any-skill-builder-0.4.1.zip` | Smaller runtime for manual installation; contains `any-skill-builder/` and all its resources |
-| `any-skill-builder-0.4.1-manifest.json` | File sizes and SHA-256 hashes for release verification |
+| `any-skill-builder-0.5.0-source.zip` | Recommended for the verified installer; includes tests, examples, and maintainer tools |
+| `any-skill-builder-0.5.0.zip` | Smaller runtime for manual installation; contains `any-skill-builder/` and all its resources |
+| `any-skill-builder-0.5.0-manifest.json` | File sizes and SHA-256 hashes for release verification |
 
 You can also use **Code → Download ZIP** or clone [the repository](https://github.com/Bravery724/any-skill-builder). That download is source, not the runtime-only ZIP. Extract it into a normal working directory with enough space, outside the host's skills directory and existing questionnaire runs.
 
@@ -33,7 +33,7 @@ npx skills add Bravery724/any-skill-builder --skill any-skill-builder --agent co
 The default source follows the repository's default branch. To install the published release instead:
 
 ```sh
-npx skills add Bravery724/any-skill-builder@v0.4.1 --skill any-skill-builder
+npx skills add Bravery724/any-skill-builder@v0.5.0 --skill any-skill-builder
 ```
 
 Keep the explicit skill name: this repository also contains generated example skills. Add `-g` only if you want a global installation. The CLI chooses paths according to its supported hosts; confirm the reported path and refresh the host before using the skill. Installing files does not certify another host's behavior.
@@ -42,12 +42,12 @@ The CLI has its own update and removal commands; see its [command reference](htt
 
 ## Install from source
 
-The source root is the extracted directory containing `README.md`, `tools/`, and `any-skill-builder/`. The named source release creates `any-skill-builder-0.4.1-source/`; a GitHub source download uses the repository/branch name instead.
+The source root is the extracted directory containing `README.md`, `tools/`, and `any-skill-builder/`. The named source release creates `any-skill-builder-0.5.0-source/`; a GitHub source download uses the repository/branch name instead.
 
 Open a terminal in its parent folder. For the named source release, these commands work in PowerShell and common POSIX shells. If the terminal already opens inside the source root, omit the `cd` line:
 
 ```sh
-cd any-skill-builder-0.4.1-source
+cd any-skill-builder-0.5.0-source
 python -B tools/install_skill.py --dest "~/.agents/skills"
 ```
 
@@ -120,6 +120,8 @@ v0.4.0 keeps the v0.3.0 questionnaire and saved-HTML formats. Its evaluation-loo
 
 v0.4.1 keeps both modes and the saved-HTML format. New CLI runs require a recorded question review before rendering, applying AI recommendations, or building the brief. Existing runs without a review policy remain compatible and are explicitly labeled legacy; `require-review --workspace RUN` enables review without resetting their answers. Restoring a saved HTML into a new run preserves its answers and requires review before continuing. See the [question review workflow](../any-skill-builder/references/question-review.md).
 
+v0.5.0 keeps both modes and the saved-HTML format. Full Auto now records its choices in a short decision list (`decisions.json`) with a single check instead of a reviewed questionnaire; question review applies to Questionnaire mode only. Existing Full Auto runs with `questions.json` keep working, and `decisions-to-questions` with `set-questions --from-decisions` turns a decision list into a questionnaire. The separate `evaluation-loop.md` reference was merged into `references/evaluation.md`.
+
 ### Roll back a failed update
 
 Stop the task using the new version. Move the new runtime out of the discovery directory into a separate diagnostic folder. Move the preserved old runtime back to its original `any-skill-builder` path, refresh the host, and confirm the restored version. Leave run records untouched. If the new version changed a run's data format, inspect its release notes and the run's history before resuming with the old version.
@@ -151,7 +153,7 @@ For a linked installation, remove only the verified discovery link through the h
 
 ## Verified scope
 
-For v0.4.1, see [review-fix validation](review-fixes-validation.md): actual Claude Code CLI execution via explicit skill paths, browser saved-HTML continuation, final runtime/archive checks, and feedback-driven corrections. These checks do not establish native picker discovery or IDE-extension support.
+For v0.5.0, see [Full Auto validation](full-auto-validation.md): build times, primary-source research, and a blind comparison of generated skills on held-out inputs. For v0.4.1, see [review-fix validation](review-fixes-validation.md): actual Claude Code CLI execution via explicit skill paths, browser saved-HTML continuation, final runtime/archive checks, and feedback-driven corrections. These checks do not establish native picker discovery or IDE-extension support.
 
 The following observations were recorded on 2026-11-14 for earlier releases through **v0.2.3**. They are historical evidence, not a claim that the redesigned v0.3.0 workflow was rerun in those hosts or IDE extensions:
 

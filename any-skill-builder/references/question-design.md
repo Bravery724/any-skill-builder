@@ -89,7 +89,7 @@ For example, recommending related-work search may fit research-idea discovery, w
 
 Compute recommendations from the goal, evidence, feasibility, and benefit relative to complexity. Do not systematically choose the largest scope. Give the rationale and any assumptions. Use existing option IDs or a valid custom value supported by the data contract; never invent an option ID to make an unsupported recommendation appear selectable.
 
-In Full Auto, the AI answers the same meaningful questions it would expose to a person and retains the questions, reasons, and decisions without generating HTML. In Questionnaire mode, AI resolves blanks after the user saves and returns to chat. In either flow:
+In Full Auto, the AI asks itself the same meaningful questions it would expose to a person and records them, the alternatives, its choices, and reasons in the decision list without generating HTML. In Questionnaire mode, AI resolves blanks after the user saves and returns to chat. In either flow:
 
 - User choices take precedence.
 - Meaningful custom answers and rejections of the displayed choices remain constraints.

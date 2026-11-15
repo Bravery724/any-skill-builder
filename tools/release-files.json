@@ -18,7 +18,6 @@
     "any-skill-builder/scripts/builder_core.py",
     "any-skill-builder/scripts/evaluate_skill.py",
     "any-skill-builder/scripts/skill_builder.py",
-    "any-skill-builder/references/evaluation-loop.md",
     "any-skill-builder/scripts/prepare_evaluation.py",
     "any-skill-builder/scripts/review_questions.py",
     "any-skill-builder/scripts/verify_delivery.py",
@@ -26,6 +25,8 @@
   ],
   "source": [
     "docs/assets/demo.gif",
+    "docs/assets/how-it-works.gif",
+    "docs/assets/how-it-works.mp4",
     "docs/assets/questionnaire.jpg",
     ".editorconfig",
     ".gitattributes",
@@ -75,6 +76,7 @@
     "tests/test_install.py",
     "tests/test_packaging.py",
     "tests/test_runtime_fixes.py",
+    "tests/test_decisions.py",
     "tools/check_release.py",
     "tools/check_example.py",
     "tools/install_skill.py",
@@ -123,7 +125,8 @@
     "tests/test_question_review.py",
     "tests/test_review_policy.py",
     "tests/test_delivery.py",
-    "docs/review-fixes-validation.md"
+    "docs/review-fixes-validation.md",
+    "docs/full-auto-validation.md"
   ],
   "optional": []
 }

@@ -49,15 +49,35 @@ def accept_review(workspace, input_path):
             "note": "Recorded judgments and coverage were checked. No model ran and semantic correctness is not certified."}
 
 
+def compact(result, out_path=None):
+    """Summarize a full run view so routine commands do not flood the agent's context.
+
+    The full questionnaire and answer records stay on disk (questions.json, answers.json) and are
+    available with --full, --out, or status --json.
+    """
+    if not (isinstance(result, dict) and "questionnaire" in result and "answers" in result):
+        return result
+    questionnaire, answers = result["questionnaire"], result["answers"]
+    summary = {"project_id": questionnaire.get("project_id"), "run_id": questionnaire.get("run_id"),
+               "mode": questionnaire.get("mode"), "revision": questionnaire.get("revision"),
+               "answer_revision": answers.get("answer_revision")}
+    summary.update({key: value for key, value in result.items() if key not in {"questionnaire", "answers"}})
+    summary["full_view"] = (f"Saved to {out_path}." if out_path else
+                            "Omitted. Read questions.json/answers.json, or rerun with --full or --out FILE; status --json prints everything.")
+    return summary
+
+
 def parser():
     cli = argparse.ArgumentParser(description=__doc__)
     commands = cli.add_subparsers(dest="command", required=True)
     names = ("init", "set-questions", "validate", "status", "answer", "recommend", "render", "import-answers",
              "resume", "restore", "brief", "reset-answers", "checkpoint", "resolve-input", "interpret-answer", "complete-input",
-             "require-review", "accept-review")
+             "require-review", "accept-review", "set-decisions", "decisions-to-questions")
     for name in names:
         sub = commands.add_parser(name)
         sub.add_argument("--workspace", required=True, help="Task-owned run directory, separate from the installed skill")
+        sub.add_argument("--full", action="store_true", help="Print the full questionnaire and answer records instead of a summary")
+        sub.add_argument("--out", help="Also save the full JSON result to this file")
         if name == "init":
             sub.add_argument("--goal", required=True)
             sub.add_argument("--mode", choices=sorted(core.MODES), default="questionnaire")
@@ -65,11 +85,16 @@ def parser():
                              help="New authoring requires a recorded question review; legacy is for explicit structural fixture previews")
         elif name == "accept-review":
             sub.add_argument("--input", required=True, help="Completed review bound to the current questions.json bytes")
+        elif name == "set-decisions":
+            sub.add_argument("--input", required=True, help="Full Auto decision list JSON")
+        elif name == "decisions-to-questions":
+            sub.add_argument("--skeleton", required=True, help="New file for the questionnaire skeleton built from decisions.json")
         elif name in {"set-questions", "import-answers", "restore", "resume"}:
             sub.add_argument("--input", required=name != "resume", help="Authored JSON or saved questionnaire HTML, depending on command")
             if name == "set-questions":
                 sub.add_argument("--rebind-project", action="store_true", help="Bind an authored fixture to an empty run while preserving its selected mode")
                 sub.add_argument("--presentation-only", nargs="+", metavar="QUESTION_ID", help="Preserve answers for explicitly reviewed cosmetic edits")
+                sub.add_argument("--from-decisions", action="store_true", help="Convert a Full Auto decision list run into a questionnaire run")
         elif name == "status":
             sub.add_argument("--json", action="store_true", help="Print full records and resume information")
         elif name == "checkpoint":
@@ -100,7 +125,13 @@ def main(argv=None):
     try:
         name = args.command
         if name in {"recommend", "render", "brief"}:
-            require_review(args.workspace)
+            if core.decision_list_in_use(args.workspace):
+                core.require(name != "render", "Full Auto does not generate HTML. To let the user answer, run decisions-to-questions "
+                             "and import it with set-questions --from-decisions.", "auto_no_html")
+                core.require(name != "recommend", "Choices are already recorded in decisions.json; run brief when it is ready.",
+                             "decision_list_in_use", 409)
+            else:
+                require_review(args.workspace)
         if name == "init":
             result = core.init_workspace(args.workspace, args.goal, args.mode)
             if args.review_policy == "required":
@@ -110,7 +141,14 @@ def main(argv=None):
         elif name == "accept-review":
             result = accept_review(args.workspace, args.input)
         elif name == "set-questions":
-            result = core.set_questions(args.workspace, core.read_json(args.input), presentation_only=args.presentation_only, rebind_project=args.rebind_project)
+            result = core.set_questions(args.workspace, core.read_json(args.input), presentation_only=args.presentation_only,
+                                        rebind_project=args.rebind_project, from_decisions=args.from_decisions)
+            if args.from_decisions:
+                result["question_review"] = enable_review(args.workspace)
+        elif name == "set-decisions":
+            result = core.set_decisions(args.workspace, core.read_json(args.input))
+        elif name == "decisions-to-questions":
+            result = core.export_decisions_as_questions(args.workspace, args.skeleton)
         elif name == "validate":
             view = core.status(args.workspace, True)
             result = {"valid": True, "project_id": view["questionnaire"]["project_id"], "run_id": view["questionnaire"]["run_id"], "counts": view["counts"],
@@ -125,6 +163,8 @@ def main(argv=None):
                 "mode": view["questionnaire"]["mode"], "revision": view["questionnaire"]["revision"], "answer_revision": view["answers"]["answer_revision"],
                 "counts": view["counts"], "pending_input_ids": view["pending_input_ids"], "unresolved_branch_ids": view["unresolved_branch_ids"],
                 "traversal_complete": view["traversal_complete"], "ready_to_build": view["ready_to_build"], "question_review": review}
+            if "decisions" in view and not args.json:
+                result["decisions"] = view["decisions"]
         elif name in {"answer", "interpret-answer", "complete-input"}:
             value = core.read_json(args.value_file) if args.value_file else json.loads(args.value_json) if args.value_json is not None else None
             if name == "answer":
@@ -166,7 +206,10 @@ def main(argv=None):
             result["question_review"] = review if same_state else {"required": review["required"], "status": "stale", "passed": False,
                                                                  "note": "Run changed during this command; inspect current status."}
             result["ready_to_build"] = bool(result["ready_to_build"] and current["ready_to_build"] and same_state)
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        if getattr(args, "out", None):
+            core.atomic_json(Path(args.out), result)
+        full_requested = getattr(args, "full", False) or (name == "status" and args.json)
+        print(json.dumps(result if full_requested else compact(result, getattr(args, "out", None)), ensure_ascii=False, indent=2))
         return 0
     except core.BuilderError as exc:
         print(json.dumps({"error": exc.code, "message": exc.message}, ensure_ascii=False), file=sys.stderr)

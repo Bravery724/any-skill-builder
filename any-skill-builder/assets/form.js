@@ -191,9 +191,16 @@
 
   function currentState() { return JSON.stringify({ answers: answers.answers, inputs: ui }); }
 
+  function savedFileName() {
+    const project = String(questionnaire.project_id || 'skill').replace(/[^A-Za-z0-9_.-]+/g, '-');
+    return `questionnaire-${project}-r${questionnaire.revision}-answers.html`;
+  }
+
   function updateSaveState() {
     $('save-state').textContent = t(dirty ? 'unsaved_changes' : boot.saved_at ? 'saved_snapshot' : 'save_guidance');
   }
+
+  const PAGE_WEIGHT = 4;
 
   function makePages() {
     const result = [];
@@ -202,7 +209,7 @@
       let batch = [], weight = 0;
       for (const q of active) {
         const cost = q.type === 'image' ? 2 : 1;
-        if (batch.length && weight + cost > 2) { result.push({ group, questions: batch }); batch = []; weight = 0; }
+        if (batch.length && weight + cost > PAGE_WEIGHT) { result.push({ group, questions: batch }); batch = []; weight = 0; }
         batch.push(q); weight += cost;
       }
       if (batch.length) result.push({ group, questions: batch });
@@ -224,6 +231,19 @@
     const labels = selectedIds(value).map(id => q.options.find(o => o.id === id)?.label || id);
     if (customValue(value)) labels.push(value.other);
     return labels.join(t('list_separator'));
+  }
+
+  function recommendedIds(q) {
+    const value = q.recommendation && q.recommendation.value;
+    if (typeof value === 'string') return [value];
+    if (Array.isArray(value)) return value;
+    return value && Array.isArray(value.selected) ? value.selected : [];
+  }
+
+  function optionTitle(q, option) {
+    const title = element('span', '', option.label);
+    if (recommendedIds(q).includes(option.id)) title.append(element('span', 'recommended-badge', t('recommended_badge')));
+    return title;
   }
 
   function recommendationDetails(q) {
@@ -346,7 +366,7 @@
       img.addEventListener('error', fail);
       if (url) { img.src = url; preview.addEventListener('click', () => showImage(option, url, preview)); } else fail();
       preview.append(img);
-      const label = element('label', 'image-label'); label.append(input, element('span', '', option.label));
+      const label = element('label', 'image-label'); label.append(input, optionTitle(q, option));
       card.append(preview, failure, label);
       if (option.description) card.append(element('p', 'image-description', option.description));
       grid.append(card);
@@ -369,7 +389,7 @@
       if (q.type === 'image') options.append(imageOptions(q));
       else for (const option of q.options) {
         const label = element('label', 'option'), labelCopy = element('span', 'option-copy');
-        labelCopy.append(element('span', '', option.label));
+        labelCopy.append(optionTitle(q, option));
         if (option.description) labelCopy.append(element('span', 'option-description', option.description));
         label.append(optionInput(q, option), labelCopy); options.append(label);
       }
@@ -524,7 +544,7 @@
     try {
       const exported = snapshot();
       url = URL.createObjectURL(new Blob([serialize(exported)], { type: 'text/html;charset=utf-8' }));
-      const link = element('a'); link.href = url; link.download = 'questionnaire.html'; link.click();
+      const link = element('a'); link.href = url; link.download = savedFileName(); link.click();
       setTimeout(() => URL.revokeObjectURL(url), 30000);
       lastExportState = currentState(); dirty = false;
       $('save-state').textContent = t('download_started');

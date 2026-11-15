@@ -4,7 +4,7 @@ Only build the final package after current applicable design choices are resolve
 
 Before implementation, give a concise conversational summary of the main AI-selected directions, their reasons, and remaining assumptions. Use the latest valid answers and preserve explicit user decisions. This update explains the build plan without adding a blanket approval step. Carry facts needed only at execution into the generated skill's runtime inputs; do not turn unknown accounts, equipment, or private resources into assumed facts.
 
-At this planning stage, declare the evaluation tasks, actual inputs, and meaningful success criteria using [evaluation-loop.md](evaluation-loop.md). Keep criteria separate from the executor's task packet. If improving an existing skill, preserve its original runtime before editing so later comparisons can use the actual old version.
+At this planning stage, declare the evaluation tasks, actual inputs, and success criteria following [evaluation.md](evaluation.md). Keep criteria out of the executor's task packet. When improving an existing skill, snapshot the original runtime before editing so later comparisons use the actual old version.
 
 ## Design the smallest adequate package
 
@@ -86,32 +86,16 @@ Run `check-skill --path PATH` for supported structural checks. If the host has a
 
 Exercise generated helpers with meaningful inputs and inspect their actual output. Verify that the skill can locate referenced files and uses tools available in the target environment. Do not run untrusted source code or external mutations merely because a source or generated skill suggests them; keep testing within the user's authorized scope.
 
-Run the declared cases and review their actual results through [evaluation-loop.md](evaluation-loop.md). It defines the executor and evaluator handoffs, critique of weak evaluation criteria, justified correction and rerun, and inspection of repeated work for reusable helpers. Keep evaluation folders separate from the deliverable. The host performs model execution and judgment; the Python helpers prepare and validate records.
+Run the declared cases and review the actual results following [evaluation.md](evaluation.md): separate execution and review where possible, critique of the criteria, at most one correction round, and helper extraction only from observed repetition.
 
 For subjective outputs such as design or writing, inspect fitness to the goal, faithful use of user preferences, and useful alternatives; a syntax checker cannot do that. For research, distinguish inspected evidence, inference, and new hypotheses, and verify citations against actual accessed sources.
 
 ## Completion and limits
 
-Record `RUN/evaluation.md` with the tested tasks, observed results, corrections, and untested limitations. Include the model/effort only if exposed by the host; do not guess them. More files, higher star counts, more questions, or a self-rating are not proof of quality.
+Record `RUN/evaluation.md` with the tested tasks, observed results, corrections, and untested limits. Include the model and effort only if the host exposes them. More files, more decisions, or a self-rating are not evidence of quality.
 
-Freeze the complete final runtime, including `README.md`, references, metadata, and license, before preparing its final evaluation snapshot. After actual execution and review, resolve `VERIFY_SCRIPT` to `scripts/verify_delivery.py` and run:
+Freeze the complete final runtime (README, references, metadata, license) before its final evaluation snapshot. For a requested archive, create a ZIP with one top-level folder named exactly like the skill folder, extract it to a separate location, and run `verify_delivery.py` with `--archive` and `--extracted` as described in [evaluation.md](evaluation.md#delivery-verification). Keep the ZIP and the extraction outside the runtime. For folder delivery, verification is optional; report which cases ran on the final files.
 
-```text
-python -B VERIFY_SCRIPT --skill FINAL_SKILL --evaluation ITERATION/evaluation.json --run candidate
-```
-
-Use the actual evaluated `with_skill` run ID; `candidate` is the default. The selected run must identify its `skill_snapshot`, have completed execution records and passing checks, completed feedback with no unresolved findings, and a completed reuse review covering that run. The helper compares the exact full file inventory and SHA-256 hashes of the frozen snapshot and final runtime, including the guide. A passing older run cannot stand in for an unexecuted final version. See [evaluation.md](evaluation.md) for record semantics and the check's limits.
-
-Any delivered runtime change after that snapshot, including documentation, requires a new snapshot and relevant execution before claiming that exact edited package was tested. A documentation-only change may be recorded separately as untested; it does not inherit a behavior-tested claim from earlier bytes. Preserve previous executions and findings rather than editing their history. If the work stops before the final state is verified, deliver it as provisional with the remaining check identified.
-
-For a requested archive, create a ZIP with one top-level folder exactly matching `FINAL_SKILL`'s folder name. Extract it into a separate location, then provide the extracted skill folder containing `SKILL.md`:
-
-```text
-python -B VERIFY_SCRIPT --skill FINAL_SKILL --evaluation ITERATION/evaluation.json --run candidate --archive PACKAGE_ZIP --extracted EXTRACTED_SKILL
-```
-
-`--archive` and `--extracted` must be supplied together. The archive and extracted folder must contain exactly the final runtime's files and bytes; the extracted path cannot be the source runtime. Keep the ZIP and extraction outside the final runtime to avoid bundling them recursively. When neither is supplied, report folder-only verification; no archive or extraction was checked. This byte check does not replace any relevant extracted-package execution or host smoke test.
-
-The deliverable is complete when the selected behavior is implemented and relevant final-state checks pass. If execution, source access, review, or final verification is blocked, explain what was actually verified and deliver a provisional result with material limits. Preserve the run for continuation. Do not automatically publish, send to third parties, or claim installation without carrying out an authorized install.
+The deliverable is complete when the chosen behavior is implemented and the evaluation (at most two iterations) has run on it. Report findings that remain open as known limits. A runtime edit after the last evaluated snapshot means that exact delivery was not tested; say so. Call the result provisional only when the final skill was never executed on a realistic case. Preserve the run for later changes, and do not publish or send it anywhere unless the user asks.
 
 Package format reference: [Agent Skills specification](https://agentskills.io/specification). The host's existing skill-creation instructions may add environment-specific metadata or validation conventions.

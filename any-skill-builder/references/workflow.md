@@ -1,6 +1,6 @@
 # Run workflow
 
-The host performs research, judgment, question writing, and skill implementation. The Python helper manages validated records and saved HTML. Run commands with `-B` using the `scripts/skill_builder.py` belonging to this installed skill. The examples use `SCRIPT` for that absolute path and `RUN` for a private task directory.
+The host performs research, judgment, question writing, and skill implementation. The Python helper manages validated records and saved HTML. Run commands with `-B` using the `scripts/skill_builder.py` belonging to this installed skill. The examples use `SCRIPT` for that absolute path and `RUN` for a private task directory. Commands that change the run print a short summary (identity, revisions, counts, states, readiness, and review status) instead of the whole questionnaire; read `RUN/questions.json` and `RUN/answers.json` when you need the records, or add `--full` or `--out FILE`. `status --json` still prints everything.
 
 ## Start or resume
 
@@ -11,7 +11,7 @@ python -B SCRIPT init --workspace RUN --goal "Create a skill for ..." --mode aut
 python -B SCRIPT init --workspace RUN --goal "Create a skill for ..." --mode questionnaire
 ```
 
-Choose one command according to the requested mode. Full Auto creates no HTML. Questionnaire delivers a standalone form and waits for the user to save and return.
+Choose one command according to the requested mode. Full Auto creates no HTML and records its decisions in `RUN/decisions.json`. Questionnaire delivers a standalone form and waits for the user to save and return.
 
 For an existing run:
 
@@ -22,6 +22,31 @@ python -B SCRIPT status --workspace RUN --json
 Read the existing questions, answers, research, question review, and latest checkpoint before changing them. Reuse context instead of asking for the same purpose or mode again. Never call `init` to resume.
 
 Keep generated skills, questions, assets, and research outside the reusable skill and public repository. Respect the user's storage preferences. A project name is not an immutable identity: separate runs have separate `run_id` values.
+
+## Full Auto decision list
+
+Write the decision list described in [data-contract.md](data-contract.md#full-auto-decision-list), including its single `check`, then record it:
+
+```text
+python -B SCRIPT set-decisions --workspace RUN --input DECISIONS_JSON
+python -B SCRIPT status --workspace RUN
+python -B SCRIPT brief --workspace RUN
+```
+
+`set-decisions` validates the list with the same structural rules as questions (IDs, sources, option counts, value shapes, conditions) and stores it as `RUN/decisions.json`. It reports `ready_to_build` when every active decision has a choice and the three checks pass. A failing or pending check, or an active decision without a choice, blocks `brief`. Recording a corrected list replaces the previous file; there is no SHA-bound review to redo. The check allows one revision; record anything still open in `known_limits`.
+
+Do not run `render`, `recommend`, or the question-review commands for a decision-list run. Briefly explain the consequential decisions and assumptions in chat, then build without an additional blanket approval request.
+
+### Switch to a questionnaire later
+
+When the user asks to answer the questions themselves:
+
+```text
+python -B SCRIPT decisions-to-questions --workspace RUN --skeleton NEW_SKELETON_JSON
+python -B SCRIPT set-questions --workspace RUN --input EDITED_SKELETON_JSON --from-decisions
+```
+
+The skeleton carries every decision as a question: `question` becomes the title, `affects` the decision, option tradeoffs the effects, and the choice, reason, and assumptions the recommendation. Fixed requirements are printed for the review. Add only display text (help, option descriptions where the effect is unclear, group labels) in the conversation's language. Ask a new question only when the user wants to choose something the list recorded as fixed by the request. `--from-decisions` switches the run to questionnaire mode and requires a question review; then follow the ordinary review and render steps below. `decisions.json` stays in the run as the record of the original choices.
 
 ## Author and review questions
 
@@ -41,9 +66,9 @@ For a public authored fixture with another project name, `--rebind-project` is a
 
 Keep question IDs stable. Meaningful changes invalidate affected answers and dependencies while retaining history. For an actual spelling, punctuation, or display-only correction, `set-questions --presentation-only QUESTION_ID [...]` explicitly preserves eligible answers. Supported display fields are restricted; do not use this flag for changed meaning, options, effects, conditions, or assets. The questionnaire revision still advances, so an older saved HTML needs reconciliation.
 
-## Full Auto
+## Apply recommendations
 
-The host authors recommended values, reasons, and assumptions from the goal and sources, checks their compatibility, then applies them:
+After the questionnaire is answered and imported, or in an older Full Auto run that already has `questions.json`, apply the recorded recommendations to the remaining blanks:
 
 ```text
 python -B SCRIPT recommend --workspace RUN
@@ -51,8 +76,6 @@ python -B SCRIPT status --workspace RUN --json
 ```
 
 Inspect newly active branches and resolve remaining design choices until the build is ready. `recommend` only applies existing valid recommendations; it does not research or choose values by itself. It preserves meaningful answers already supplied by the user.
-
-Do not render HTML in Full Auto. Keep the ordinary questions, answer history, review, and brief as inspectable records. Briefly explain the consequential decisions and assumptions in chat, then build without an additional blanket approval request.
 
 ## Deliver the questionnaire
 
@@ -68,7 +91,7 @@ Tell the user, in their language:
 
 The file lets the user clear choices, write Other answers, navigate across groups, and save even when every question is blank. A text question needs only its own text field. There is no separate defer status or AI-delegation switch.
 
-Save answers downloads a new HTML with the entered state embedded. The suggested basename is `questionnaire.html`; the browser may append a suffix or choose another folder. Do not claim to have overwritten the original or completed a filesystem write merely because a download started. Browser Ctrl+S is not a substitute for the form's Save answers action.
+Save answers downloads a new HTML with the entered state embedded. The suggested name is `questionnaire-<project_id>-r<revision>-answers.html`, so `resume` still finds it beside the original; the browser may append a suffix or choose another folder. Do not claim to have overwritten the original or completed a filesystem write merely because a download started. Browser Ctrl+S is not a substitute for the form's Save answers action.
 
 After the requested questionnaire is delivered, stop. Continue only when the user returns and asks to proceed.
 
@@ -174,7 +197,7 @@ python -B SCRIPT brief --workspace RUN
 python -B SCRIPT check-skill --path CREATED_SKILL_DIRECTORY
 ```
 
-During stage 5, declare realistic evaluation cases and criteria before implementation. Create the skill under `RUN/output/`, with its usage guide and useful resources. During stage 7, use the execution, separate review, correction, and rerun procedure in [evaluation-loop.md](evaluation-loop.md). Inspect observed repeated operations before deciding whether to extract a reusable helper. Follow [build-and-evaluate.md](build-and-evaluate.md) for packaging and delivery. Structural success alone does not prove the skill works.
+During stage 5, declare realistic evaluation cases and criteria before implementation. Create the skill under `RUN/output/`, with its usage guide and useful resources. During stage 7, use the execution, separate review, correction, and rerun procedure in [evaluation.md](evaluation.md). Inspect observed repeated operations before deciding whether to extract a reusable helper. Follow [build-and-evaluate.md](build-and-evaluate.md) for packaging and delivery. Structural success alone does not prove the skill works.
 
 ## Files from earlier releases
 

@@ -28,6 +28,7 @@ test('Saving from page one downloads self-contained HTML with the exact question
   env.ids.get('save-answers').click();
   assert.equal(env.downloads.length, 1);
   assert.equal(env.downloads[0].type, 'text/html;charset=utf-8');
+  assert.equal(env.downloads[0].filename, 'questionnaire-form-regression-r1-answers.html');
   const saved = await downloadedBoot(env.downloads[0]);
   assert.deepEqual(saved.boot.view.questionnaire, boot.view.questionnaire);
   assert.equal(saved.boot.view.answers.answers.text.value, 'Preserve this saved response.');

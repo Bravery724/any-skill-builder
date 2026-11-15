@@ -4,7 +4,7 @@
 
 `weekly-update-questionnaire.json` adapts the completed example's historical questions to the current Questionnaire mode. The original `complete/questionnaire.json`, decisions, outputs, and evaluation evidence remain unchanged so their historical record stays inspectable.
 
-`evaluation-plan.json` adapts two historical task cases into an unexecuted plan for `prepare_evaluation.py`, with coverage criteria strengthened after a new independent review. It references the existing fictional raw inputs and contains no run results. Preparation writes pending records; the historical outputs do not become fresh executions by using this plan. See the [execution loop](../any-skill-builder/references/evaluation-loop.md).
+`evaluation-plan.json` adapts two historical task cases into an unexecuted plan for `prepare_evaluation.py`, with coverage criteria strengthened after a new independent review. It references the existing fictional raw inputs and contains no run results. Preparation writes pending records; the historical outputs do not become fresh executions by using this plan. See the [execution loop](../any-skill-builder/references/evaluation.md).
 
 Use a fresh private workspace as shown in the main [README](../README.md). `set-questions --rebind-project` binds an authored fixture to another project name only while the run is empty and preserves the initialized mode. It cannot rebind saved answers or another run's identity.
 

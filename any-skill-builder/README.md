@@ -8,7 +8,7 @@ Create or improve a reusable skill through subject research, useful design quest
 
 | Mode | What happens |
 | --- | --- |
-| **Full Auto** | AI researches the topic, prepares and answers the design questions, then creates and evaluates the skill. No HTML is generated. |
+| **Full Auto** | AI researches the topic, lists the design decisions with the alternatives it considered, chooses each one with a reason, checks the choices once, then creates and evaluates the skill. No HTML is generated. You can still ask to see the decisions as a questionnaire later. |
 | **Questionnaire** | AI prepares an HTML questionnaire. Answer the parts you care about, save it, and return to chat. AI fills the remaining blanks and builds the skill. |
 
 If your request already makes the choice clear, the agent starts directly. Otherwise it offers these two modes in chat. The host controls its skill picker and whether invocation uses `/`, `$`, or another interface.
@@ -51,7 +51,7 @@ Before presenting or automatically answering new questions, the agent records a 
 
 Before testing, the agent records suitable tasks and what a useful result must demonstrate. It then runs the skill, asks a separate evaluator to inspect the results when the host supports one, corrects observed problems, and reruns affected cases. The evaluator also looks for weak checks that could pass an incorrect result. A separate Agent call alone does not prove a fresh or blind context. Self-review and unperformed checks are identified honestly.
 
-Final verification compares every delivered runtime file, including the guide, with the snapshot used in the selected execution. Later edits require another relevant run before the edited package is called tested. Archives are optional unless distribution is requested; folder-only delivery is identified as such. Unavailable execution or unresolved limits leave a provisional result with the remaining work stated.
+Evaluation is kept proportionate: 2–3 cases for a simple skill and at most two rounds (the first run and one correction). The cases include a trap that looks wrong but is correct and, where relevant, fake secrets the output must not repeat; skills that give legal, medical, financial or safety advice are also compared with a run without the skill. Issues still open after that are reported as known limits. When you ask for an archive, the agent verifies that every delivered file matches the tested snapshot; for folder delivery it reports which cases ran on the final files. A result is provisional only if the final skill was never run on a realistic case.
 
 If several actual tasks recreate the same useful operation, the agent considers adding a shared helper and tests its integration. This does not add code merely to make the package larger. Full Auto continues without HTML or mandatory feedback rounds; Questionnaire still waits only for your saved answers and continuation.
 

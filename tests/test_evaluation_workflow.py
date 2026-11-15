@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -186,6 +187,26 @@ class WorkflowTests(unittest.TestCase):
         with self.assertRaisesRegex(evaluation.EvaluationError, "completed run records"):
             preparation.prepare(self.plan_path, self.skill, self.out)
 
+    def test_preparation_accepts_runtime_resources_named_like_run_records(self):
+        for relative in ("skill/assets/questions.json", "skill/templates/progress.json", "skill/assets/.gitkeep",
+                         "skill/references/runs/example.md", "skill/.gitignore"):
+            self.write(relative, "{}")
+        self.prepare()
+        copied = self.out / "snapshots/candidate"
+        for relative in ("assets/questions.json", "templates/progress.json", "assets/.gitkeep", "references/runs/example.md", ".gitignore"):
+            self.assertTrue((copied / relative).is_file(), relative)
+
+    def test_preparation_names_the_private_path_it_refuses(self):
+        for relative, blocked in (("skill/answers.json", "answers.json"), ("skill/scripts/__pycache__/x.pyc", "__pycache__"),
+                                  ("skill/assets/.env", ".env"), ("skill/runs/old/notes.md", "runs")):
+            with self.subTest(relative=relative):
+                path = self.write(relative, "private")
+                with self.assertRaisesRegex(evaluation.EvaluationError, "private run path.*" + blocked.replace(".", r"\.")):
+                    preparation.prepare(self.plan_path, self.skill, self.out)
+                self.assertFalse(self.out.exists())
+                top = self.skill / Path(relative).parts[1]
+                shutil.rmtree(top) if top.is_dir() else top.unlink()
+
     def test_snapshot_limits_fail_before_creating_destination(self):
         with patch.object(preparation, "MAX_TOTAL_BYTES", 10):
             with self.assertRaisesRegex(evaluation.EvaluationError, "64 MiB"):
@@ -239,6 +260,21 @@ class WorkflowTests(unittest.TestCase):
         report = self.report()
         self.assertEqual(report["runs"][0]["counts"]["pass"], 2)
         self.assertEqual(report["workflow"]["open_findings"], 1)
+
+    def test_minor_finding_is_reported_without_requiring_attention(self):
+        self.completed()
+        critique = self.document["runs"][0]["cases"][0]["eval_feedback"]
+        critique["findings"] = [{"kind": "weak_check", "severity": "minor", "check_id": "preserve",
+                                 "reason": "The keyword check could also match a paraphrase; acceptable for this case.",
+                                 "evidence": [{"artifact": "output", "quote": "The date is unconfirmed."}]}]
+        result = self.cli()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = self.report()
+        self.assertEqual((report["workflow"]["open_findings"], report["workflow"]["minor_findings"]), (0, 1))
+        self.assertIn("weak_check (minor)", evaluation.markdown(report))
+        critique["findings"][0]["severity"] = "cosmetic"
+        with self.assertRaisesRegex(evaluation.EvaluationError, "severity"):
+            self.report()
 
     def test_bad_audit_evidence_or_unknown_check_is_rejected(self):
         self.completed()

@@ -240,7 +240,9 @@ def assessment(root, artifacts, record, definitions):
             require(text(item["check_id"], "Feedback check ID") in definitions, "Feedback refers to an unknown check.")
         inspected = review_result(root, artifacts, {"status": "fail", "reviewer": reviewer,
                                   "reason": item.get("reason"), "evidence": item.get("evidence")})
-        finding = {"kind": item["kind"], "reason": inspected["reason"], "evidence": inspected["evidence"]}
+        severity = item.get("severity", "blocking")
+        require(severity in {"blocking", "minor"}, "Feedback finding severity must be blocking or minor.")
+        finding = {"kind": item["kind"], "severity": severity, "reason": inspected["reason"], "evidence": inspected["evidence"]}
         if "check_id" in item:
             finding["check_id"] = item["check_id"]
         result["findings"].append(finding)
@@ -405,9 +407,10 @@ def evaluate(manifest_path):
         pending = sum(item["status"] == "not_run" for item in audits) + int(report.get("reuse_review", {}).get("status") == "not_run")
         missing_execution = sum(case["execution_status"] == "completed" and "execution" not in case
                                 for run in runs for case in run["cases"])
-        findings = sum(len(item.get("findings", [])) for item in audits)
+        findings = sum(finding.get("severity", "blocking") == "blocking" for item in audits for finding in item.get("findings", []))
+        minor = sum(finding.get("severity") == "minor" for item in audits for finding in item.get("findings", []))
         report["workflow"] = {"disposition": "needs_attention" if findings else "incomplete" if pending or missing_execution else "reviewed",
-                              "open_findings": findings, "pending_reviews": pending, "pending_execution_records": missing_execution,
+                              "open_findings": findings, "minor_findings": minor, "pending_reviews": pending, "pending_execution_records": missing_execution,
                               "note": "Recorded reviews are separate from task check counts. Declared independence and actual execution are not authenticated by this tool."}
     return report
 
@@ -453,7 +456,7 @@ def markdown(report):
                 if item["status"] == "completed":
                     lines.append(f"  - Reviewer: {clean(item['reviewer'])}; declared relationship: {item['relationship']}.")
                 for finding in item.get("findings", []):
-                    lines.append(f"  - {finding['kind']}: {clean(finding['reason'])}")
+                    lines.append(f"  - {finding['kind']} ({finding.get('severity', 'blocking')}): {clean(finding['reason'])}")
     if "reuse_review" in report:
         item = report["reuse_review"]
         lines += ["", "## Repeated work review", "", f"{item['status']}: {clean(item.get('summary', item.get('reason')))}"]

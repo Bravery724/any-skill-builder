@@ -28,6 +28,10 @@ def check_files(root: Path, paths: list[str]) -> list[str]:
     errors = []
     for relative in paths:
         path = root / relative
+        if path.suffix.lower() == ".mp4":
+            if path.read_bytes()[4:8] != b"ftyp":
+                errors.append(f"{relative}: invalid MP4 signature")
+            continue
         signatures = IMAGE_SIGNATURES.get(path.suffix.lower())
         if signatures is not None:
             if not path.read_bytes().startswith(signatures):

@@ -1,29 +1,63 @@
 # Any Skill Builder
 
-[Releases](https://github.com/Bravery724/any-skill-builder/releases) · [Install](#quick-start) · [Example requests](#example-requests) · [Model guidance](#model-and-reasoning-settings) · [Complete example](examples/complete/README.md) · [Validation](https://github.com/Bravery724/any-skill-builder/actions/workflows/ci.yml)
-
 Turn a rough idea into a researched, usable agent skill. Discover meaningful requirements and carry the decisions through implementation and evaluation.
 
 **Let AI handle the whole build, or answer a simple HTML questionnaire first.** The host agent does the research and judgment. A small Python helper keeps questions, answers, revisions, and build records consistent. It does not call another model or need an API key.
 
 > **For complex skills:** consider a capable reasoning model and a higher reasoning-effort setting in your host. This can help with research, question quality, and difficult design choices. Reliable sources, clear requirements, and actual tests still matter. [Choose settings for your task](#model-and-reasoning-settings).
 
-![A request becomes a saved questionnaire and a reusable skill](docs/assets/demo.gif)
+## Contents
 
-An edited replay of the fictional weekly-update example using the current offline questionnaire. The saved-file step is real; the finished skill and its nine recorded checks are existing example evidence, not a new model run or a timing claim. [Static preview](docs/assets/questionnaire.jpg) · [Walkthrough](examples/complete/README.md) · [Demo details](docs/demo.md).
+- [How it works (video)](#how-it-works)
+- [Two ways to build](#two-ways-to-build)
+- [Results](#results)
+- [Quick start](#quick-start)
+  - [Install with the Skills CLI](#install-with-the-skills-cli)
+  - [Install with Python](#install-with-python)
+- [Example requests](#example-requests)
+- [Save answers and continue](#save-answers-and-continue)
+- [What makes the questions useful](#what-makes-the-questions-useful)
+- [Model and reasoning settings](#model-and-reasoning-settings)
+- [Requirements and languages](#requirements-and-languages)
+- [Try the helper directly](#try-the-helper-directly)
+- [Evaluation and related tools](#evaluation-and-related-tools)
+- [Check and package](#check-and-package)
+- [Releases](https://github.com/Bravery724/any-skill-builder/releases)
+- [Complete example](examples/complete/README.md)
+- [CI](https://github.com/Bravery724/any-skill-builder/actions/workflows/ci.yml)
+
+## How it works
+
+[![How Any Skill Builder works: request, research, decisions or questionnaire, build, evaluate, install](docs/assets/how-it-works.gif)](docs/assets/how-it-works.mp4)
+
+A short animated walkthrough of both modes. [Watch the full video with narration captions (MP4)](docs/assets/how-it-works.mp4).
 
 ## Two ways to build
 
 | Mode | What you do | What the agent does |
 | --- | --- | --- |
-| **Full Auto** | Describe the skill and ask AI to decide. | Research, prepare and review questions, answer them, then build and evaluate. No HTML is generated. |
+| **Full Auto** | Describe the skill and ask AI to decide. | Research, list the design decisions and choose each with a reason, check the choices once, then build and evaluate. No HTML is generated. |
 | **Questionnaire** | Answer what matters in the HTML, save it, then say “continue” in chat. | Research and prepare questions, preserve your meaningful answers, fill the blanks, then build and evaluate. |
 
 If your request makes the mode clear, the agent starts directly. Otherwise it offers these two choices in chat after invocation. The host controls its `/` or `$` picker; the skill does not add a native submenu to every host.
 
 The questionnaire works as a standalone file. There is no local server, background model connection, or special defer state. For a different direction, use **Other — describe**. To let AI decide, leave the question blank.
 
-Both modes report actual verification and leave a result **provisional** when material findings remain. Research, execution, and repeated review can take tens of minutes, as observed in the [v0.4.1 trials](docs/review-fixes-validation.md). Keep the reported scope and remaining issues with the delivered skill.
+The agent tells you at the start roughly what the work involves and how long it may take. In Questionnaire mode, question review allows one revision; evaluation runs at most two rounds in both modes. What remains open is reported as known limits. A result is **provisional** only if the final skill was never run on a realistic case. Earlier versions without these caps took tens of minutes or more, as observed in the [v0.4.1 trials](docs/review-fixes-validation.md).
+
+## Results
+
+In a [v0.5.0 trial](docs/full-auto-validation.md), Full Auto built a commit-message skill in 12 minutes and a Korean labor-contract review skill in 28 minutes. Building the same skills without the builder took 42 and 128 minutes. The labor build read the official minimum-wage notice and the statute texts itself.
+
+The generated skills were then run on six inputs they had never seen, shuffled, and scored out of 10 by graders who did not know which version wrote which answer:
+
+| Skills built by | Mean score | Labor contracts | Commit messages |
+| --- | --- | --- | --- |
+| v0.5.0 | **8.5** | 9, 9, 9 | 8, 9, 7 |
+| v0.4.1 | 8.0 | 8, 8, 8 | 8, 8, 8 |
+| No builder | 7.3 | 7, 7, 9 | 9, 8, 4 |
+
+These are single runs with one grader per input, so small differences are within noise. The [validation notes](docs/full-auto-validation.md) list each input, the errors found, and the limits.
 
 ## Quick start
 
@@ -41,11 +75,11 @@ Choose your host when prompted. Add `-g` for a shared installation. Keep `--skil
 
 ### Install with Python
 
-1. Download `any-skill-builder-0.4.1-source.zip` from [Releases](https://github.com/Bravery724/any-skill-builder/releases) and extract it.
+1. Download `any-skill-builder-0.5.0-source.zip` from [Releases](https://github.com/Bravery724/any-skill-builder/releases) and extract it.
 2. Enter the extracted source folder containing `README.md` and `tools/`, then run:
 
    ```sh
-   cd any-skill-builder-0.4.1-source
+   cd any-skill-builder-0.5.0-source
    python -B tools/install_skill.py --dest "~/.agents/skills"
    ```
 
@@ -58,7 +92,7 @@ The agent should show its stage, research the topic, resolve useful design choic
 
 For the smaller runtime ZIP, host paths, troubleshooting, safe updates, rollback, and removal, see [installation](docs/installation.md). The runtime ZIP contains the skill; the source ZIP adds tests, examples, and the installer.
 
-**Host evidence has a version boundary.** The [v0.4.1 validation](docs/review-fixes-validation.md) records actual Claude Code CLI trials, browser save/reopen checks, feedback-driven corrections, and their limits. Earlier native-discovery and Antigravity CLI runs are [historical evidence](docs/host-validation.md), not verification of later workflows or either IDE extension. See also the [v0.3.0 offline validation](docs/offline-validation.md), [recorded workflow examples](examples/offline-workflows/README.md), and the current commit's CI.
+**Host evidence has a version boundary.** The [v0.5.0 Full Auto validation](docs/full-auto-validation.md) records build times and a blind comparison of generated skills. The [v0.4.1 validation](docs/review-fixes-validation.md) records actual Claude Code CLI trials, browser save/reopen checks, feedback-driven corrections, and their limits. Earlier native-discovery and Antigravity CLI runs are [historical evidence](docs/host-validation.md), not verification of later workflows or either IDE extension. See also the [v0.3.0 offline validation](docs/offline-validation.md), [recorded workflow examples](examples/offline-workflows/README.md), and the current commit's CI.
 
 ## Example requests
 
@@ -103,6 +137,10 @@ See [more examples](docs/usage.md) for webtoons, questionnaire-only work, and us
 
 ## Save answers and continue
 
+![A request becomes a saved questionnaire and a reusable skill](docs/assets/demo.gif)
+
+An edited replay of the fictional weekly-update example using the offline questionnaire. The saved-file step is real; the finished skill and its nine recorded checks are existing example evidence, not a new model run or a timing claim. [Static preview](docs/assets/questionnaire.jpg) · [Walkthrough](examples/complete/README.md) · [Demo details](docs/demo.md).
+
 The card questionnaire shows the original request, question counts, and answered/unanswered states. It supports conditional questions, actual image candidates, **Other — describe**, clearing an answer, and a confirmed full reset. There is no fixed question limit; related questions are split across manageable pages.
 
 **Save answers** is available on every page, including the first. It downloads a self-contained HTML with the questions, images, and answers. Save it in the original location when practical, then return to chat. The browser may instead use its Downloads folder or add a filename suffix; a download does not guarantee the original was overwritten.
@@ -123,10 +161,10 @@ The browser does not run a model. Saving is not proof that the agent has read th
 
 ```mermaid
 flowchart LR
-    A[Request and subject research] --> B[Design and review questions]
-    B --> C{Mode}
-    C -->|Full Auto| D[AI answers with reasons]
-    C -->|Questionnaire| E[Answer and save HTML]
+    A[Request and subject research] --> C{Mode}
+    C -->|Full Auto| D[Decision list with reasons, checked once]
+    C -->|Questionnaire| B[Design and review questions]
+    B --> E[Answer and save HTML]
     E --> F[Return to chat]
     F --> G[Keep user answers and fill blanks]
     D --> H[Build and evaluate]
@@ -186,18 +224,17 @@ The host reviews the imported answers and authors recommendations before running
 
 ## Evaluation and related tools
 
-New authoring includes a version-bound question review before HTML rendering or AI recommendations: fixed requirements apply to every option, recommended and contrasting answer combinations are checked, and visible explanations follow the conversation language. The host performs those judgments; the helper checks coverage and recorded outcomes. A pass is not proof of perfect questions. Existing saved runs keep their data and can enable the policy with `require-review`.
+Full Auto records a short decision list (question, alternatives, choice, reason, sources) and checks it once: fixed requirements kept, no ruled-out choice, no invented private facts. If you later want to answer yourself, `decisions-to-questions` turns it into a questionnaire. Questionnaire authoring includes a version-bound question review before HTML rendering or AI recommendations: fixed requirements apply to every option, recommended and contrasting answer combinations are checked, and visible explanations follow the conversation language. The host performs those judgments; the helper checks coverage and recorded outcomes. A pass is not proof of perfect questions. Existing saved runs keep their data and can enable the policy with `require-review`.
 
 Check three different things: helper correctness, question quality, and the created skill's real task behavior. Tests of the first do not prove the other two. The [evaluation helper](any-skill-builder/references/evaluation.md) checks existing artifacts, aggregates evidence-backed reviews, and compares runs only when recorded conditions match. It does not execute a model, invent review results, or optimize descriptions automatically.
 
-The [execution and improvement loop](any-skill-builder/references/evaluation-loop.md) makes the last stage concrete:
+The [execution and improvement loop](any-skill-builder/references/evaluation.md) makes the last stage concrete:
 
-1. Plan representative tasks and meaningful checks before inspecting their outputs. Preserve the skill and inputs for each iteration.
+1. Plan representative tasks and meaningful checks before inspecting their outputs. Include a trap (something that looks wrong but is correct) and, where relevant, fake secrets the output must not repeat. Preserve the skill and inputs for each iteration.
 2. Have an executor use the skill with only the real task and input. Use a separate reviewer where available; label author review honestly when it is the only option.
 3. Review both the outputs and the checks: could a wrong answer pass, is a key outcome missing, or is a claim unsupported?
-4. Correct supported failures and run the affected tasks again in a new iteration. Compare against no skill or the preserved old version when that comparison matters.
+4. Correct supported failures and run the affected tasks again in a new iteration. Compare against no skill or the preserved old version when that comparison matters; for legal, medical, financial, or safety advice, always run that comparison on the main case.
 5. Inspect actual execution records for repeated operations. Extract a reusable helper only when the observed repetition justifies it, then test the helper and rerun the affected skill tasks.
-
 6. Freeze the final runtime, including its README, before the last execution. Verify the delivered folder against that tested snapshot; edits after testing require a new matching iteration. For ZIP delivery, also compare the archive and extracted runtime.
 
 Python prepares snapshots, task packets, and pending records; the host performs the actual model work and judgments. Earlier results remain available. Missing evidence stays untested, and weak-check findings remain visible even when individual assertions pass. The loop uses ordinary files and Markdown reports: Full Auto still creates no HTML, and Questionnaire still resumes from saved answers without a server or another approval round. A tie or insufficient evidence is an acceptable comparison result.
@@ -218,9 +255,9 @@ After execution and review, use:
 python -B any-skill-builder/scripts/verify_delivery.py --skill /path/to/final-skill --evaluation /path/to/final-iteration/evaluation.json
 ```
 
-The verifier requires an executed candidate snapshot, passing checks and recorded reviews without unresolved findings, and exact delivered file hashes. Add `--archive /path/to/skill.zip --extracted /path/to/extracted/skill-name` for ZIP delivery. It does not authenticate agent isolation or replace semantic review.
+The verifier requires an executed candidate snapshot, passing checks and recorded reviews without unresolved blocking findings, and exact delivered file hashes. Add `--archive /path/to/skill.zip --extracted /path/to/extracted/skill-name` for ZIP delivery. It does not authenticate agent isolation or replace semantic review.
 
-The [v0.4.1 review-fix validation](docs/review-fixes-validation.md) records the current fixes and their scope. Historical [v0.4.0 validation notes](docs/evaluation-validation.md) distinguish mechanical checks, actual host execution, and untested comparisons. A [recorded two-iteration example](examples/evaluation-loop/README.md) shows passing outputs whose evaluation still needed correction, followed by a fresh rerun.
+The [v0.5.0 Full Auto validation](docs/full-auto-validation.md) records the current build times and blind comparison; the [v0.4.1 review-fix validation](docs/review-fixes-validation.md) records the review fixes and their scope. Historical [v0.4.0 validation notes](docs/evaluation-validation.md) distinguish mechanical checks, actual host execution, and untested comparisons. A [recorded two-iteration example](examples/evaluation-loop/README.md) shows passing outputs whose evaluation still needed correction, followed by a fresh rerun.
 
 | Tool | Emphasis |
 | --- | --- |

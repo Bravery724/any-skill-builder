@@ -20,7 +20,7 @@ python -B any-skill-builder/scripts/skill_builder.py render --workspace ../examp
 python -B any-skill-builder/scripts/skill_builder.py brief --workspace ../example-runs/team-update
 ```
 
-This is a replay of the recorded recommendations for inspection, not newly performed research or model evaluation. To answer the form yourself, omit `recommend`, render it, and use Save answers. Return to chat with the saved HTML to continue; blanks are assigned to AI. Full Auto instead uses `--mode auto` and omits `render`.
+This is a replay of the recorded recommendations for inspection, not newly performed research or model evaluation. To answer the form yourself, omit `recommend`, render it, and use Save answers. Return to chat with the saved HTML to continue; blanks are assigned to AI. Full Auto instead uses `--mode auto`, records its choices with `set-decisions` as described in the [workflow guide](../../any-skill-builder/references/workflow.md#full-auto-decision-list), and never renders HTML.
 
 The explicit `--rebind-project` option adapts this authored fixture to the new project's name and preserves the initialized mode. It must not rebind exported answers or an established run. The decisions in this folder are readable authoring evidence, not a canonical response export with a reusable run identity.
 

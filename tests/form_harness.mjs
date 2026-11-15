@@ -103,7 +103,7 @@ export function setup(boot = makeBoot(), storage = new Map()) {
     scrollIntoView() {}
     showModal() { this.open = true; }
     close() { this.open = false; this.dispatch('close'); }
-    click() { if (this.disabled) return; this.dispatch('click'); if (this.tagName === 'A') downloads.push(blobs.get(this.href)); }
+    click() { if (this.disabled) return; this.dispatch('click'); if (this.tagName === 'A') { const blob = blobs.get(this.href); if (blob) blob.filename = this.download; downloads.push(blob); } }
   }
   class TextNode extends Element { constructor(text) { super('#text'); this._text = text; } }
   class TextArea extends Element {

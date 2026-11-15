@@ -1,6 +1,6 @@
 # Questionnaire and response data
 
-Use `schema_version: 1` for the questionnaire and answer envelope. Canonical files are `questions.json` and `answers.json`. Author question changes in a separate file and import them with `set-questions`; do not hand-edit history or versions to bypass validation.
+Use `schema_version: 1` for the questionnaire, answer envelope, and Full Auto decision list. Canonical files are `questions.json`, `answers.json`, and, for Full Auto, `decisions.json`. Author question changes in a separate file and import them with `set-questions`; do not hand-edit history or versions to bypass validation.
 
 ## Minimal questionnaire
 
@@ -50,7 +50,7 @@ This is original proposal text, not evidence that subject research happened. Lin
 | `project_id` | Human-readable identifier matching the initialized run. A folder name alone does not establish identity. |
 | `run_id` | Immutable UUID created by `init`. Authored questions may omit it; saved exports must retain it. |
 | `revision` | Questionnaire revision managed by the helper. |
-| `mode` | `auto` or `questionnaire`. A fixture rebound into an empty run retains the initialized mode. Ordinary updates must match the run. |
+| `mode` | `auto` or `questionnaire`. A fixture rebound into an empty run retains the initialized mode. Ordinary updates must match the run; `set-questions --from-decisions` is the one switch, from a Full Auto decision list to a questionnaire. |
 | `locale` | `{language,direction,messages?}`; see [language-support.md](language-support.md). |
 | `groups` | Ordered `{id,label}` objects. Pagination does not limit total questions. |
 | `sources` | Source records with ID, title, kind, access status, notes, and URL or user-material identifier. |
@@ -163,3 +163,73 @@ Reopening a saved HTML uses the state embedded in that file. It must not replace
 Counts must distinguish active questions from all defined candidates and waiting branches. Saving an incomplete HTML is valid; it does not make all of its questions answered.
 
 A checkpoint records the last observed stage, work, remaining items, next action, time, and exact question/answer revisions. It is not a heartbeat or quality certificate. Research, raw answers, paths, histories, and checkpoints are private run material, not reusable skill package contents.
+
+## Full Auto decision list
+
+Full Auto records its decisions in `RUN/decisions.json` instead of a questionnaire. It keeps the judgment (question, alternatives, choice, reason, evidence) and drops the text a person needs to choose on screen. Import it with `set-decisions`; do not hand-edit the stored copy.
+
+```json
+{
+  "schema_version": 1,
+  "language": "en",
+  "requirements": [
+    {"id": "staged-only", "statement": "Write the message from staged changes only", "basis": "user request"}
+  ],
+  "sources": [
+    {"id": "git-diff", "title": "git diff documentation", "url": "https://git-scm.com/docs/git-diff",
+     "kind": "official documentation", "status": "read", "accessed_at": "2026-11-15",
+     "notes": "--cached shows only staged changes"}
+  ],
+  "decisions": [
+    {
+      "id": "empty-staging",
+      "question": "What should happen when nothing is staged?",
+      "affects": "The skill's behavior when the staging area is empty",
+      "importance": "core",
+      "origin": "source",
+      "source_ids": ["git-diff"],
+      "options": [
+        {"id": "stop", "label": "Say so and stop", "tradeoff": "No risk of a wrong message; the user reruns after staging"},
+        {"id": "suggest", "label": "Also suggest what to stage", "tradeoff": "Convenient, but reads unstaged files that may hold secrets"}
+      ],
+      "choice": "stop",
+      "reason": "The message must match what will actually be committed",
+      "assumptions": []
+    }
+  ],
+  "check": {
+    "reviewer": "self",
+    "requirements_preserved": {"status": "pass", "reason": "Every choice reads staged changes only"},
+    "no_forbidden_choices": {"status": "pass", "reason": "The option that reads unstaged files was considered, not chosen"},
+    "no_invented_private_facts": {"status": "pass", "reason": "No account, budget, or private resource is assumed"},
+    "revisions": 0,
+    "known_limits": []
+  }
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `language` | Optional language tag of the explanatory text; defaults to the run's locale. |
+| `requirements` | What the request already fixes, one line each, with its `basis` (user request, supplied material, or a source ID). These are not decisions. |
+| `sources` | Same records as questionnaire sources. |
+| `decisions[].type` | `single` (default), `multi`, or `text`. Image choices need a questionnaire. |
+| `decisions[].options` | At least two genuinely considered alternatives for choice types, each with `id`, `label`, and `tradeoff`. `exclusive`, `min_choices`, and `max_choices` work as in questions. |
+| `decisions[].choice` | A value with the same shape as a questionnaire answer, including `{"other":"...","selected":[]}` for a direction outside the listed options. Required for every active decision. |
+| `decisions[].when` | Optional conditions on other decisions, as in questions. An inactive decision needs no choice. |
+| `check` | The single check. Each of the three items has `status` (`pending`, `pass`, `needs-revision`) and a `reason`. `revisions` counts revision rounds (Full Auto allows one). `known_limits` lists concerns left open, to report at delivery. |
+
+`set-decisions` reports `ready_to_build` only when every active decision has a choice and all three checks pass. A recorded `revisions` above one adds a note; it is not an error.
+
+The fields map one to one onto the questionnaire, so `decisions-to-questions` can build a questionnaire without new judgment:
+
+| Decision list | Questionnaire |
+| --- | --- |
+| `question` | question `title` |
+| `affects` | question `decision` |
+| `options[].tradeoff` | `options[].effect` |
+| `choice`, `reason`, `assumptions` | `recommendation.value`, `.rationale`, `.assumptions` |
+| `id`, `type`, `importance`, `origin`, `source_ids`, `when`, `group_id`, `groups`, `sources` | same names |
+| `requirements` | printed by `decisions-to-questions` for the question review's `requirements` |
+
+Only display text is added after conversion: question `help`, option descriptions where the effect is unclear, and group labels.

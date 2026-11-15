@@ -1,6 +1,10 @@
 # Review the current questions
 
-Use this procedure after `set-questions` and before presenting a questionnaire or applying AI recommendations. The host performs the review. `review_questions.py` prepares a pending record and checks its binding, coverage, references, and recorded outcomes; it does not call a model or decide whether the questions are good. Both modes use the same review without adding HTML or a human approval step to Full Auto.
+Use this procedure after `set-questions` and before presenting a questionnaire or applying AI recommendations. The host performs the review. `review_questions.py` prepares a pending record and checks its binding, coverage, references, and recorded outcomes; it does not call a model or decide whether the questions are good.
+
+This review is for questionnaires: Questionnaire runs, Full Auto runs converted with `set-questions --from-decisions`, and older Full Auto runs that already have `questions.json`. A Full Auto decision list uses the single `check` inside `decisions.json` instead (see [data-contract.md](data-contract.md#full-auto-decision-list)).
+
+Do one review, at most one revision, and a re-check of the revised file. If findings remain after that, resolve every `requirements` or `unknown_private_facts` finding; mark the others `accepted` with a resolution explaining why the question is still usable, and tell the user about them when you deliver the questionnaire.
 
 ## Prepare, review, and accept
 
@@ -41,9 +45,9 @@ Preserve the generated field names and exact schema. Write explanatory statement
 | `localization` | Match the resolved locale `language`, retain the complete generated `fields` inventory, and review the actual text at every path. List only permitted original-language titles or quotations in `original_language_fields`. |
 | `fair_alternatives` | Cover every question ID and assess whether viable alternatives receive fair, meaningful descriptions of effects and costs. |
 | `unknown_private_facts` | Cover every question ID and verify that unknown accounts, budgets, equipment, permissions, and other private facts remain unknown or become required runtime inputs. |
-| `findings` | Retain concrete issues and their resolutions. Each item has `id`, `status`, `area`, `question_ids`, `description`, and `resolution`. An open finding prevents a pass. |
+| `findings` | Retain concrete issues and their resolutions. Each item has `id`, `status`, `area`, `question_ids`, `description`, and `resolution`. An open finding prevents a pass. An `accepted` finding is a known limit left after the revision cap; it does not prevent a pass, appears in the check report, and is not allowed for `requirements` or `unknown_private_facts`. |
 
-Review outcome fields use `pending`, `pass`, or `needs-revision`. Every completed section needs a substantive `reason`; the overall `status` has no reason field. A finding uses `open` or `resolved`, with area `requirements`, `options`, `combinations`, `localization`, `fair_alternatives`, or `unknown_private_facts`. A resolved finding needs a nonempty resolution grounded in the actual correction. Keep earlier review files when revisions require a new template. Do not change every status to pass merely to satisfy the gate.
+Review outcome fields use `pending`, `pass`, or `needs-revision`. Every completed section needs a substantive `reason`; the overall `status` has no reason field. A finding uses `open`, `resolved`, or `accepted`, with area `requirements`, `options`, `combinations`, `localization`, `fair_alternatives`, or `unknown_private_facts`. A resolved finding needs a nonempty resolution grounded in the actual correction; an accepted one needs a resolution explaining why the remaining issue is tolerable. Keep earlier review files when revisions require a new template. Do not change every status to pass merely to satisfy the gate.
 
 Keep fixed requirements outside the selectable options. A prohibited choice must not appear as an ordinary alternative, even "for transparency" or labeled not recommended. For example, if owners must come from supplied notes, alternatives may differ in how they represent a missing owner, but cannot offer to infer one from the topic. A meaning-preserving paraphrase is a viable alternative to a direct quote when conditions, dependencies, uncertainty, and attribution survive. Keep limits at their actual scope: a maximum per note is not a maximum across an entire batch.
 

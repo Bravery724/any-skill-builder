@@ -8,7 +8,7 @@ Source packages default to English. Questions, explanations, and task outputs fo
 
 ## Choose a workflow
 
-**Full Auto** researches the subject, prepares and reviews design questions, answers them with AI judgment, and builds and evaluates the skill. It creates no HTML.
+**Full Auto** researches the subject, lists the design decisions with the alternatives it considered, chooses each with a reason, checks the choices once, and builds and evaluates the skill. It creates no HTML. If you later want to answer the questions yourself, ask for the questionnaire; the agent converts the same decisions instead of writing new questions.
 
 **Questionnaire** prepares a standalone HTML. You answer what matters, choose Save answers, and return to chat. AI keeps meaningful answers and resolves the blanks before building. If your request already selects one flow, the agent starts directly; otherwise it offers both in chat.
 
