@@ -1,36 +1,30 @@
 # Any Skill Builder
 
-Turn a rough idea into a researched, usable agent skill. Discover meaningful requirements and carry the decisions through implementation and evaluation.
+**Turn a rough idea into a reusable agent skill.**
 
-**Let AI handle the whole build, or answer a simple HTML questionnaire first.** The host agent does the research and judgment. A small Python helper keeps questions, answers, revisions, and build records consistent. It does not call another model or need an API key.
+Let your agent research and make the design choices, or shape the result in an HTML questionnaire. Then try the generated skill on example tasks to see what works.
 
-> **For complex skills:** consider a capable reasoning model and a higher reasoning-effort setting in your host. This can help with research, question quality, and difficult design choices. Reliable sources, clear requirements, and actual tests still matter. [Choose settings for your task](#model-and-reasoning-settings).
+[Quick start](#quick-start) · [See a worked example](examples/complete/README.md) · [Install without Node.js](#install-with-python) · [Releases](https://github.com/Bravery724/any-skill-builder/releases)
 
-## Contents
+## Quick start
 
-- [How it works (video)](#how-it-works)
-- [Two ways to build](#two-ways-to-build)
-- [Results](#results)
-- [Quick start](#quick-start)
-  - [Install with the Skills CLI](#install-with-the-skills-cli)
-  - [Install with Python](#install-with-python)
-- [Example requests](#example-requests)
-- [Save answers and continue](#save-answers-and-continue)
-- [What makes the questions useful](#what-makes-the-questions-useful)
-- [Model and reasoning settings](#model-and-reasoning-settings)
-- [Requirements and languages](#requirements-and-languages)
-- [Try the helper directly](#try-the-helper-directly)
-- [Evaluation and related tools](#evaluation-and-related-tools)
-- [Check and package](#check-and-package)
-- [Releases](https://github.com/Bravery724/any-skill-builder/releases)
-- [Complete example](examples/complete/README.md)
-- [CI](https://github.com/Bravery724/any-skill-builder/actions/workflows/ci.yml)
+From your project directory, with Python 3.10+ and Node.js 22.20+:
 
-## How it works
+```sh
+npx skills add Bravery724/any-skill-builder --skill any-skill-builder
+```
 
-https://github.com/user-attachments/assets/3d10f534-74e7-4cd4-a69c-369cc3844fce
+Choose a host that can read Agent Skills, access local files, and run Python. Refresh its skills or start a new session, then ask:
 
-An 80-second walkthrough with narration and captions. It starts on the whole workflow, then zooms into each step: request, research, Full Auto or questionnaire, build, test with up to two fix rounds, and install.
+> Use any-skill-builder in Questionnaire mode to create a weekly update skill from project notes. Ask me how to handle missing details and what should appear first.
+
+Open the HTML questionnaire, save your answers, then tell your agent to continue. If the agent can't locate the saved HTML, attach it if your host supports files, or provide its path. There is no server or separate API key for the Python helper; the host agent supplies the research and judgment.
+
+## One idea, a skill you can reuse
+
+![A request for a weekly update skill becomes a questionnaire. Choosing “Blockers first” is reflected in the generated SKILL.md.](docs/assets/readme-workflow.svg)
+
+*Illustrative example. The [recorded weekly-update walkthrough](examples/complete/README.md) includes its own questionnaire, resulting skill, and evaluation evidence.*
 
 ## Two ways to build
 
@@ -45,9 +39,15 @@ The questionnaire works as a standalone file. There is no local server, backgrou
 
 The agent tells you at the start roughly what the work involves and how long it may take. In Questionnaire mode, question review allows one revision; evaluation runs at most two rounds in both modes. What remains open is reported as known limits. A result is **provisional** only if the final skill was never run on a realistic case. Earlier versions without these caps took tens of minutes or more, as observed in the [v0.4.1 trials](docs/review-fixes-validation.md).
 
+## How it works
+
+https://github.com/user-attachments/assets/3d10f534-74e7-4cd4-a69c-369cc3844fce
+
+An 80-second walkthrough with narration and captions. It starts on the whole workflow, then zooms into each step: request, research, Full Auto or questionnaire, build, test with up to two fix rounds, and install.
+
 ## Results
 
-In a [v0.5.0 trial](docs/full-auto-validation.md), Full Auto built a commit-message skill in 12 minutes and a Korean labor-contract review skill in 28 minutes. Building the same skills without the builder took 42 and 128 minutes. The labor build read the official minimum-wage notice and the statute texts itself.
+In a [recorded v0.5.0 trial](docs/full-auto-validation.md), the commit-message skill took **12 minutes with Full Auto vs. 42 minutes without the builder**. The Korean labor-contract review skill took 28 minutes with Full Auto vs. 128 minutes without it. The labor build read the official minimum-wage notice and the statute texts itself.
 
 The generated skills were then run on six inputs they had never seen, shuffled, and scored out of 10 by graders who did not know which version wrote which answer:
 
@@ -59,19 +59,23 @@ The generated skills were then run on six inputs they had never seen, shuffled, 
 
 These are single runs with one grader per input, so small differences are within noise. The [validation notes](docs/full-auto-validation.md) list each input, the errors found, and the limits.
 
-## Quick start
+## More in this README
 
-You need an agent that reads skill files, accesses local files, and runs Python. Python **3.10+** is supported; use a maintained **3.13+** release for a new installation. Check `python --version`; substitute `python3` if that is your command.
+- [Install with the Skills CLI](#install-with-the-skills-cli) or [with Python](#install-with-python)
+- [Example requests](#example-requests) · [Save answers and continue](#save-answers-and-continue)
+- [What makes the questions useful](#what-makes-the-questions-useful) · [Model and reasoning settings](#model-and-reasoning-settings)
+- [Requirements and languages](#requirements-and-languages) · [Try the helper directly](#try-the-helper-directly)
+- [Evaluation and related tools](#evaluation-and-related-tools) · [Check and package](#check-and-package) · [CI](https://github.com/Bravery724/any-skill-builder/actions/workflows/ci.yml)
+
+## Installation details
+
+The builder runs in an agent host that can read skill files, access local files, and run Python. Python **3.10+** is supported; for a fresh installation, use a maintained **3.13+** release. Check `python --version`; substitute `python3` if that is your command.
 
 ### Install with the Skills CLI
 
-If you already use Node.js 22.20+, run this in your project:
+Use the command in [Quick start](#quick-start). The [Skills CLI](https://github.com/vercel-labs/skills) is an optional third-party installer for Node.js 22.20+. Keep `--skill any-skill-builder` so the command installs only the builder, not the example skills. Add `-g` for a shared installation.
 
-```sh
-npx skills add Bravery724/any-skill-builder --skill any-skill-builder
-```
-
-Choose your host when prompted. Add `-g` for a shared installation. Keep `--skill any-skill-builder` so only the builder is selected. The [Skills CLI](https://github.com/vercel-labs/skills) is an optional third-party installer; Python is still required. See [installation details](docs/installation.md#install-with-the-skills-cli) for a pinned release and verification.
+For a version-pinned install and verification steps, see the [installation guide](docs/installation.md#install-with-the-skills-cli).
 
 ### Install with Python
 
@@ -257,7 +261,7 @@ python -B any-skill-builder/scripts/verify_delivery.py --skill /path/to/final-sk
 
 The verifier requires an executed candidate snapshot, passing checks and recorded reviews without unresolved blocking findings, and exact delivered file hashes. Add `--archive /path/to/skill.zip --extracted /path/to/extracted/skill-name` for ZIP delivery. It does not authenticate agent isolation or replace semantic review.
 
-The [v0.5.0 Full Auto validation](docs/full-auto-validation.md) records the current build times and blind comparison; the [v0.4.1 review-fix validation](docs/review-fixes-validation.md) records the review fixes and their scope. Historical [v0.4.0 validation notes](docs/evaluation-validation.md) distinguish mechanical checks, actual host execution, and untested comparisons. A [recorded two-iteration example](examples/evaluation-loop/README.md) shows passing outputs whose evaluation still needed correction, followed by a fresh rerun.
+The [v0.5.0 Full Auto validation](docs/full-auto-validation.md) records that version’s build times and blind comparison; the [v0.4.1 review-fix validation](docs/review-fixes-validation.md) records the review fixes and their scope. Historical [v0.4.0 validation notes](docs/evaluation-validation.md) distinguish mechanical checks, actual host execution, and untested comparisons. A [recorded two-iteration example](examples/evaluation-loop/README.md) shows passing outputs whose evaluation still needed correction, followed by a fresh rerun.
 
 | Tool | Emphasis |
 | --- | --- |
