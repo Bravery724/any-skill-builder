@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 364" width="960" height="364" role="img" aria-labelledby="workflow-title workflow-desc">
+  <title id="workflow-title">From a request to a reusable skill</title>
+  <desc id="workflow-desc">Illustrative weekly-update example. Ask for a weekly update skill. In the HTML questionnaire, choose Blockers first, then save and return to chat. The generated SKILL.md includes the rule Start with blockers.</desc>
+  <style>
+    :root { color-scheme: light dark; }
+    .canvas { fill:#f4f7f8; stroke:#cdd8dd; }
+    .card { fill:#fff; stroke:#d3dde1; }
+    .rule { fill:#e2f1ed; stroke:#b7dbd0; }
+    .divider { stroke:#e4eaed; }
+    .ink { fill:#1b2935; }
+    .secondary { fill:#475d69; }
+    .accent { fill:#076555; }
+    .arrow { stroke:#599588; }
+    .check { fill:#0c7965; }
+    .inactive { stroke:#879ca5; }
+    text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Open Sans', sans-serif; }
+    .overline { font-size:16px; font-weight:700; letter-spacing:1px; }
+    .heading { font-size:24px; font-weight:700; }
+    .body { font-size:20px; font-weight:500; }
+    .small { font-size:17px; font-weight:600; }
+    .mono { font-family: SFMono-Regular, Consolas, 'Liberation Mono', monospace; font-size:22px; font-weight:700; }
+    @media (prefers-color-scheme: dark) {
+      .canvas { fill:#151f26; stroke:#40515b; }
+      .card { fill:#1e2b34; stroke:#40515b; }
+      .rule { fill:#163d36; stroke:#427b6d; }
+      .divider { stroke:#3b4c57; }
+      .ink { fill:#edf4f6; }
+      .secondary { fill:#b9cbd4; }
+      .accent { fill:#8ddac9; }
+      .arrow { stroke:#73ae9f; }
+      .check { fill:#188671; }
+      .inactive { stroke:#9aafb8; }
+    }
+  </style>
+  <rect class="canvas" x=".5" y=".5" width="959" height="363" rx="18"/>
+  <text x="26" y="37" class="overline secondary">ILLUSTRATIVE EXAMPLE</text>
+
+  <rect class="card" x="24.5" y="58.5" width="237" height="251" rx="12"/>
+  <rect class="card" x="297.5" y="58.5" width="365" height="251" rx="12"/>
+  <rect class="card" x="698.5" y="58.5" width="237" height="251" rx="12"/>
+  <path class="divider" d="M25 112h236m37 0h364m37 0h236" fill="none"/>
+
+  <g class="arrow" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M270 182h18m-6-6 6 6-6 6"/>
+    <path d="M671 182h18m-6-6 6 6-6 6"/>
+  </g>
+
+  <g class="overline accent">
+    <text x="43" y="93">01 / REQUEST</text>
+    <text x="317" y="93">02 / QUESTIONNAIRE</text>
+    <text x="717" y="93">03 / GENERATED SKILL</text>
+  </g>
+
+  <text x="43" y="159" class="heading ink">Build a weekly</text>
+  <text x="43" y="192" class="heading ink">update skill.</text>
+
+  <text x="317" y="148" class="heading ink">What should appear first?</text>
+  <rect class="rule" x="317.5" y="166.5" width="325" height="43" rx="8"/>
+  <circle class="check" cx="339" cy="188" r="9"/>
+  <path d="m335 188 3 3 5-6" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="358" y="195" class="body accent">Blockers first</text>
+  <circle class="inactive" cx="339" cy="232" r="8" fill="none" stroke-width="1.6"/>
+  <text x="358" y="239" class="body secondary">Progress first</text>
+  <path class="divider" d="M317 258h325" fill="none"/>
+  <text x="317" y="285" class="small secondary">Save answers, then return to chat.</text>
+
+  <g class="arrow" fill="none" stroke-width="1.8" stroke-linejoin="round">
+    <path d="M718 135h12l7 7v17h-19z"/>
+    <path d="M730 135v7h7"/>
+  </g>
+  <text x="748" y="155" class="mono ink">SKILL.md</text>
+  <rect class="rule" x="717.5" y="179.5" width="199" height="46" rx="8"/>
+  <text x="731" y="209" class="body accent">Start with blockers.</text>
+
+  <text x="26" y="342" class="small secondary">Your choice becomes an instruction the agent can reuse.</text>
+</svg>
