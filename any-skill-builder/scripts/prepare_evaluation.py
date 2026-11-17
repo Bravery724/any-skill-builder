@@ -179,7 +179,10 @@ def prepare(plan_path, skill_path, output, baseline_skill=None, without_skill=Fa
             add(f"tasks/execute-{run_id}-{index:03d}.md", packet.encode("utf-8"))
             review = (f"# Review case {case['id']}\n\nRead evaluation.json for the original task, inputs, and checks for this case, "
                       f"then inspect the actual outputs and execution log under {out / directory}.\n\n"
-                      "Grade each check using evidence from the actual files. Separately critique whether the checks would pass a wrong "
+                      "Grade each check using evidence from the actual files. When information was transformed or hidden, compare "
+                      "the raw input and output for both the required change and the retained relationship to its original person "
+                      "or item. Missing or swapped links can leave all the expected words present. "
+                      "Separately critique whether the checks would pass a wrong "
                       "output, omit an important outcome, or miss an unsupported factual/process claim. Record eval_feedback with evidence; "
                       "an empty finding list needs an explicit summary of what you reviewed. Report self-review or unknown independence "
                       "honestly. Do not infer success from an absent output or a well-written execution summary. "

@@ -164,6 +164,20 @@ class DelegationTests(unittest.TestCase):
         self.assertEqual(view["answers"]["answers"]["q3"]["user_selected"], ["chart"])
         self.assertTrue(view["ready_to_build"])
 
+    def test_brief_tracks_active_ai_decisions_and_the_user_part_of_a_mixed_answer(self):
+        self.pending(["chart"])
+        core.recommend(self.root)
+        brief = Path(core.build_brief(self.root)["path"])
+        lines = brief.read_text(encoding="utf-8").splitlines()
+        self.assertIn("AI decisions to review together: q2, q3", lines)
+        self.assertIn("Human-selected options retained during AI completion: chart", lines)
+        core.answer_one(self.root, "q1", "no")  # Makes q2 inactive.
+        core.build_brief(self.root)
+        self.assertIn("AI decisions to review together: q3", brief.read_text(encoding="utf-8").splitlines())
+        core.answer_one(self.root, "q3", ["table", "note"])
+        core.build_brief(self.root)
+        self.assertNotIn("AI decisions to review together:", brief.read_text(encoding="utf-8"))
+
     def test_plain_ai_answer_cannot_bypass_partial_human_input_protection(self):
         self.pending(["table"])
         with self.assertRaises(core.BuilderError) as caught:

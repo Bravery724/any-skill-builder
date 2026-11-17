@@ -118,7 +118,7 @@ Record any AI replacements with reasons, apply recommendations to the remaining 
 
 ## Build
 
-When `status` reports `ready_to_build`, run `brief` and follow [references/build-and-evaluate.md](references/build-and-evaluate.md). Build from the fixed requirements and the choices for currently active decisions.
+When `status` reports `ready_to_build`, run `brief` and read it alongside the latest user instructions. Check the combined effects of active choices before building, including delegated choices and defaults you would introduce during implementation. If a default would erase an explicit choice, break a required relationship, or disclose protected information, narrow its scope. Record the effective behavior and affected IDs in `design.json`. Ask only when explicit requirements for the same output cannot both be met. Follow [references/build-and-evaluate.md](references/build-and-evaluate.md).
 
 Create `RUN/output/<skill-name>/` with `SKILL.md` and a short `README.md` (what it does, required inputs, example requests, expected results, limits). Add references, assets, and scripts only when they earn their place, using tools the target host actually supports; Python is optional for generated skills. Teach the generated skill to give brief help when invoked with no task and to start clear tasks directly.
 
@@ -134,6 +134,7 @@ Keep it proportionate:
 
 - One representative case can cover a simple, fully specified skill with a single behavior. Otherwise start with 2–3 cases for a simple skill and add one for each distinct behavior or material risk the existing cases miss.
 - Make the inputs hard enough to fail: include a trap (something that looks wrong but is correct) and, when the skill can meet secrets or personal data, fake sensitive values that must not be repeated.
+- When a choice removes, masks or rewrites information, use one case to check both what must change and what the reader must still be able to do. Compare the actual output with its input to verify that the retained fact or action still belongs to the right person or item.
 - At most two iterations: the first evaluation and one correction round. What remains open becomes a known limit.
 - A no-skill baseline is optional, except for legal, medical, financial, or safety advice, or when the user asks whether the skill helps: then run one on at least the main case.
 - Extract a shared helper only from repetition you observed in the runs, and test it inside the skill.

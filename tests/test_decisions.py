@@ -142,6 +142,7 @@ class DecisionListTests(unittest.TestCase):
         for req in spec["requirements"]:
             self.assertIn(req["statement"], brief)
         self.assertIn("The fixed requirements specify the build in full.", brief)
+        self.assertNotIn("AI decisions to review together:", brief)
         skeleton = self.parent / "skeleton.json"
         self.assertEqual(self.cli("decisions-to-questions", "--skeleton", skeleton, expected=2)["error"], "no_questions_to_convert")
         self.assertFalse(skeleton.exists())
@@ -163,7 +164,9 @@ class DecisionListTests(unittest.TestCase):
         self.assertTrue(result["ready_to_build"])
         self.assertEqual(result["decisions"]["counts"]["inactive"], 1)
         self.cli("brief")
-        self.assertNotIn("body-style", (self.root / "build-brief.md").read_text(encoding="utf-8"))
+        brief = (self.root / "build-brief.md").read_text(encoding="utf-8")
+        self.assertNotIn("body-style", brief)
+        self.assertIn("AI decisions to review together: empty-staging, body", brief.splitlines())
 
     def test_invalid_decisions_are_rejected_without_replacing_the_stored_list(self):
         self.record(decision_list())

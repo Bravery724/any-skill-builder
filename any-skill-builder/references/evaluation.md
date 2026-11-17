@@ -19,6 +19,8 @@ Easy cases let a weak skill pass. Build two kinds of difficulty into the inputs,
 
 Each check should also be able to fail on a false statement about the input itself, such as saying a file is empty when it is not.
 
+When a resolved choice hides, shortens, or transforms information, write a `skill_output` criterion covering both effects on the same case. Name what must be removed or changed and which relationship the intended reader still needs. Exercise overlapping choices together where either could erase that relationship, and link their IDs to the check. For example, if a public incident summary must omit private links and retain each remedy's affected service, use two incidents with different services and remedies. Require both links to disappear and each remedy to stay attached to its original service. Use `kind: review` when judging that relationship in prose.
+
 Separate three kinds of evidence:
 
 | Category | What to establish | Suitable evidence |
@@ -68,6 +70,8 @@ If separate execution is unavailable, run a scoped check in the author's context
 ### 4. Review the outputs and the criteria
 
 Give the evaluator the reviewer packet, raw inputs, outputs, execution record, and criteria. Prefer an evaluator separate from both the author and the executor; otherwise label the review as self-review. The evaluator inspects the actual artifacts, including images and generated documents. A file existing is not evidence that its content is correct.
+
+For a transformation, trace the required relationship from the raw input to the delivered output. Record where each part of the criterion held or failed, describing protected data without repeating it. In the incident example, a summary containing every service name and remedy still fails if the remedies were swapped or the reader cannot tell which goes with which.
 
 Judge each criterion with a reason and evidence. Then review the evaluation itself:
 

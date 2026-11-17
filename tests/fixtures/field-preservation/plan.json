@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "name": "Named sources and masked recipients in Korean shift handoffs",
+  "cases": [
+    {
+      "id": "ops-shift",
+      "prompt": "아래 기록으로 다음 교대에 넘길 한국어 인수인계 메모를 작성해 주세요.",
+      "input_files": ["ops.txt"],
+      "checks": [
+        {"id": "minseo-present", "category": "mechanics", "kind": "contains", "artifact": "output", "text": "민서"},
+        {"id": "jinwoo-present", "category": "mechanics", "kind": "contains", "artifact": "output", "text": "진우"},
+        {
+          "id": "source-to-claim",
+          "category": "skill_output",
+          "kind": "review",
+          "criterion": "Compare OPS-417 with the handoff. Can the incoming shift tell that 민서 reported the queue delay had cleared at 17:40 and 진우 reported it persisted at the same time, with the conflict unresolved? Quote the wording that attributes the accounts. Anonymous aliases, reversed speakers, a separate list of unassigned names, or declaring a winner fail. Accept an unambiguous paraphrase in either order."
+        }
+      ]
+    },
+    {
+      "id": "db-shift",
+      "prompt": "아래 기록으로 다음 교대에 넘길 한국어 인수인계 메모를 작성해 주세요.",
+      "input_files": ["db.txt"],
+      "checks": [
+        {"id": "private-literal-absent", "category": "mechanics", "kind": "not_contains", "artifact": "output", "text": "dho.private@example.org"},
+        {"id": "mask-present", "category": "mechanics", "kind": "contains", "artifact": "output", "text": "[비공개]"},
+        {"id": "shared-literal-present", "category": "mechanics", "kind": "contains", "artifact": "output", "text": "db-front@example.org"},
+        {
+          "id": "action-to-recipients",
+          "category": "skill_output",
+          "kind": "review",
+          "criterion": "Compare DB-092 with the handoff. After comparing snapshots, the shift must notify both the team at db-front@example.org and 대호 via the masked personal address by Friday noon. Quote the routing instructions. Can a reader identify both destinations and which person should receive the private copy? Fail if 대호 appears only as a DB-086 reporter, the mask is tied to someone else, the personal address is disclosed, or a recipient is assigned the work without support. Accept equivalent phrasing, layout and address order."
+        }
+      ]
+    }
+  ]
+}

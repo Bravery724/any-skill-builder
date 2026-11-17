@@ -2,7 +2,11 @@
 
 Only build the final package after current applicable design choices are resolved, including blanks assigned to AI and meaningful custom answers. `brief` enforces the state gate and writes the current evidence, answers, reasons, and assumptions. This text is input to the host AI, not an automatic replacement for implementation judgment.
 
-Before implementation, give a concise conversational summary of the main AI-selected directions, their reasons, and remaining assumptions. Use the latest valid answers and preserve explicit user decisions. This update explains the build plan without adding a blanket approval step. Carry facts needed only at execution into the generated skill's runtime inputs; do not turn unknown accounts, equipment, or private resources into assumed facts.
+Read `build-brief.md` with the latest user instructions, including constraints supplied after a form was saved. For choices that affect the same input, output or reader, trace what happens when their effects apply together. Include custom text, the user's selections in an AI-completed answer, and any implicit implementation defaults. For example, if a handoff must name the assignee while hiding contact details, scope masking to the contact fields. If a second default groups tasks by team, keep the named assignee beside each task after grouping. If the user requires anonymity, use only a permitted way to distinguish assignees that still works for the intended reader.
+
+Keep the user's original answers. Narrow or replace the AI-owned part wherever needed to satisfy them, even when several defaults contribute to the loss. Record the resulting rule in the affected `design.json` feature's `behavior` before implementation. Link the contributing requirement and decision IDs, and identify the source of any newer constraint in that rule. On resume, update affected rules against the current choices. If two explicit requirements still conflict within the same scope, ask which should govern that specific output.
+
+Summarize the main AI-selected directions, their reasons, and remaining assumptions in chat. Carry facts needed only at execution into the generated skill's runtime inputs; do not turn unknown accounts, equipment, or private resources into assumed facts.
 
 At this planning stage, declare the evaluation tasks, actual inputs, and success criteria following [evaluation.md](evaluation.md). Keep criteria out of the executor's task packet. When improving an existing skill, snapshot the original runtime before editing so later comparisons use the actual old version.
 

@@ -1,0 +1,50 @@
+[
+  {
+    "case": "ops-shift",
+    "output": "ops-aliases",
+    "check": "source-to-claim",
+    "status": "fail",
+    "reason": "The two accounts are present but the aliases erase who made each report.",
+    "quote": "제보자 A는 17:40에 주문 큐 지연이 해소됐다고 보고했고, 제보자 B는 같은 시각에도 지연이 계속됐다고 보고했다."
+  },
+  {
+    "case": "ops-shift",
+    "output": "ops-attributed",
+    "check": "source-to-claim",
+    "status": "pass",
+    "reason": "The conflicting reports retain their original speakers and the shift is told the discrepancy remains unresolved.",
+    "quote": "민서는 17:40에 주문 큐 지연이 해소됐다고 보고했고, 진우는 같은 시각에도 지연이 계속됐다고 보고했다. 어느 보고가 맞는지는 아직 확인되지 않았다."
+  },
+  {
+    "case": "ops-shift",
+    "output": "ops-swapped",
+    "check": "source-to-claim",
+    "status": "fail",
+    "reason": "Both names survive but the speaker who said the delay cleared and the speaker who said it continued are reversed.",
+    "quote": "진우는 17:40에 주문 큐 지연이 해소됐다고 보고했고, 민서는 같은 시각에도 지연이 계속됐다고 보고했다."
+  },
+  {
+    "case": "db-shift",
+    "output": "db-unnamed",
+    "check": "action-to-recipients",
+    "status": "fail",
+    "reason": "The private address is masked but its recipient is unnamed. 대호's role in a different ticket does not say where to send this result.",
+    "quote": "금요일 정오까지 팀 공유 사서함 db-front@example.org와 개인 메일 [비공개] 두 곳에 모두 알려야 한다."
+  },
+  {
+    "case": "db-shift",
+    "output": "db-addressed",
+    "check": "action-to-recipients",
+    "status": "pass",
+    "reason": "The notification goes to both the team and 대호 at their respective destinations within the deadline, and the private address is masked.",
+    "quote": "복제본 스냅샷을 비교한 뒤, 금요일 정오까지 차이를 팀 공유 사서함 db-front@example.org와 대호의 개인 메일 [비공개]에 모두 알린다."
+  },
+  {
+    "case": "db-shift",
+    "output": "db-wrong-recipient",
+    "check": "action-to-recipients",
+    "status": "fail",
+    "reason": "The wording sends the private copy to 서윤. The source names 대호 as its recipient even though both names appear in the handoff.",
+    "quote": "금요일 정오까지 차이를 팀 공유 사서함 db-front@example.org와 서윤의 개인 메일 [비공개]에 모두 알린다."
+  }
+]
