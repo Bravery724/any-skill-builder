@@ -144,15 +144,35 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(code, 1, result)
         self.assertEqual(result["runtime"]["snapshot_differences"]["added"], ["README.md"])
 
-    def test_missing_run_binding_and_missing_snapshot_inventory_are_unmet(self):
+    def test_missing_run_binding_is_unmet(self):
+        self.document["runs"][0].pop("skill_snapshot")
+        code, result = self.check()
+        self.assertEqual(code, 1, result)
+        self.assertFalse(result["verified"])
+
+    def test_prepared_delivery_requires_its_frozen_plan(self):
         original = copy.deepcopy(self.document)
-        for mutate in (lambda: self.document["runs"][0].pop("skill_snapshot"),
-                       lambda: self.document.pop("snapshots")):
+        for drop_all in (False, True):
             self.document = copy.deepcopy(original)
-            mutate()
+            if drop_all:
+                del self.document["snapshots"]
+            else:
+                self.document["snapshots"] = [s for s in self.document["snapshots"] if s["id"] != "plan"]
             code, result = self.check()
-            self.assertEqual(code, 1, result)
+            self.assertEqual(code, 2, result)
             self.assertFalse(result["verified"])
+            self.assertIn("frozen plan", result["error"])
+
+    def test_delivery_rejects_weaker_check_with_same_plan_and_output(self):
+        (self.out / "result.md").write_text("The date is confirmed.", encoding="utf-8")
+        code, result = self.check()
+        self.assertEqual(code, 1, result)
+        self.assertEqual(result["execution"]["checks"]["fail"], 1)
+        self.document["cases"][0]["checks"][0]["text"] = "The date"
+        code, result = self.check()
+        self.assertEqual(code, 2, result)
+        self.assertFalse(result["verified"])
+        self.assertIn("differ from the frozen plan", result["error"])
 
     def test_missing_provenance_and_unperformed_reviews_are_unmet(self):
         original = copy.deepcopy(self.document)

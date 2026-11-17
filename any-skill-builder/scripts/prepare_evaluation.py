@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import copy
 import json
 from pathlib import Path, PurePosixPath
 import shutil
@@ -150,20 +149,14 @@ def prepare(plan_path, skill_path, output, baseline_skill=None, without_skill=Fa
                 add(relative, blob)
                 files.append({"path": relative, "sha256": evaluation.fingerprint(blob)})
         inventories.append({"id": label, "files": files})
-    copied_inputs = {}
     input_inventory = []
-    for relative, (source, blob) in inputs.items():
+    for relative, (_, blob) in inputs.items():
         destination = f"inputs/{relative}"
         add(destination, blob)
-        copied_inputs[relative] = destination
         input_inventory.append({"path": destination, "sha256": evaluation.fingerprint(blob)})
     if input_inventory:
         inventories.append({"id": "inputs", "files": input_inventory})
-    copied_cases = copy.deepcopy(list(cases.values()))
-    for case in copied_cases:
-        case["input_mapping"] = [{"original": path, "snapshot": copied_inputs[path]}
-                                 for path in case.get("input_files", [])]
-        case["input_files"] = [copied_inputs[path] for path in case.get("input_files", [])]
+    copied_cases = evaluation.prepared_cases(cases.values())
     variants = [("candidate", "with_skill", "snapshots/candidate")]
     if baseline or without_skill:
         variants.append(("baseline", "baseline", "snapshots/baseline" if baseline else None))

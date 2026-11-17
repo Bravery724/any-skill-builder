@@ -115,6 +115,41 @@ class DecisionListTests(unittest.TestCase):
                 self.assertEqual(result["decisions"][key], ["no_invented_private_facts"])
                 self.assertEqual(self.cli("brief", expected=2)["error"], "not_ready")
 
+    def test_fully_specified_build_uses_only_fixed_requirements(self):
+        spec = decision_list()
+        spec.update(groups=[], decisions=[], sources=[], requirements=[
+            {"id": "staged-only", "statement": "Use staged changes only", "basis": "user request"},
+            {"id": "format", "statement": "Return one English subject of 50 characters or fewer", "basis": "user request"},
+            {"id": "empty", "statement": "If nothing is staged, reply 'Nothing staged.'", "basis": "user request"},
+        ])
+        checked = {"reviewer": "self", **{k: {"status": "pass", "reason": "All behavior comes from the supplied requirements."}
+                                          for k in core.DECISION_CHECKS}}
+        spec["check"] = {**checked, "requirements_preserved": {"status": "pending"}}
+        self.assertFalse(self.record(spec)["ready_to_build"])
+        self.assertEqual(self.cli("brief", expected=2)["error"], "not_ready")
+        spec["check"] = checked
+        self.assertTrue(self.record(spec)["ready_to_build"])
+        status = self.cli("status")
+        self.assertEqual(status["decisions"]["counts"], {"decisions": 0, "active": 0, "inactive": 0})
+        self.assertEqual(status["decisions"]["requirements"], 3)
+        self.cli("checkpoint", "--stage", 5, "--summary", "Checked the fixed requirements", "--next-action", "Build and evaluate",
+                 "--revision", status["revision"], "--answer-revision", status["answer_revision"])
+        resumed = self.cli("status", "--json")
+        self.assertTrue(resumed["workflow"]["progress"]["current"])
+        self.assertTrue(resumed["ready_to_build"])
+        self.cli("brief")
+        brief = (self.root / "build-brief.md").read_text(encoding="utf-8")
+        for req in spec["requirements"]:
+            self.assertIn(req["statement"], brief)
+        self.assertIn("The fixed requirements specify the build in full.", brief)
+        skeleton = self.parent / "skeleton.json"
+        self.assertEqual(self.cli("decisions-to-questions", "--skeleton", skeleton, expected=2)["error"], "no_questions_to_convert")
+        self.assertFalse(skeleton.exists())
+        fixture = {"mode": "questionnaire", "questions": []}
+        self.assertEqual(self.cli("set-questions", "--from-decisions", "--input", self.write(fixture), expected=2)["error"],
+                         "no_questions_to_convert")
+        self.assertEqual(self.cli("status")["mode"], "auto")
+
     def test_every_active_decision_needs_a_choice_but_inactive_ones_do_not(self):
         decisions = decision_list()
         del decisions["decisions"][0]["choice"]
@@ -141,6 +176,8 @@ class DecisionListTests(unittest.TestCase):
             "choice without reason": lambda d: d["decisions"][0].pop("reason"),
             "image choice": lambda d: d["decisions"][0].update(type="image"),
             "duplicate requirement": lambda d: d["requirements"].append(copy.deepcopy(d["requirements"][0])),
+            "empty spec": lambda d: d.update(decisions=[], requirements=[]),
+            "empty requirement basis": lambda d: d.update(decisions=[], requirements=[{"id": "format", "statement": "Use English", "basis": " "}]),
             "unknown reviewer": lambda d: d["check"].update(reviewer="someone"),
             "missing check reason": lambda d: d["check"]["requirements_preserved"].update(reason=""),
             "unknown condition": lambda d: d["decisions"][2].update(when=[{"question_id": "invented", "equals": "x"}]),

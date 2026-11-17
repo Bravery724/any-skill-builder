@@ -212,6 +212,7 @@ Full Auto records its decisions in `RUN/decisions.json` instead of a questionnai
 | --- | --- |
 | `language` | Optional language tag of the explanatory text; defaults to the run's locale. |
 | `requirements` | What the request already fixes, one line each, with its `basis` (user request, supplied material, or a source ID). These are not decisions. |
+| `decisions` | Use an empty array when the fixed requirements settle every material choice. Include at least one fixed requirement with its basis. The three checks still apply. |
 | `sources` | Same records as questionnaire sources. |
 | `decisions[].type` | `single` (default), `multi`, or `text`. Image choices need a questionnaire. |
 | `decisions[].options` | At least two genuinely considered alternatives for choice types, each with `id`, `label`, and `tradeoff`. `exclusive`, `min_choices`, and `max_choices` work as in questions. |
@@ -220,6 +221,8 @@ Full Auto records its decisions in `RUN/decisions.json` instead of a questionnai
 | `check` | The single check. Each of the three items has `status` (`pending`, `pass`, `needs-revision`) and a `reason`. `revisions` counts revision rounds (Full Auto allows one). `known_limits` lists concerns left open, to report at delivery. |
 
 `set-decisions` reports `ready_to_build` only when every active decision has a choice and all three checks pass. A recorded `revisions` above one adds a note; it is not an error.
+
+If the decision list is empty, conversion reports `no_questions_to_convert` and keeps the run in Full Auto. If the user reopens a choice, update the requirements and record the choice with `set-decisions` before converting.
 
 The fields map one to one onto the questionnaire, so `decisions-to-questions` can build a questionnaire without new judgment:
 

@@ -10,7 +10,7 @@ The host runs the tasks and makes the judgments. `prepare_evaluation.py` freezes
 
 ### 1. Declare cases before implementation
 
-During stage 5, save realistic requests, raw inputs, and success criteria before you see any generated output. Start with the main task, one relevant failure or edge case, and one behavior that depends on an important decision. A simple skill needs 2–3 cases. Add a case only for a distinct behavior the others do not exercise. Include help or invocation behavior when the change affects it.
+During stage 5, save realistic requests, raw inputs, and success criteria before you see any generated output. A single representative case can cover a simple task whose requirements fully specify its behavior. Add cases for distinct failure modes, risks, or behavior that depends on an important decision. Include help or invocation behavior when the change affects it. Apply the baseline requirements below.
 
 Easy cases let a weak skill pass. Build two kinds of difficulty into the inputs, usually inside the cases you already have rather than as extra cases:
 
@@ -55,7 +55,7 @@ python -B PREPARE_SCRIPT --plan PLAN_JSON --skill CANDIDATE_SKILL --out NEW_ITER
 - Supply a clean runtime containing `SKILL.md`, not a repository or run directory. The helper rejects hidden or private run files, caches, symbolic links, and Windows reparse points. Builder run records (`questions.json`, `decisions.json`, `answers.json`, `progress.json`, `runs/`, `dist/`, and similar) are refused only at the runtime root.
 - Limits: 16 MiB per file, 2,048 files and 64 MiB per prepared collection. The destination must be outside the runtime and input folders.
 
-Keep earlier iterations. Record why the skill, cases, or criteria changed in a short revision note. If a criterion changes, apply it to every compared variant before comparing.
+The evaluator checks case definitions, prompts, criteria and input mappings against the frozen plan. Record results in the run records. When a case or criterion changes, prepare a new iteration, keep the earlier one, and record the reason for the change. Apply the revised criteria to every compared variant.
 
 ### 3. Execute the actual task
 

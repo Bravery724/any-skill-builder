@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.3 — 2026-11-18
+
+- Prepared evaluations and delivery verification now check the cases, prompts, input mappings, and grading criteria against the saved plan. A change to those definitions requires a new evaluation iteration.
+- Full Auto can build a fully specified skill from its fixed requirements with zero design decisions. The existing review checks still apply.
+
 ## 0.5.2 — 2026-11-16
 
 - Questionnaire build briefs take their fixed requirements from the accepted question review only. In 0.5.1 the brief also added any decision-list requirement the review lacked, so a requirement released on purpose when a Full Auto run was converted could reappear as fixed and contradict the user's answer.

@@ -275,6 +275,48 @@ def snapshots(root, records):
     return result
 
 
+def prepared_cases(cases, *, legacy=False):
+    """Project frozen cases into the input layout used by the preparation tool."""
+    destinations = {}
+    result = []
+    for case in cases:
+        paths = sequence(case.get("input_files", []), "Plan inputs", allow_empty=True)
+        for path in paths:
+            text(path, "Plan input path")
+            if path not in destinations:
+                destinations[path] = (f"inputs/{len(destinations) + 1:03d}-{Path(path).name}"
+                                      if legacy else f"inputs/{path}")
+        prepared = dict(case, input_files=[destinations[path] for path in paths])
+        if not legacy:
+            prepared["input_mapping"] = [{"original": path, "snapshot": destinations[path]} for path in paths]
+        result.append(prepared)
+    return result
+
+
+def check_prepared_plan(root, document, inventories):
+    files = {item["id"]: item["files"] for item in inventories}
+    plan_files = files.get("plan", [])
+    require(len(plan_files) == 1 and plan_files[0]["path"] == "plan.json",
+            "A prepared evaluation needs its frozen plan.json snapshot.")
+    blob = read_bytes(local_file(root, "plan.json"))
+    require(fingerprint(blob) == plan_files[0]["sha256"], "Snapshot changed: plan.json")
+    plan = object_value(strict_json(blob, "Frozen plan"), "Frozen plan")
+    require(type(plan.get("schema_version")) is int and plan["schema_version"] == 1,
+            "Unsupported frozen plan schema.")
+    cases = unique_records(plan.get("cases"), "Frozen cases")
+    # Before skill_snapshot and input_mapping, the preparer numbered input files by first use.
+    legacy = not any("skill_snapshot" in run for run in document["runs"]) and not any(
+        "input_mapping" in case for case in document["cases"])
+    expected = prepared_cases(cases.values(), legacy=legacy)
+    # JSON distinguishes booleans from numbers in check definitions.
+    require(json.dumps(document["cases"], sort_keys=True) == json.dumps(expected, sort_keys=True),
+            "Case definitions differ from the frozen plan. Prepare a new iteration for revised criteria, prompts, or inputs.")
+    if not legacy or "inputs" in files:
+        paths = {path for case in expected for path in case["input_files"]}
+        require(paths == {item["path"] for item in files.get("inputs", [])},
+                "The input snapshot inventory must match the inputs in the frozen plan.")
+
+
 def reuse_assessment(root, record, run_definitions, runs):
     object_value(record, "Reuse review")
     require(isinstance(record.get("status"), str) and record["status"] in {"completed", "not_run"}, "Reuse review status must be completed or not_run.")
@@ -340,6 +382,13 @@ def evaluate(manifest_path):
     require(type(document.get("schema_version")) is int and document["schema_version"] == 1, "Use schema_version 1.")
     name = text(document.get("name"), "Evaluation name")
     cases = unique_records(document.get("cases"), "Cases")
+    run_definitions = unique_records(document.get("runs"), "Runs")
+    inventories = None
+    if ("snapshots" in document or any("skill_snapshot" in run for run in run_definitions.values())
+            or any("input_mapping" in case for case in cases.values())):
+        require("snapshots" in document, "A prepared evaluation needs its frozen plan.json snapshot.")
+        inventories = snapshots(root, document["snapshots"])
+        check_prepared_plan(root, document, inventories)
     definitions, case_inputs = {}, []
     for case_id, case in cases.items():
         text(case.get("prompt"), "Case prompt")
@@ -351,7 +400,6 @@ def evaluate(manifest_path):
             blob = read_bytes(local_file(root, relative))
             inputs.append({"path": relative, "sha256": fingerprint(blob), "bytes": len(blob)})
         case_inputs.append({"id": case_id, "prompt": case["prompt"], "input_files": inputs})
-    run_definitions = unique_records(document.get("runs"), "Runs")
     runs = []
     for run_id, run in run_definitions.items():
         require(run.get("variant") in {"baseline", "with_skill"}, "Run variant must be baseline or with_skill.")
@@ -398,8 +446,8 @@ def evaluate(manifest_path):
                        "Text matches do not prove useful questions, correct reasoning, or better skill quality.",
                        "Review conclusions and execution metadata are supplied by the evaluator; file hashes preserve the inspected evidence.",
                        "Comparison eligibility uses shared cases and declared context, not proof of identical real execution conditions."]}
-    if "snapshots" in document:
-        report["snapshots"] = snapshots(root, document["snapshots"])
+    if inventories is not None:
+        report["snapshots"] = inventories
     if "reuse_review" in document:
         report["reuse_review"] = reuse_assessment(root, document["reuse_review"], run_definitions, runs)
     audits = [case["eval_feedback"] for run in runs for case in run["cases"] if "eval_feedback" in case]

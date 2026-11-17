@@ -230,6 +230,46 @@ class WorkflowTests(unittest.TestCase):
         with self.assertRaisesRegex(evaluation.EvaluationError, "Snapshot changed"):
             self.report()
 
+    def test_planned_cases_prompts_and_inputs_must_match_the_scored_cases(self):
+        self.prepare()
+        original = copy.deepcopy(self.document)
+        changes = (
+            lambda doc: doc["cases"].pop(),
+            lambda doc: doc["cases"][0].update(prompt="Summarize another project."),
+            lambda doc: doc["cases"][0].update(input_files=[]),
+            lambda doc: doc["cases"][0]["input_mapping"][0].update(original="other.md"),
+            lambda doc: doc.update(snapshots=[s for s in doc["snapshots"] if s["id"] != "inputs"]),
+        )
+        for change in changes:
+            self.document = copy.deepcopy(original)
+            change(self.document)
+            with self.assertRaisesRegex(evaluation.EvaluationError, "frozen plan"):
+                self.report()
+
+    def test_json_boolean_and_numeric_expectations_are_distinct_in_frozen_checks(self):
+        self.plan["cases"][0]["checks"] = [{"id": "flag", "category": "skill_output", "kind": "json_equals",
+                                            "artifact": "output", "path": [], "expected": True}]
+        self.plan_path.write_text(json.dumps(self.plan), encoding="utf-8")
+        self.prepare()
+        self.document["cases"][0]["checks"][0]["expected"] = 1
+        with self.assertRaisesRegex(evaluation.EvaluationError, "differ from the frozen plan"):
+            self.report()
+
+    def test_early_numbered_input_layout_still_checks_against_its_plan(self):
+        self.prepare()
+        numbered = "inputs/001-notes.md"
+        (self.out / "inputs/inputs/notes.md").rename(self.out / numbered)
+        inputs = next(s for s in self.document["snapshots"] if s["id"] == "inputs")
+        inputs["files"][0]["path"] = numbered
+        del self.document["runs"][0]["skill_snapshot"]
+        for case in self.document["cases"]:
+            del case["input_mapping"]
+            case["input_files"] = [numbered]
+        self.assertEqual(self.report()["runs"][0]["counts"]["not_run"], 2)
+        self.document["cases"][1]["checks"][0]["text"] = "date"
+        with self.assertRaisesRegex(evaluation.EvaluationError, "differ from the frozen plan"):
+            self.report()
+
     def test_self_review_is_labeled_in_both_reports_and_pending_audit_never_returns_success(self):
         self.completed()
         report = self.report()

@@ -70,6 +70,8 @@ Full Auto records these as a decision list; Questionnaire turns them into questi
 
 Write `RUN/decisions.json`. For each decision, record the question, the options you genuinely considered with their tradeoffs, your choice, the reason, assumptions, and sources. Put what the request already settles in `requirements`, one line each.
 
+If the request settles every material choice, record the fixed requirements and their basis with `decisions: []`. Complete the same three checks, then build directly from the requirements. A questionnaire becomes useful if the user later reopens a choice.
+
 Then check the choices once and record the result in the file's `check`:
 
 - every choice keeps the fixed requirements;
@@ -116,7 +118,7 @@ Record any AI replacements with reasons, apply recommendations to the remaining 
 
 ## Build
 
-When `status` reports `ready_to_build`, run `brief` and follow [references/build-and-evaluate.md](references/build-and-evaluate.md). Only current active decisions control the build.
+When `status` reports `ready_to_build`, run `brief` and follow [references/build-and-evaluate.md](references/build-and-evaluate.md). Build from the fixed requirements and the choices for currently active decisions.
 
 Create `RUN/output/<skill-name>/` with `SKILL.md` and a short `README.md` (what it does, required inputs, example requests, expected results, limits). Add references, assets, and scripts only when they earn their place, using tools the target host actually supports; Python is optional for generated skills. Teach the generated skill to give brief help when invoked with no task and to start clear tasks directly.
 
@@ -130,7 +132,7 @@ Follow [references/evaluation.md](references/evaluation.md). In stage 5, declare
 
 Keep it proportionate:
 
-- 2–3 cases for a simple skill; add one only for a distinct behavior.
+- One representative case can cover a simple, fully specified skill with a single behavior. Otherwise start with 2–3 cases for a simple skill and add one for each distinct behavior or material risk the existing cases miss.
 - Make the inputs hard enough to fail: include a trap (something that looks wrong but is correct) and, when the skill can meet secrets or personal data, fake sensitive values that must not be repeated.
 - At most two iterations: the first evaluation and one correction round. What remains open becomes a known limit.
 - A no-skill baseline is optional, except for legal, medical, financial, or safety advice, or when the user asks whether the skill helps: then run one on at least the main case.

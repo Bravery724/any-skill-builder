@@ -78,7 +78,7 @@ Write `RUN/design.json` as a compact record of what was built. Example shape:
 }
 ```
 
-Record actual current decisions and files. Inactive questions and obsolete candidates must not reappear as selected features. If a user changes an answer later, use this mapping to identify affected instructions, scripts, assets, and evaluations. Recheck shared behavior when the change affects it.
+Record actual current decisions and files. For features specified entirely by fixed requirements, use their IDs in `requirement_ids` and leave `question_ids` empty. Inactive questions and obsolete candidates must not reappear as selected features. If a user changes an answer later, use this mapping to identify affected instructions, scripts, assets, and evaluations. Recheck shared behavior when the change affects it.
 
 ## Validate behavior, not wording
 
