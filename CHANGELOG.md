@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.4 — 2026-11-18
+
+- Full Auto and Questionnaire build briefs now identify active AI decisions to review together. The builder checks their combined effects against the user's explicit choices and records how it scoped any conflicting default.
+- When a skill masks or transforms information, the evaluation plan and reviewer instructions now check both the change and the relationship the reader still needs to follow in the output.
+- Added two repeatable handoff regressions covering conflicting reports attributed to the wrong or unnamed speaker and a masked email that loses its intended recipient.
+
 ## 0.5.3 — 2026-11-18
 
 - Prepared evaluations and delivery verification now check the cases, prompts, input mappings, and grading criteria against the saved plan. A change to those definitions requires a new evaluation iteration.
