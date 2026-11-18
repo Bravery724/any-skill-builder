@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Plan single-rule changes from the existing feature, file and evaluation records. The planner lists relevant cases and flags missing coverage.
+- Run a generated Python CLI against predeclared inputs and expected JSON in one command. The evidence records actual output, exit codes and file hashes.
+- For choices that are hard to judge from labels, questionnaires can show one realistic input and the outcomes of choosing different options.
 - Tabbing past a text or Other answer preserves its author, rationale and branch interpretation when the offline form is saved and imported. Editing the answer records the user's new choice.
 - Full Auto reports which decisions are waiting on a custom choice. Record the branch interpretation and its rationale to preserve the original choice and include the applicable decisions in the build brief.
 - Switching from Full Auto to Questionnaire checks the proposed form against the saved decisions. Authors can translate the form while keeping its choices, behavioral effects, recommendations and dependencies intact.

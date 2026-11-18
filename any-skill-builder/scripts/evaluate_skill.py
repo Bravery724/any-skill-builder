@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from decimal import Decimal
 import hashlib
 import json
 from pathlib import Path, PureWindowsPath
@@ -65,7 +66,7 @@ def read_bytes(path):
     return path.read_bytes()
 
 
-def strict_json(blob, label):
+def strict_json(blob, label, *, exact_numbers=False):
     def pairs(items):
         result = {}
         for key, value in items:
@@ -73,10 +74,16 @@ def strict_json(blob, label):
             result[key] = value
         return result
 
+    # A tagged decimal preserves precision and keeps true/false distinct from 1/0.
+    # JSON arrays decode to lists, so a tuple cannot collide with a fixture value.
+    def number(token):
+        return (Decimal(token),)
+
     try:
         return json.loads(blob, object_pairs_hook=pairs,
+                          parse_int=number if exact_numbers else int, parse_float=number if exact_numbers else float,
                           parse_constant=lambda value: (_ for _ in ()).throw(EvaluationError(f"Invalid JSON number: {value}")))
-    except (ValueError, UnicodeError) as error:
+    except (ArithmeticError, ValueError, UnicodeError) as error:
         raise EvaluationError(f"Invalid JSON in {label}: {error}") from error
 
 
@@ -91,7 +98,7 @@ def counts(results):
 def check_definition(check):
     require(check.get("category") in CATEGORIES, "Each check needs a supported category.")
     kind = check.get("kind")
-    require(kind in {"contains", "not_contains", "json_equals", "review"}, "Unsupported check kind.")
+    require(kind in {"contains", "not_contains", "json_equals", "json_file_equals", "review"}, "Unsupported check kind.")
     if "question_ids" in check:
         for qid in sequence(check["question_ids"], "question_ids", allow_empty=True):
             text(qid, "Question ID")
@@ -102,6 +109,8 @@ def check_definition(check):
         text(check.get("artifact"), "Checked artifact name")
         if kind in {"contains", "not_contains"}:
             text(check.get("text"), "Expected text")
+        elif kind == "json_file_equals":
+            text(check.get("expected_file"), "Expected JSON fixture")
         else:
             for part in sequence(check.get("path"), "JSON path", allow_empty=True):
                 require(isinstance(part, str) or (type(part) is int and part >= 0), "JSON path uses keys or nonnegative array indices.")
@@ -177,6 +186,18 @@ def automatic_result(root, artifacts, check):
             passed = check["text"] in content
         elif check["kind"] == "not_contains":
             passed = check["text"] not in content
+        elif check["kind"] == "json_file_equals":
+            expected_path = "expectations/" + check["expected_file"]
+            expected = read_bytes(local_file(root, expected_path))
+            require(not local_file(root, artifacts[check["artifact"]]).is_relative_to(root / "expectations"),
+                    "An expected fixture cannot serve as observed output.")
+            actual_value = strict_json(content, check["artifact"], exact_numbers=True)
+            expected_value = strict_json(expected, expected_path, exact_numbers=True)
+            passed = actual_value == expected_value
+            return {"status": "pass" if passed else "fail",
+                    "reason": "JSON matches the frozen fixture." if passed else "JSON differs from the frozen fixture.",
+                    "artifact": check["artifact"], "sha256": fingerprint(blob),
+                    "expected_file": expected_path, "expected_sha256": fingerprint(expected)}
         else:
             value = strict_json(content, check["artifact"])
             for part in check["path"]:
@@ -201,6 +222,11 @@ def comparison(baseline, candidate):
             reasons.append(f"{key} was not recorded for both runs.")
         elif a != b:
             reasons.append(f"{key} differs between runs.")
+    for run in (baseline, candidate):
+        if run.get("execution_mode") == "local_python_cli":
+            pending = [case["case_id"] for case in run["cases"] if case["execution_status"] != "completed"]
+            if pending:
+                reasons.append(f"{run['id']} has unexecuted or incomplete cases: {', '.join(pending)}.")
     result = {"baseline": baseline["id"], "with_skill": candidate["id"], "comparable": not reasons, "reasons": reasons}
     if reasons:
         return result
@@ -315,6 +341,42 @@ def check_prepared_plan(root, document, inventories):
         paths = {path for case in expected for path in case["input_files"]}
         require(paths == {item["path"] for item in files.get("inputs", [])},
                 "The input snapshot inventory must match the inputs in the frozen plan.")
+    fixtures = {"expectations/" + check["expected_file"] for case in expected
+                for check in case["checks"] if check.get("kind") == "json_file_equals"}
+    require(fixtures == {item["path"] for item in files.get("expectations", [])},
+            "The expected fixture inventory must match the frozen plan.")
+
+
+def cli_artifacts(run_id, index):
+    directory = f"results/{run_id}/case-{index:03d}"
+    return {name: f"{directory}/{filename}" for name, filename in
+            (("stdout", "stdout.bin"), ("stderr", "stderr.bin"), ("process", "process.json"))}
+
+
+def check_cli_evidence(root, case, run, index, record, artifacts, inventory):
+    required = cli_artifacts(run["id"], index)
+    require(all(record.get("artifacts", {}).get(name) == path and artifacts[name]["exists"]
+                for name, path in required.items()), "CLI evidence must reference this case's captured stdout, stderr and process.")
+    require(artifacts["process"]["sha256"] == record.get("process_sha256"), "Captured CLI process evidence changed.")
+    process = object_value(strict_json(read_bytes(local_file(root, required["process"])), "CLI process"), "CLI process")
+    cli = case["cli"]
+    script = f"snapshots/{run.get('skill_snapshot')}/{cli['script']}"
+    require(script in inventory and process.get("script_sha256") == inventory[script]
+            and process.get("case_id") == case["id"] and process.get("cli") == cli,
+            "CLI execution must match the frozen script and invocation for this case.")
+    require(process.get("input_sha256") == {item["original"]: inventory[item["snapshot"]] for item in case["input_mapping"]},
+            "CLI execution inputs differ from the frozen inputs.")
+    require(all(process.get(name + "_sha256") == artifacts[name]["sha256"] for name in ("stdout", "stderr")),
+            "Captured CLI stream evidence changed.")
+    for name in ("stdout", "stderr"):
+        if name + "_bytes" in process:
+            count = process[name + "_bytes"]
+            require(type(count) is int and count == artifacts[name]["bytes"], "Captured CLI stream byte count changed.")
+    completed = record["status"] == "completed"
+    require((completed and process.get("status") == "exited" and type(process.get("exit_code")) is int
+             and object_value(record.get("execution"), "CLI execution").get("transcript") == "process")
+            or (not completed and process.get("status") in ("timeout", "output_limit", "unavailable")),
+            "CLI case status must match the observed process result.")
 
 
 def reuse_assessment(root, record, run_definitions, runs):
@@ -385,16 +447,19 @@ def evaluate(manifest_path):
     run_definitions = unique_records(document.get("runs"), "Runs")
     inventories = None
     if ("snapshots" in document or any("skill_snapshot" in run for run in run_definitions.values())
-            or any("input_mapping" in case for case in cases.values())):
+            or any("input_mapping" in case or "cli" in case for case in cases.values())):
         require("snapshots" in document, "A prepared evaluation needs its frozen plan.json snapshot.")
         inventories = snapshots(root, document["snapshots"])
         check_prepared_plan(root, document, inventories)
+    inventory_hashes = {item["path"]: item["sha256"] for group in inventories or [] for item in group["files"]}
     definitions, case_inputs = {}, []
     for case_id, case in cases.items():
         text(case.get("prompt"), "Case prompt")
         definitions[case_id] = unique_records(case.get("checks"), f"Checks for {case_id}")
         for check in definitions[case_id].values():
             check_definition(check)
+            require(check["kind"] != "json_file_equals" or inventories is not None,
+                    "Expected JSON fixtures require a frozen plan and snapshot.")
         inputs = []
         for relative in sequence(case.get("input_files", []), "Case inputs", allow_empty=True):
             blob = read_bytes(local_file(root, relative))
@@ -407,11 +472,14 @@ def evaluate(manifest_path):
         records = unique_records(run.get("cases", []), "Run cases", key="case_id", allow_empty=True)
         require(set(records) <= set(cases), "Run refers to an unknown case.")
         results = []
-        for case_id, case in cases.items():
+        for index, (case_id, case) in enumerate(cases.items(), 1):
             record = records.get(case_id, {"status": "not_run", "reason": "No run record was supplied."})
             require(record.get("status") in {"completed", "not_run"}, "Case status must be completed or not_run.")
             artifacts = record.get("artifacts", {})
             snapshot = artifact_snapshot(root, artifacts)
+            if ("cli" in case and (run.get("variant") == "with_skill" or run.get("execution_mode") == "local_python_cli")
+                    and (record["status"] == "completed" or artifacts)):
+                check_cli_evidence(root, case, run, index, record, snapshot, inventory_hashes)
             reviews = object_value(record.get("reviews", {}), "Case reviews")
             review_ids = {key for key, value in definitions[case_id].items() if value["kind"] == "review"}
             require(set(reviews) <= review_ids, "Review refers to an unknown or automatic check.")
@@ -439,6 +507,8 @@ def evaluate(manifest_path):
         runs.append({"id": run_id, "variant": run["variant"], "context": context, "cases": results, "counts": counts(all_checks),
                      "by_category": {category: counts([item for item in all_checks if item["category"] == category]) for category in CATEGORIES},
                      "by_method": {method: counts([item for item in all_checks if item["method"] == method]) for method in ("automatic", "reviewed")}})
+        if run.get("execution_mode") == "local_python_cli":
+            runs[-1]["execution_mode"] = run["execution_mode"]
     comparisons = [comparison(a, b) for a in runs if a["variant"] == "baseline" for b in runs if b["variant"] == "with_skill"]
     report = {"schema_version": 1, "name": name, "manifest_sha256": fingerprint(manifest_blob), "cases": case_inputs,
             "runs": runs, "comparisons": comparisons,

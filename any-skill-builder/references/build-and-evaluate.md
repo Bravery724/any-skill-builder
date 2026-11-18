@@ -84,6 +84,25 @@ Write `RUN/design.json` as a compact record of what was built. Example shape:
 
 Record actual current decisions and files. For features specified entirely by fixed requirements, use their IDs in `requirement_ids` and leave `question_ids` empty. Inactive questions and obsolete candidates must not reappear as selected features. If a user changes an answer later, use this mapping to identify affected instructions, scripts, assets, and evaluations. Recheck shared behavior when the change affects it.
 
+When one feature implements several rules, add `requirement_ids` and `question_ids` to the relevant **case** in the working evaluation plan. List all IDs that case exercises for the given field. For example, a newer-revision case could carry `"requirement_ids": ["latest", "identity"]`, while a cancellation case carries `"requirement_ids": ["conflict", "latest"]`. Use an empty list when a case exercises none of that kind. An omitted field means coverage is unknown. Existing IDs on individual checks provide additional positive links. Keep these annotations outside the executor's task and preserve the previous frozen plan.
+
+### Resume after one rule changes
+
+From the installed builder folder, run the read-only planner with the stable ID and any neighboring invariants the user singled out.
+
+```text
+python -B scripts/plan_change.py --run RUN --requirement conflict --keep-requirement latest
+python -B scripts/plan_change.py --run RUN --question audience --keep-case confidential-handoff
+```
+
+Use `--keep-question ID` for a neighboring decision. Repeat the keep options as needed. The helper looks for `plan.json` or `evaluation-plan.json` directly in the run or its `plan/` folder. Supply `--plan PATH` to select the current working plan if it lives elsewhere or several match.
+
+Read the JSON as an edit and retest checklist. Inspect the named feature rules and files, the cases tracing the change, and the regression cases for other features sharing those files. Keep every criterion of a selected case, including its unaffected assertions. Feature-only links retain all cases whose coverage is uncertain. A missing or inconsistent inventory broadens the plan to the full suite. Reconcile unmatched IDs, newly active branches, public examples and unmapped dependencies against the actual runtime before narrowing. File sharing and declared IDs cannot establish semantic coverage.
+
+Snapshot the old runtime before editing. Update the authoritative rule using the run's [decision or questionnaire workflow](workflow.md), regenerate the brief, and fix the implementation and design mapping. Copy the working plan next to its inputs under a fresh name, preserve prior grades, and revise only the expectations superseded by the request. Include a case where the old and new rules yield different outputs and one showing the neighboring behavior still holds. One input can demonstrate both.
+
+For a fully specified generated local Python CLI, run `python -B scripts/run_cli_cases.py --plan NEW_PLAN --skill REVISED_RUNTIME --baseline-skill OLD_RUNTIME --out NEW_ITERATION`. Inspect the paired check outcomes and both variants' evidence for the changed behavior and preserved invariants. For host-run tasks, use `prepare_evaluation.py` with the same arguments and execute both task packets on the same selected inputs. Record what remains untested and preserve earlier iterations. See the [evaluation procedure](evaluation.md).
+
 ## Validate behavior, not wording
 
 Run `check-skill --path PATH` for supported structural checks. If the host has an official skill validator, use it as well where appropriate. Neither check proves task quality. Do not report a packaging pass as a behavioral pass.

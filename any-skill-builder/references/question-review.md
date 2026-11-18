@@ -53,6 +53,8 @@ Keep fixed requirements outside the selectable options. A prohibited choice must
 
 The checker ensures referenced coverage, but cannot discover omitted user requirements, judge a paraphrase, or prove that the reviewer inspected the text. The host must perform those checks before recording pass.
 
+For a material choice whose labels leave the behavior unclear, read the shared input in the question and the sample under each relevant option as a user would. Can you tell what you would receive or what would happen first? Check that each sample follows from the same facts, agrees with its option's effect, and preserves the user's constraints. If examples differ only because one adds a fact, revise the comparison.
+
 ## Review combinations and language
 
 Each combination contains `kind`, `answers`, `inapplicable_question_ids`, `fewer_decisions_reason`, `requirement_ids`, `status`, and `reason`. Every combination must reference every declared fixed requirement exactly once; explain a requirement's lack of effect in the reason instead of skipping it. An answer is `{question_id,value}`. A custom value may add both `branch_value` and `branch_rationale` when needed to resolve its conditional branches. Values must obey ordinary answer rules, including minimums, maximums, and exclusivity.

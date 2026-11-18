@@ -53,6 +53,18 @@ Do not promise to inspect "all related material." Look for enough evidence to ex
 
 For each question, write the decision it resolves and the expected effect of each meaningful option. A free-text question may uncover new directions; explain how the answer will change the design instead of forcing prewritten choices.
 
+When an unresolved decision materially changes what the skill will produce or do, and the labels alone leave that difference unclear, let the user judge the alternatives on **one shared input**. Put a short excerpt from the user's material, or a clearly labeled realistic example, in the question's `help`. In each relevant option's `description`, show the snippet the user would receive or the specific first action they would observe on that input. Keep the general behavior in `effect`. Hold the facts and constraints steady so the choice accounts for the difference. Treat illustrative inputs and outputs as examples, separate from facts about the user's project.
+
+For a weekly update, the same conflicting release notes can illustrate both workflows.
+
+| Where it appears | What the user sees |
+|---|---|
+| Question help | Example notes for the same release. The meeting notes say CSV export is live for everyone. The release tracker says it is disabled pending approval. Neither source is marked authoritative. |
+| Under “Draft now and mark what is uncertain” | Draft excerpt — “CSV export status is unresolved. The meeting notes report it live, while the tracker lists it as disabled pending approval.” |
+| Under “Resolve material gaps before the final draft” | First question — “Can you confirm whether CSV export is live or still disabled pending approval?” |
+
+Skip the comparison for straightforward choices such as a specified file format, for a preference the user already gave, and for the built-in Other field. An open text answer can describe a direction beyond the examples.
+
 Separate presentation choices from factual meaning. Choosing a compact layout or omitting a companion section must not discard supplied conditions, dependencies, contradictions, or uncertainty needed to interpret the result. Likewise, sorting a conflicting statement first does not make it authoritative. If an option transforms an input, describe the evidence required for that transformation and how ambiguous cases remain unresolved.
 
 Do not reject an alternative merely because it paraphrases the source. A concise paraphrase is meaningful when it preserves the source's conditions, attribution, uncertainty, and implications. Keep numerical and scope constraints exact: "up to three follow-up questions per note" does not mean three across the whole batch. Compare alternatives against the actual requirement, not a stricter or looser invented version.

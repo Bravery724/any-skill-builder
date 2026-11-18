@@ -26,6 +26,8 @@ When the work starts, tell the user in one or two lines what it involves and rou
 
 To improve an existing skill, read its instructions, resources, known failures, and intended use first. Keep working behavior as the baseline, decide only the material gaps, build the revision in a separate output folder, and keep the skill's name unless the user asks to rename it. Replace an installed original only after verification and with the user's agreement.
 
+For a single rule change in an existing run, start with `python -B scripts/plan_change.py --run RUN --requirement ID` (or `--question ID`). Use the returned files and cases to update the current decision and its implementation. Freeze the new expectation in a fresh iteration and exercise both the change and the behaviors it touches. See [references/build-and-evaluate.md](references/build-and-evaluate.md).
+
 ## Show progress
 
 Use these seven stages, named in the conversation's language:
@@ -38,7 +40,7 @@ Use these seven stages, named in the conversation's language:
 6. Create the skill
 7. Verify and deliver
 
-Name the current stage when you start or resume, and send a short update when the stage changes or a finding changes the plan. Describe observable progress and what remains; skip percentages. Stages may repeat; they are not approval gates. Save a checkpoint (`checkpoint`, with the revisions you just read from `status`) after meaningful progress and before any handoff.
+Name the current stage when you start or resume. For a fully specified build or a one-rule revision, combine adjacent stages in progress updates and checkpoint at a meaningful milestone or handoff. Report findings that change the plan.
 
 ## Create or inspect the run
 
@@ -127,6 +129,8 @@ Have the generated skill explain things conversationally in the user's language 
 Record `design.json` mapping decisions to features, files, and evaluation cases, run `check-skill`, and exercise any helpers with real inputs.
 
 ## Evaluate and deliver
+
+When a generated Python CLI has declared inputs, exit codes and expected JSON, use `python -B scripts/run_cli_cases.py --plan PLAN --skill RUNTIME --out NEW_ITERATION` to run the frozen cases and collect evidence. For a rule change, add `--baseline-skill OLD_RUNTIME` to compare the original and revised behavior on the same inputs. An expected failure can require a nonzero exit and empty stdout. Read the actual report and review any remaining judgment-based criteria. For folder delivery, use the recorded streams and pass counts directly in your summary and identify outstanding review. The plan format and example are in [references/evaluation.md](references/evaluation.md).
 
 Follow [references/evaluation.md](references/evaluation.md). In stage 5, declare realistic cases, raw inputs, and success criteria before seeing any output. In stage 7, run the frozen skill (in a fresh context where you can confirm one), have the results reviewed separately where possible, critique the criteria themselves, fix what the evidence supports, and rerun the affected cases. Neither mode adds a human review round.
 

@@ -2,7 +2,7 @@
 
 This reference covers the whole evaluation: declaring cases, running them, reviewing the results and the criteria, correcting, and verifying the delivery. Part 1 is the procedure. Part 2 is the record format that the helpers read. Part 3 covers the helper commands.
 
-The host runs the tasks and makes the judgments. `prepare_evaluation.py` freezes inputs and skill snapshots and writes task packets. `evaluate_skill.py` checks recorded evidence and writes reports. `verify_delivery.py` compares the final files with the tested snapshot. None of them calls a model, runs a skill, or turns a recorded claim into proof. Keep all evaluation records in the run directory, outside the installed skill.
+The host runs tasks and makes review judgments. For a fully specified local Python CLI, `run_cli_cases.py` runs the generated script against fixed inputs and expected results in one command (Part 3). It uses the same preparation, evidence reporting and delivery verification as host-run cases. Keep all evaluation records in the run directory, outside the installed skill.
 
 **One rule about independence applies throughout.** A separate agent name or a separate Agent call does not by itself prove a fresh context, a blind review, or independence, because context can be inherited. Record what you know about the actual context and access. Use `unknown` when you cannot tell.
 
@@ -156,6 +156,7 @@ An initial plan, before any run:
 | `contains` | The named artifact contains the nonempty `text` (exact case and Unicode). |
 | `not_contains` | The named artifact does not contain `text`. A missing or empty artifact fails. |
 | `json_equals` | The UTF-8 JSON artifact has `expected` at `path` (a list of keys or array indices; empty means the whole document). Booleans are distinct from numbers. |
+| `json_file_equals` | The entire JSON artifact equals the JSON in `expected_file`, a plan-relative fixture frozen at preparation. Object key order and whitespace may differ. |
 | `review` | A reviewer inspects `criterion`. Required for all `question_quality` checks. |
 
 Text checks prove only specific facts. Use `review` for reasoning, source support, usefulness, visual quality, and whether a chosen answer changed behavior.
@@ -204,6 +205,51 @@ An empty `findings` list means the completed review found no material issue in i
 **Snapshots.** `prepare_evaluation.py` writes root-level `snapshots`, each with an `id` and `files` entries (`path`, `sha256`). Treat them as frozen; revise the working skill and prepare a new iteration instead of editing one. Each prepared skill run names its `skill_snapshot` (for example `candidate`). A run without that binding stays readable but cannot support delivery verification. Prepared cases also carry `input_mapping` (`{original, snapshot}`), and `input_files` point at the snapshot paths.
 
 ## Part 3 — Helper commands
+
+### Run a fully specified local Python CLI
+
+For Full Auto, use this path when a trusted generated Python script is the skill's documented local CLI and the requirements determine the raw input, exit code and expected stdout. During case design, save the raw and expected files separately alongside the plan. For example, a word-counting case can use a `sample.txt` containing `red blue red` and an `expected/counts.json` containing `{"red":2,"blue":1}`.
+
+```json
+{
+  "schema_version": 1,
+  "name": "Word counts",
+  "cases": [{
+    "id": "repeated-word",
+    "prompt": "Count the occurrences of each word in sample.txt.",
+    "input_files": ["sample.txt"],
+    "cli": {"script": "scripts/count.py", "args": ["--input", {"input": "sample.txt"}]},
+    "checks": [
+      {"id": "counts", "category": "skill_output", "kind": "json_file_equals",
+       "artifact": "stdout", "expected_file": "expected/counts.json"},
+      {"id": "exit", "category": "mechanics", "kind": "json_equals",
+       "artifact": "process", "path": ["exit_code"], "expected": 0}
+    ]
+  }]
+}
+```
+
+```text
+python -B scripts/run_cli_cases.py --plan PLAN_JSON --skill GENERATED_SKILL --out NEW_ITERATION
+```
+
+Run this command from the builder's runtime directory. Option strings are literal argv entries. Each `{"input":"..."}` argument refers to a declared raw input. For standard input, use `"stdin":"sample.txt"` inside `cli` with the appropriate `args` list. Each case runs the local Python interpreter in a temporary copy of the generated runtime with only that case's declared inputs supplied. The expected fixtures and plan stay in the evaluator's directory. The program runs with the host user's permissions.
+
+For an invalid input that must exit nonzero and leave stdout empty, use these checks with the actual raw failure input. A single newline fails the byte-count check. Include the diagnostic check when the error message is specified.
+
+```json
+[
+  {"id":"reject","category":"mechanics","kind":"json_equals","artifact":"process","path":["exit_code"],"expected":2},
+  {"id":"no-output","category":"skill_output","kind":"json_equals","artifact":"process","path":["stdout_bytes"],"expected":0},
+  {"id":"diagnostic","category":"skill_output","kind":"contains","artifact":"stderr","text":"Invalid record"}
+]
+```
+
+Open `evaluation-report.json` or `evaluation-report.md` in the new iteration. Per-case `stdout.bin` and `stderr.bin` contain captured bytes. `process.json` records the invocation, Python version, exit code and hashes of the script, raw inputs and streams. The grader compares the output with the frozen expected JSON. A wrong value, an unexpected exit, or malformed stdout fails the corresponding check. Each script has a 30-second time limit and each stream has a 16 MiB limit. A timeout, unavailable process, or excessive output leaves the case incomplete and preserves the available evidence up to the stream limit.
+
+For a maintenance comparison, add `--baseline-skill OLD_RUNTIME`. Both snapshots run with the same revised plan, fixtures and interpreter. The summary's `variants` gives each case's grades and evidence paths. Each `comparisons[].paired_checks` entry shows the old and new grade for one exercised criterion. Inspect the two outputs for changed behavior and stable invariants. An absent script or an incomplete case prevents a complete comparison. Use the host workflow for a no-skill baseline.
+
+The command returns `0` when the candidate passes its deterministic checks on a matching runtime and any requested comparison ran, `1` for a failed candidate check or changed candidate runtime, `2` for invalid arguments, records or files, and `3` for an incomplete candidate or comparison with no candidate failures. Old-version failures remain visible in the comparison. The summary reports `reviewed_checks`, `workflow`, and `delivery_verified` separately. Review criteria, test critique and reuse review stay pending until a reviewer supplies evidence. Cases without a `cli` stay pending for the host. After changing the script, inputs or criteria, use a new iteration directory to retain the previous result.
 
 ### Report
 

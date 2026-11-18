@@ -73,7 +73,36 @@ def safe_source(path):
     return path.resolve()
 
 
-def prepare(plan_path, skill_path, output, baseline_skill=None, without_skill=False):
+def cli_definition(case):
+    cli = evaluation.object_value(case["cli"], "Case cli")
+    evaluation.require(set(cli) <= {"script", "args", "stdin"} and {"script", "args"} <= set(cli),
+                       "Case cli needs script and structured args, with optional stdin.")
+    script = portable_relative(cli["script"])
+    evaluation.require(script.suffix == ".py", "The CLI script must be a Python file in the skill snapshot.")
+    inputs = case.get("input_files", [])
+    used = []
+    for arg in evaluation.sequence(cli["args"], "CLI args", allow_empty=True):
+        if isinstance(arg, str):
+            evaluation.require("\0" not in arg, "CLI arguments cannot contain NUL.")
+        else:
+            evaluation.require(isinstance(arg, dict) and set(arg) == {"input"}, "CLI args are strings or single input references.")
+            used.append(arg["input"])
+    if "stdin" in cli:
+        used.append(cli["stdin"])
+    evaluation.require(used and all(isinstance(path, str) and path in inputs for path in used),
+                       "Each CLI case must pass fixed, declared input_files through args or stdin.")
+    checks = case["checks"]
+    exit_codes = {c["expected"] for c in checks if c["kind"] == "json_equals" and c["artifact"] == "process"
+                  and c["path"] == ["exit_code"] and type(c["expected"]) is int}
+    evaluation.require(len(exit_codes) == 1, "A CLI case needs one integer expected process exit_code.")
+    json_stdout = any(c["kind"] == "json_file_equals" and c["artifact"] == "stdout" for c in checks)
+    empty_stdout = any(c["kind"] == "json_equals" and c["artifact"] == "process" and c["path"] == ["stdout_bytes"]
+                       and type(c["expected"]) is int and c["expected"] == 0 for c in checks)
+    evaluation.require(json_stdout or (0 not in exit_codes and empty_stdout),
+                       "A CLI case needs json_file_equals on stdout, or an expected nonzero exit with exactly zero stdout_bytes.")
+
+
+def prepare(plan_path, skill_path, output, baseline_skill=None, without_skill=False, *, before_publish=None):
     evaluation.require(not (baseline_skill and without_skill), "Choose one baseline type.")
     plan_path = safe_source(plan_path)
     plan_blob = evaluation.read_bytes(plan_path)
@@ -87,26 +116,38 @@ def prepare(plan_path, skill_path, output, baseline_skill=None, without_skill=Fa
     out = safe_source(output)
     evaluation.require(not out.exists(), "The iteration directory already exists; choose a fresh location.")
     roots = [skill] + ([baseline] if baseline else [])
-    inputs, input_spellings = {}, {}
+    inputs, expectations, input_spellings = {}, {}, {}
     input_bytes = len(plan_blob)
     for case in cases.values():
         evaluation.text(case.get("prompt"), "Case prompt")
         for check in evaluation.unique_records(case.get("checks"), "Case checks").values():
             evaluation.check_definition(check)
-        for relative in evaluation.sequence(case.get("input_files", []), "Case inputs", allow_empty=True):
+        raw = evaluation.sequence(case.get("input_files", []), "Case inputs", allow_empty=True)
+        expected_files = [c["expected_file"] for c in case["checks"] if c["kind"] == "json_file_equals"]
+        if "cli" in case:
+            cli_definition(case)
+        for relative, collection in [(path, inputs) for path in raw] + [(path, expectations) for path in expected_files]:
             evaluation.local_file(plan_path.parent, relative)
             register_path(relative, input_spellings)
             path = safe_source(plan_path.parent / relative)
-            if relative not in inputs:
-                evaluation.require(len(inputs) < MAX_FILES and input_bytes + path.stat().st_size <= MAX_TOTAL_BYTES,
+            if relative not in collection:
+                evaluation.require(len(inputs) + len(expectations) < MAX_FILES and input_bytes + path.stat().st_size <= MAX_TOTAL_BYTES,
                                    "Evaluation inputs exceed 2048 files or 64 MiB; select a smaller input set.")
                 blob = evaluation.read_bytes(path)
+                if collection is expectations:
+                    evaluation.strict_json(blob, f"Expected JSON fixture {relative}")
+                    evaluation.require(not any(path.is_relative_to(root) for root in roots),
+                                       "Expected fixtures must be outside the skill snapshot.")
                 input_bytes += len(blob)
-                inputs[relative] = (path, blob)
+                collection[relative] = (path, blob)
+    evaluation.require(not (inputs.keys() & expectations.keys()), "Expected fixtures must be separate from executor inputs.")
+    for case in cases.values():
+        if "cli" in case:
+            evaluation.require((skill / case["cli"]["script"]).is_file(), "The declared CLI script is missing from the candidate skill.")
     for source_root in roots:
         evaluation.require(source_root.is_dir() and (source_root / "SKILL.md").is_file(), "Each skill root must contain SKILL.md.")
         evaluation.require(not out.is_relative_to(source_root), "Iteration destination must be outside skill directories.")
-    for source, _ in inputs.values():
+    for source, _ in [*inputs.values(), *expectations.values()]:
         evaluation.require(not out.is_relative_to(source.parent), "Iteration destination must be outside input directories.")
     payloads = {"plan.json": plan_blob}
     inventories = [{"id": "plan", "files": [{"path": "plan.json", "sha256": evaluation.fingerprint(plan_blob)}]}]
@@ -156,6 +197,13 @@ def prepare(plan_path, skill_path, output, baseline_skill=None, without_skill=Fa
         input_inventory.append({"path": destination, "sha256": evaluation.fingerprint(blob)})
     if input_inventory:
         inventories.append({"id": "inputs", "files": input_inventory})
+    if expectations:
+        files = []
+        for relative, (_, blob) in expectations.items():
+            destination = f"expectations/{relative}"
+            add(destination, blob)
+            files.append({"path": destination, "sha256": evaluation.fingerprint(blob)})
+        inventories.append({"id": "expectations", "files": files})
     copied_cases = evaluation.prepared_cases(cases.values())
     variants = [("candidate", "with_skill", "snapshots/candidate")]
     if baseline or without_skill:
@@ -203,6 +251,8 @@ def prepare(plan_path, skill_path, output, baseline_skill=None, without_skill=Fa
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(blob)
         evaluation.evaluate(stage / "evaluation.json")
+        if before_publish is not None:
+            before_publish(stage)
         evaluation.require(not out.exists(), "The iteration destination appeared while preparing the snapshot.")
         stage.rename(out)
     finally:

@@ -19,6 +19,8 @@
     "any-skill-builder/scripts/evaluate_skill.py",
     "any-skill-builder/scripts/skill_builder.py",
     "any-skill-builder/scripts/prepare_evaluation.py",
+    "any-skill-builder/scripts/plan_change.py",
+    "any-skill-builder/scripts/run_cli_cases.py",
     "any-skill-builder/scripts/review_questions.py",
     "any-skill-builder/scripts/verify_delivery.py",
     "any-skill-builder/references/question-review.md"
@@ -77,6 +79,8 @@
     "tests/test_packaging.py",
     "tests/test_runtime_fixes.py",
     "tests/test_decisions.py",
+    "tests/test_plan_change.py",
+    "tests/test_cli_cases.py",
     "tests/test_field_preservation.py",
     "tests/fixtures/field-preservation/README.md",
     "tests/fixtures/field-preservation/plan.json",

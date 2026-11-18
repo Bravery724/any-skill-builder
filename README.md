@@ -81,6 +81,8 @@ project-notes-brief/
 
 Skills can also include scripts, references, or assets when the task needs them. The build workspace keeps the research notes, decisions, and evaluation records separately. Keep that workspace if you want to revisit a choice later. [Sample input](examples/offline-workflows/full-auto/input.md) · [Brief written by the finished skill](examples/offline-workflows/full-auto/output.md)
 
+On `main`, you can return to a saved run and say, for example, “If a cancellation and a booking arrive at the same revision, let the cancellation win. Keep later rebookings working.” The builder can trace that rule to its files and tests. For a Python CLI with a fixed JSON result, it can run the cases and keep the outputs, exit codes and fingerprints together. [Changing one rule](any-skill-builder/references/build-and-evaluate.md#resume-after-one-rule-changes) · [Running fixed CLI cases](any-skill-builder/references/evaluation.md#run-a-fully-specified-local-python-cli)
+
 ## How the skills are tested
 
 Before implementation the builder records the test inputs and success criteria. It runs the resulting skill and compares its actual answers with the source. If a criterion needs to change, it prepares a new evaluation iteration and retains the earlier evidence. For the weekly update, a draft that declares the launch complete would fail the check for conflicting reports. [Evaluation procedure](any-skill-builder/references/evaluation.md) · [Weekly-update results](examples/complete/evaluation-report.md)

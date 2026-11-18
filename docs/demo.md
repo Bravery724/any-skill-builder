@@ -26,7 +26,7 @@ The **nine recorded checks** are two automatic checks and seven reviewed judgmen
 
 ## Reproduce the questionnaire
 
-The [weekly-update questionnaire fixture](../examples/weekly-update-questionnaire.json) brings the historical questions into Questionnaire mode. The [walkthrough](../examples/complete/README.md#recreate-the-answered-questionnaire) shows how to replay the recorded choices or try your own answers.
+In the current questionnaire, open **Incomplete notes** to compare two responses to the same conflicting CSV release notes. One option shows the sentence the team would receive in a draft. The other shows the question the writer would ask before drafting. [Questionnaire fixture](../examples/weekly-update-questionnaire.json) · [Fictional project notes](../examples/complete/inputs/conflicting.md) · [Steps to render the questionnaire](../examples/complete/README.md#recreate-the-answered-questionnaire)
 
 The preview uses only reviewed fictional data. No user browser account, private research, real responses, or machine-specific paths should appear in the published media. The example's `example.invalid` source links are fixtures, not verified live sources.
 

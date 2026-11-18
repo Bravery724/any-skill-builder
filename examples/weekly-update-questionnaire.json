@@ -101,7 +101,7 @@
       "group_id": "gaps",
       "type": "single",
       "title": "What should happen when the notes leave a material gap?",
-      "help": "A missing owner, unconfirmed date, or conflicting release status can change the meaning of the update.",
+      "help": "Example notes for the same release. The meeting notes say CSV export is live for everyone. The release tracker says it is disabled pending approval. Neither source is marked authoritative.",
       "decision": "Whether unresolved information delays drafting or stays visible in a useful draft",
       "origin": "proposal",
       "source_ids": [],
@@ -109,11 +109,13 @@
         {
           "id": "draft-gaps",
           "label": "Draft now and mark what is uncertain",
+          "description": "Draft excerpt — “CSV export status is unresolved. The meeting notes report it live, while the tracker lists it as disabled pending approval.”",
           "effect": "Produce a draft with explicit gaps and focused follow-up where needed"
         },
         {
           "id": "clarify-first",
           "label": "Resolve material gaps before the final draft",
+          "description": "First question — “Can you confirm whether CSV export is live or still disabled pending approval?”",
           "effect": "Ask for the defined missing facts before producing the final draft"
         }
       ],

@@ -82,13 +82,28 @@ test('offline Chrome download preserves the interpreted AI answer through keyboa
         }
       });
     }
-    await t.test('the visible option effect is part of the radio button label', async () => {
+    await t.test('one shared input and both example outcomes survive choosing, saving, and restoring', async () => {
       await page.goto(pathToFileURL(run(workspace, 'render').path).href);
       await page.locator('#page-select').selectOption('1');
       const question = original.questionnaire.questions.find(q => q.id === parent);
-      const option = question.options.find(item => item.id === 'clarify-first');
-      assert.ok(await page.getByText(option.effect, { exact: true }).isVisible());
-      assert.equal(await page.getByRole('radio', { name: option.effect }).inputValue(), option.id);
+      assert.ok(await page.getByText(question.help, { exact: true }).isVisible());
+      for (const option of question.options) {
+        for (const text of [option.description, option.effect]) {
+          assert.ok(await page.getByText(text, { exact: true }).isVisible());
+          assert.equal(await page.getByRole('radio', { name: text }).inputValue(), option.id);
+        }
+      }
+      const draft = question.options.find(option => option.id === 'draft-gaps');
+      await page.getByRole('radio', { name: draft.description }).check();
+      const [download] = await Promise.all([
+        page.waitForEvent('download'), page.locator('#save-answers').click(),
+      ]);
+      const saved = path.join(scratch, 'compared-choices.html');
+      await download.saveAs(saved);
+      const restored = run(path.join(scratch, 'restored'), 'restore', '--input', saved, '--full');
+      assert.deepEqual(restored.questionnaire.questions.find(q => q.id === parent), question);
+      assert.equal(restored.answers.answers[parent].value, draft.id);
+      assert.equal(restored.answers.answers[parent].actor, 'user');
     });
   } finally {
     await context.close();
