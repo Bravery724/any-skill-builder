@@ -1,8 +1,8 @@
 # Any Skill Builder
 
-Create a reusable [Agent Skill](https://agentskills.io) for a task you do repeatedly. Describe the job once, give the builder an example if you have one, and it will research the task, work through the design choices, write the skill, and try it on sample inputs.
+Turn a recurring task into a reusable Agent Skill. Describe the job and the choices that matter to you. Your agent researches the task, writes a skill folder, and tries the finished skill on sample inputs before handing it back. [Agent Skills format](https://agentskills.io)
 
-For example, if you write a team update every Friday, you can decide once how to handle conflicting notes, missing dates, and links to evidence. Next Friday, give the finished skill the new notes.
+For example, if you write a team update every Friday, decide once what to do when two sources disagree. Next Friday, give the finished skill the new notes. In v0.5.4 the builder also checks how its own defaults interact with your choices. If you ask it to hide email addresses, it checks whether the reader can still tell who should receive a message. [v0.5.4 release and downloads](https://github.com/Bravery724/any-skill-builder/releases/tag/v0.5.4)
 
 ## Contents
 
@@ -18,19 +18,19 @@ For example, if you write a team update every Friday, you can decide once how to
 
 https://github.com/user-attachments/assets/3d10f534-74e7-4cd4-a69c-369cc3844fce
 
-In 80 seconds, the narrated walkthrough follows a packing-list skill that checks items against airline rules, from the initial request through design choices, testing, and installation.
+This 82-second narrated walkthrough follows a packing-list skill that checks items against airline rules, from the initial request through design choices, testing, and installation. For a closer look at saving and resuming a questionnaire, see the [weekly-update walkthrough and still image](docs/demo.md).
 
 ## Quick start
 
 Use an agent that can load Agent Skills, read and write local files, and run Python 3.10 or later. The Python helper uses the standard library. The builder uses your host agent's model and research tools, so it needs no separate API key.
 
-From your project directory, install the builder with the Skills CLI (Node.js 22.20+).
+From your project directory, install v0.5.4 with the Skills CLI (Node.js 22.20+).
 
 ```sh
-npx skills add Bravery724/any-skill-builder --skill any-skill-builder
+npx skills add Bravery724/any-skill-builder@v0.5.4 --skill any-skill-builder
 ```
 
-Select your agent and refresh its skills or start a new session. The explicit skill name selects the builder from a repository that also contains example skills. You can also [install with Python](docs/installation.md#install-from-source).
+Select your agent and refresh its skills or start a new session. The explicit skill name selects the builder from a repository that also contains example skills. If you prefer a Python-only install, download the **source ZIP** from the release and run its included installer. [Python installation instructions](docs/installation.md#install-from-source)
 
 **Try this in your agent**
 
@@ -42,7 +42,7 @@ Open the HTML form the agent gives you. Answer the questions that matter to you,
 
 | Mode | Choose it when | What happens |
 | --- | --- | --- |
-| **Full Auto** | You know the job and want the agent to decide how the skill should work. | The agent records its choices and reasons, writes the files, and evaluates the result in one run. |
+| **Full Auto** | You have a complete specification or want to delegate the remaining decisions. | The agent records fixed requirements and any choices it makes, then builds and tests the skill. When the requirements settle everything, it proceeds with zero design decisions. |
 | **Questionnaire** | Audience, format, or handling of tricky cases is a matter of preference. | The agent researches the options first. You can accept a recommendation, describe another choice, or leave a question for the agent. The form works offline and can be saved partway through. |
 
 For a **Full Auto** build, include a boundary the agent can test.
@@ -83,7 +83,25 @@ Skills can also include scripts, references, or assets when the task needs them.
 
 ## How the skills are tested
 
-Before writing the skill, the builder defines realistic inputs and what a successful result should do. It then exercises the finished skill and reviews the actual outputs. For the weekly update, a useful check is whether the draft preserves the disagreement about the release. A well-formatted update that declares a launch would fail that check. You can inspect the [recorded evaluation and its limits](examples/complete/evaluation-report.md).
+Before implementation the builder records the test inputs and success criteria. It runs the resulting skill and compares its actual answers with the source. If a criterion needs to change, it prepares a new evaluation iteration and retains the earlier evidence. For the weekly update, a draft that declares the launch complete would fail the check for conflicting reports. [Evaluation procedure](any-skill-builder/references/evaluation.md) · [Weekly-update results](examples/complete/evaluation-report.md)
+
+Two regression cases shipped in **v0.5.4** show what it means to preserve information when transforming it.
+
+| User requirement | What the reviewer looks for |
+| --- | --- |
+| Keep two conflicting reports unresolved and attributable. | Can the next shift tell who reported recovery and who still saw the delay? A draft that contains both names but swaps their claims fails. |
+| Mask a personal email address and keep the shared mailbox. | Can the next shift tell who receives the private copy as well as where to send the shared copy? A person's name appearing elsewhere in the document is insufficient. |
+
+The fixtures include source notes, passing outputs, and plausible mistakes. From the repository root or the extracted source ZIP, replay the recorded judgments and check their evidence with Python:
+
+```sh
+python -B -m unittest discover -s tests -p "test_field_preservation.py"
+```
+
+To evaluate a newly generated handoff skill, run it on the supplied notes and have a reviewer assess its fresh outputs. [Inputs, controls, and instructions](tests/fixtures/field-preservation/README.md)
+
+<details>
+<summary>Historical comparison of v0.5.0 with other ways to build a skill</summary>
 
 In a **v0.5.0 trial**, graders evaluated generated skills on three previously unseen employment contracts and three sets of staged code changes. They scored the answers without knowing how each skill had been built.
 
@@ -95,9 +113,16 @@ In a **v0.5.0 trial**, graders evaluated generated skills on three previously un
 
 Each skill version ran once per input, and one grader scored the three answers for that input. On a straightforward commit, the skill built without a builder scored 9/10 and the v0.5.0 skill scored 8/10. On the staged-credentials case, the v0.5.0 skill incorrectly said `.gitignore` was empty. [Case-by-case scores, build times, and follow-up runs](docs/full-auto-validation.md)
 
+</details>
+
 ## Guides and examples
 
-- [Installation and updates](docs/installation.md) for host paths, release downloads, and troubleshooting.
-- [Usage guide](docs/usage.md) for research, visual workflows, and improving an existing skill.
-- [Saved questionnaire example](examples/offline-workflows/README.md) for a build resumed from a downloaded HTML file.
-- [Releases](https://github.com/Bravery724/any-skill-builder/releases) · [Contributing](CONTRIBUTING.md) · [MIT license](LICENSE)
+| If you want to… | Start here |
+| --- | --- |
+| Install, update, or troubleshoot the builder | [Installation guide](docs/installation.md) |
+| Improve an existing skill or resume from a saved form | [Usage guide](docs/usage.md) · [Recorded saved-form example](examples/offline-workflows/README.md) |
+| Inspect the instructions your agent loads | [Builder entry point](any-skill-builder/SKILL.md) · [Workflow references](any-skill-builder/references/) |
+| Compare a finished skill with its inputs and outputs | [Public examples](examples/README.md) · [Complete weekly-update example](examples/complete/README.md) |
+| Work on the builder or verify a distribution | [Tests](docs/testing.md) · [Install and packaging tools](tools/) · [CI workflow](.github/workflows/ci.yml) |
+
+[Release history](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [MIT license](LICENSE)

@@ -53,6 +53,8 @@ Before testing, the agent records suitable tasks and what a useful result must d
 
 Simple skills usually need two or three cases. A fully specified task with one behavior can use one representative case if it covers the requirements and relevant risks. Cases include a trap that looks wrong but is correct and, where relevant, fake secrets the output must not repeat. Skills that give legal, medical, financial or safety advice are also compared with a run without the skill. Each prepared evaluation uses its original cases and grading criteria. Revised criteria take effect in a new iteration.
 
+For a handoff skill that masks email addresses, a useful test checks both that the private address is hidden and that the reader can still tell who should receive the message.
+
 Evaluation allows the first run and one correction round. The agent reports remaining limits, identifies which cases ran on the final files, and verifies that a requested archive matches the tested snapshot. A result is provisional only if the final skill was never run on a realistic case.
 
 If several actual tasks recreate the same useful operation, the agent considers adding a shared helper and tests its integration. This does not add code merely to make the package larger. Full Auto continues without HTML or mandatory feedback rounds; Questionnaire still waits only for your saved answers and continuation.

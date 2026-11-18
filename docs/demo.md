@@ -1,8 +1,8 @@
-# README demo
+# Weekly-update questionnaire demo
 
 [Watch the GIF](assets/demo.gif) · [Static questionnaire](assets/questionnaire.jpg) · [Complete example](../examples/complete/README.md)
 
-The GIF is an edited replay of the fictional weekly-update example with the current standalone questionnaire. Request, continuation, and result panels summarize the workflow; the questionnaire and saved HTML step use the actual renderer. Timing is condensed. It does not show a new model researching and building a skill in the animation's running time.
+The GIF follows the fictional weekly-update example. The questionnaire and saved HTML come from the standalone renderer. Edited panels summarize the request, continuation, and finished skill. The [narrated walkthrough in the project README](../README.md#demo) follows a packing-list skill from the initial request through installation.
 
 ## What is shown
 
@@ -26,10 +26,10 @@ The **nine recorded checks** are two automatic checks and seven reviewed judgmen
 
 ## Reproduce the questionnaire
 
-Use the current [weekly-update questionnaire fixture](../examples/weekly-update-questionnaire.json). It copies the historical question content into the current Questionnaire mode while preserving the original evidence files. Follow [the walkthrough](../examples/complete/README.md#recreate-the-answered-questionnaire). Omit the recommendation-filling step if you want to answer it yourself.
+The [weekly-update questionnaire fixture](../examples/weekly-update-questionnaire.json) brings the historical questions into Questionnaire mode. The [walkthrough](../examples/complete/README.md#recreate-the-answered-questionnaire) shows how to replay the recorded choices or try your own answers.
 
 The preview uses only reviewed fictional data. No user browser account, private research, real responses, or machine-specific paths should appear in the published media. The example's `example.invalid` source links are fixtures, not verified live sources.
 
 The GIF loops. Use the static preview or written walkthrough if motion is inconvenient or the text is hard to read.
 
-The refreshed recording is approximately 21 seconds, 900 × 990 pixels, and 542 KiB. Its actual saved HTML was inspected to confirm the three recorded choices. The current browser renderer produced the static screenshot; the surrounding request, continuation, and result panels are explicitly an edited illustration.
+One loop lasts 26.2 seconds. The GIF is 900 × 990 pixels and approximately 542 KiB. The saved HTML was inspected to confirm the three recorded choices. The static screenshot shows the form rendered in the browser.

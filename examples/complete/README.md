@@ -10,17 +10,19 @@ This small public example follows the whole authoring path: a goal, inspected su
 
 ## Recreate the answered questionnaire
 
-From the repository root, choose a new task directory outside the repository:
+From the repository root, use a fresh directory for this historical preview. The `--review-policy legacy` flag lets you replay the example's recorded choices. For a new skill, keep the default review policy and follow the [question review procedure](../../any-skill-builder/references/question-review.md).
 
 ```sh
-python -B any-skill-builder/scripts/skill_builder.py init --workspace ../example-runs/team-update --goal "Create a weekly team-update skill from supplied project notes" --mode questionnaire
+python -B any-skill-builder/scripts/skill_builder.py init --workspace ../example-runs/team-update --goal "Create a weekly team-update skill from supplied project notes" --mode questionnaire --review-policy legacy
 python -B any-skill-builder/scripts/skill_builder.py set-questions --workspace ../example-runs/team-update --input examples/weekly-update-questionnaire.json --rebind-project
 python -B any-skill-builder/scripts/skill_builder.py recommend --workspace ../example-runs/team-update
 python -B any-skill-builder/scripts/skill_builder.py render --workspace ../example-runs/team-update
 python -B any-skill-builder/scripts/skill_builder.py brief --workspace ../example-runs/team-update
 ```
 
-This is a replay of the recorded recommendations for inspection, not newly performed research or model evaluation. To answer the form yourself, omit `recommend`, render it, and use Save answers. Return to chat with the saved HTML to continue; blanks are assigned to AI. Full Auto instead uses `--mode auto`, records its choices with `set-decisions` as described in the [workflow guide](../../any-skill-builder/references/workflow.md#full-auto-decision-list), and never renders HTML.
+The commands replay the recorded recommendations, render the form, and write `build-brief.md` in the run directory. To try your own answers, run only `init`, `set-questions`, and `render`. Open the HTML path printed by `render`, choose **Save answers**, and return to chat with the saved file. The agent imports your answers and fills the blanks before creating the brief.
+
+For a Full Auto build, use `--mode auto` and record the choices with `set-decisions`. See the [Full Auto workflow](../../any-skill-builder/references/workflow.md#full-auto-decision-list).
 
 The explicit `--rebind-project` option adapts this authored fixture to the new project's name and preserves the initialized mode. It must not rebind exported answers or an established run. The decisions in this folder are readable authoring evidence, not a canonical response export with a reusable run identity.
 

@@ -160,7 +160,7 @@ The following observations were recorded on 2026-11-14 for earlier releases thro
 | Environment or capability | Evidence |
 | --- | --- |
 | Windows, Python 3.10.11 | Backend suite run from a freshly extracted source ZIP; minimum-version compatibility exercised |
-| Windows, Node 25.2.1 | Form regression suite executed; Node is optional for end users choosing the Skills CLI route |
+| Windows, Node 25.2.1 | Form regression suite executed. End users need Node.js for the Skills CLI. The Python installer requires only Python. |
 | Windows, Python 3.15.2 | Installer, runtime ZIP commands, fresh-source checks, and reproducible packaging exercised |
 | Existing Codex desktop session | Installed skill is exposed in its skill catalog; this does not prove every host or every fresh-session discovery flow |
 | Claude Code 2.1.322, Windows | Actual native discovery, authored questionnaire, live browser handoff, revisioned repairs, generated skill, and three fresh-context task cases; see [host validation](host-validation.md) |
