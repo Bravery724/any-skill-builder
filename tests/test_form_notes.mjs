@@ -77,6 +77,11 @@ test('Over-limit text in an initially blank answer still warns before closing', 
   env.api.saveAnswers();
   assert.equal(env.downloads.length, 0);
   assert.equal(env.api.dirty, true);
+  env.card('text').querySelector('.clear-answer').click();
+  assert.equal(env.card('text').querySelector('.field-error').hidden, true);
+  assert.equal(env.textarea('text').getAttribute('aria-invalid'), 'false');
+  env.api.saveAnswers();
+  assert.equal(env.downloads.length, 1);
 });
 
 test('Clearing all text is unanswered and exports no invented replacement', async t => {
@@ -95,11 +100,67 @@ test('Navigation restores text exactly without replacing it with an older canoni
   assert.equal(env.textarea('text'), input);
 });
 
-test('Read-only navigation and saving preserve an AI-authored answer and its rationale', t => {
+function interpretedBoot() {
+  const boot = makeBoot();
+  Object.assign(boot.view.answers.answers.gate, {
+    actor: 'ai', rationale: 'Keep the requested review step.', assumptions: ['The reviewers share a workspace.'],
+    value: { selected: ['b'], other: 'Paired review' }, user_selected: ['b'],
+    branch_value: ['a', 'b'], branch_rationale: 'Paired review needs a topic description.',
+  });
+  return boot;
+}
+
+test('Moving focus through an interpreted AI Other answer preserves its active human answer through save and reopen', async t => {
+  const boot = interpretedBoot(), env = envFor(t, boot);
+  env.textarea('gate').focus();
+  env.textarea('text').focus();
+  assert.equal(env.api.dirty, false);
+  assert.equal(env.api.view.states.text, 'active');
+  env.ids.get('save-answers').click();
+  const { boot: saved } = await downloadedBoot(env.downloads[0]);
+  assert.deepEqual(saved.view.answers, boot.view.answers);
+  assert.deepEqual(copy(envFor(t, saved).api.answers), boot.view.answers);
+});
+
+test('Saving a focused AI text answer preserves its original line endings, authorship and history on successive saves', async t => {
   const boot = makeBoot(); const answer = boot.view.answers.answers.text;
-  answer.actor = 'ai'; answer.rationale = 'Fits the user’s request.'; answer.assumptions = ['No private facts are inferred.'];
-  const env = envFor(t, boot); env.api.goPage(1); env.api.goPage(0);
-  assert.deepEqual(copy(env.api.snapshot().view.answers.answers.text), answer);
+  Object.assign(answer, { actor: 'ai', rationale: 'Fits the request.', assumptions: ['Use two lines.'], value: 'First\r\nSecond' });
+  const env = envFor(t, boot);
+  const editor = env.textarea('text');
+  editor.focus();
+  assert.equal(editor.value, 'First\nSecond');
+  editor.dispatch('compositionstart'); editor.dispatch('compositionend');
+  env.ids.get('save-answers').click();
+  env.ids.get('close-save').click();
+  env.api.goPage(1); env.api.goPage(0);
+  env.ids.get('save-answers').click();
+  for (const download of env.downloads) assert.deepEqual((await downloadedBoot(download)).boot.view.answers, boot.view.answers);
+  assert.equal(env.downloads.length, 2);
+  assert.equal(env.api.dirty, false);
+});
+
+test('Editing an interpreted AI Other while focused updates its author and branch on save even without an input event', async t => {
+  const boot = interpretedBoot(), env = envFor(t, boot);
+  const editor = env.textarea('gate');
+  editor.focus(); editor.dispatch('compositionstart'); editor.value = 'Individual reflection';
+  env.ids.get('save-answers').click();
+  const { boot: saved } = await downloadedBoot(env.downloads[0]);
+  assert.equal(saved.view.answers.answers.gate.actor, 'user');
+  assert.equal(saved.view.answers.answers.gate.value.other, 'Individual reflection');
+  assert.equal(saved.view.answers.answers.gate.branch_value, undefined);
+  assert.equal(saved.view.states.text, 'waiting');
+  assert.equal(saved.view.answers.answers.text, undefined);
+  assert.deepEqual(saved.view.answers.history.find(entry => entry.question_id === 'text').answer, boot.view.answers.answers.text);
+});
+
+test('Cancelling an IME candidate in an AI Other answer keeps the interpretation and its human child', t => {
+  const boot = interpretedBoot(), env = envFor(t, boot), editor = env.textarea('gate');
+  editor.focus(); editor.dispatch('compositionstart');
+  inputValue(editor, 'Paired review 검', true);
+  assert.equal(env.unload().prevented, true);
+  editor.value = 'Paired review'; editor.dispatch('compositionend'); editor.dispatch('input');
+  assert.deepEqual(copy(env.api.snapshot().view.answers), boot.view.answers);
+  assert.equal(env.api.dirty, false);
 });
 
 test('Editing an AI-authored answer makes only the changed answer user-owned', t => {

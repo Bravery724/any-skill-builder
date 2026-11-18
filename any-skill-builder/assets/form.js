@@ -166,7 +166,10 @@
     const before = answers.answers[id];
     const beforeValue = before ? JSON.stringify(before.value) : null;
     const nextValue = nextRecord ? JSON.stringify(nextRecord.value) : null;
-    if (beforeValue !== nextValue || before?.actor === 'ai') {
+    const newInterpretation = nextRecord && Object.hasOwn(nextRecord, 'branch_value')
+      && (JSON.stringify(before?.branch_value) !== JSON.stringify(nextRecord.branch_value)
+        || before?.branch_rationale !== nextRecord.branch_rationale);
+    if (beforeValue !== nextValue || before?.actor === 'ai' || newInterpretation) {
       archive(id, 'browser_answer_changed');
       if (nextRecord) answers.answers[id] = copy(nextRecord);
       else delete answers.answers[id];
@@ -175,8 +178,7 @@
     invalidateHiddenAnswers();
     updateSummary();
     if (updateStructure) render();
-    dirty = currentState() !== lastExportState;
-    updateSaveState();
+    updateDirty();
   }
 
   function pendingDrafts() {
@@ -190,6 +192,11 @@
   }
 
   function currentState() { return JSON.stringify({ answers: answers.answers, inputs: ui }); }
+
+  function updateDirty(composingEdit = false) {
+    dirty = composingEdit || currentState() !== lastExportState;
+    updateSaveState();
+  }
 
   function savedFileName() {
     const project = String(questionnaire.project_id || 'skill').replace(/[^A-Za-z0-9_.-]+/g, '-');
@@ -240,10 +247,21 @@
     return value && Array.isArray(value.selected) ? value.selected : [];
   }
 
-  function optionTitle(q, option) {
+  function optionCopy(q, option) {
+    const content = element('span', 'option-copy');
     const title = element('span', '', option.label);
     if (recommendedIds(q).includes(option.id)) title.append(element('span', 'recommended-badge', t('recommended_badge')));
-    return title;
+    content.append(title);
+    const normalized = text => text.trim().replace(/\s+/g, ' ').normalize();
+    const shown = new Set([normalized(option.label)]);
+    for (const text of [option.description, option.effect]) {
+      if (typeof text !== 'string') continue;
+      const key = normalized(text);
+      if (!key || shown.has(key)) continue;
+      content.append(element('span', 'option-description', text));
+      shown.add(key);
+    }
+    return content;
   }
 
   function recommendationDetails(q) {
@@ -257,8 +275,13 @@
       if (valueValid(q, q.recommendation.value)) {
         const use = element('button', 'text-button', t('use_recommendation')); use.type = 'button';
         use.addEventListener('click', () => {
-          ui[q.id] = stateFor(q, { value: q.recommendation.value });
-          change(q.id, answerFromState(q));
+          ui[q.id] = stateFor(q, q.recommendation);
+          const answer = answerFromState(q);
+          if (Object.hasOwn(q.recommendation, 'branch_value')) {
+            answer.branch_value = q.recommendation.branch_value;
+            answer.branch_rationale = q.recommendation.branch_rationale;
+          }
+          change(q.id, answer);
         });
         details.append(use);
       }
@@ -318,28 +341,40 @@
     return input;
   }
 
+  function editorValue(q) {
+    const state = ui[q.id], value = q.type === 'text' ? state.text : state.other_text;
+    // The textarea value API normalizes line endings, including for an untouched answer.
+    return value.replace(/\r\n?/g, '\n');
+  }
+
+  function retainEditor(q, input) {
+    const state = ui[q.id];
+    if (!input.isConnected || view.states[q.id] !== 'active' || (q.type !== 'text' && !state.other_enabled)
+      || input.value === editorValue(q)) return;
+    if (q.type === 'text') state.text = input.value;
+    else state.other_text = input.value;
+    change(q.id, answerFromState(q), false);
+  }
+
   function textEditor(q, other = false) {
     const input = element('textarea', 'text-answer');
     input.id = `input-${q.id}`; input.name = `${other ? 'other' : 'answer'}-${q.id}`;
     input.setAttribute('aria-labelledby', other ? `title-${q.id} label-${q.id}` : `title-${q.id}`);
     input.dataset.focus = `${q.id}:text`; input.dir = 'auto';
     input.placeholder = q.placeholder || t('answer_placeholder');
-    input.value = other ? ui[q.id].other_text : ui[q.id].text;
-    const retain = () => {
-      if (!input.isConnected || view.states[q.id] !== 'active') return;
-      if (other) ui[q.id].other_text = input.value; else ui[q.id].text = input.value;
-      change(q.id, answerFromState(q), false);
-      const error = cards.get(q.id)?.querySelector('.field-error');
-      if (error) {
-        const tooLong = textLength(input.value) > (q.max_length || 20000);
-        error.textContent = tooLong ? t('text_too_long', { count: q.max_length || 20000 }) : '';
-        error.hidden = !tooLong;
-        input.setAttribute('aria-invalid', String(tooLong));
-      }
-    };
+    input.value = editorValue(q);
+    const retain = () => retainEditor(q, input);
     input.addEventListener('compositionstart', () => { composition = { id: q.id, input }; });
-    input.addEventListener('input', retain);
-    input.addEventListener('compositionend', () => { if (composition?.input === input) composition = null; retain(); });
+    input.addEventListener('input', () => {
+      // A provisional candidate may be cancelled. Keep it in the editor until commit or save.
+      if (composition?.input === input) updateDirty(input.value !== editorValue(q));
+      else retain();
+    });
+    input.addEventListener('compositionend', () => {
+      if (composition?.input === input) composition = null;
+      retain();
+      updateDirty();
+    });
     input.addEventListener('blur', () => { retain(); if (!composition) render(); });
     editors.set(q.id, input);
     return input;
@@ -366,9 +401,8 @@
       img.addEventListener('error', fail);
       if (url) { img.src = url; preview.addEventListener('click', () => showImage(option, url, preview)); } else fail();
       preview.append(img);
-      const label = element('label', 'image-label'); label.append(input, optionTitle(q, option));
+      const label = element('label', 'image-label'); label.append(input, optionCopy(q, option));
       card.append(preview, failure, label);
-      if (option.description) card.append(element('p', 'image-description', option.description));
       grid.append(card);
     }
     return grid;
@@ -388,10 +422,8 @@
       const options = element('div', 'options'); options.setAttribute('role', q.type === 'multi' ? 'group' : 'radiogroup'); options.setAttribute('aria-labelledby', title.id);
       if (q.type === 'image') options.append(imageOptions(q));
       else for (const option of q.options) {
-        const label = element('label', 'option'), labelCopy = element('span', 'option-copy');
-        labelCopy.append(optionTitle(q, option));
-        if (option.description) labelCopy.append(element('span', 'option-description', option.description));
-        label.append(optionInput(q, option), labelCopy); options.append(label);
+        const label = element('label', 'option');
+        label.append(optionInput(q, option), optionCopy(q, option)); options.append(label);
       }
       const otherLabel = element('label', 'option'); otherLabel.append(optionInput(q, null, true), element('span', 'option-copy', t('other_choice'))); options.append(otherLabel);
       const field = element('div', 'other-field');
@@ -416,8 +448,15 @@
     card.querySelector('.clear-answer').hidden = q.type === 'text' ? !state.text : !state.selected.length && !state.other_enabled && !state.other_text;
     for (const { input, option, other } of choiceInputs.get(q.id) || []) input.checked = other ? state.other_enabled : state.selected.includes(option.id);
     const field = card.querySelector('.other-field'); if (field) field.hidden = !state.other_enabled;
-    const editor = editors.get(q.id), value = q.type === 'text' ? state.text : state.other_text;
+    const editor = editors.get(q.id), value = editorValue(q);
     if (editor && document.activeElement !== editor && composition?.input !== editor && editor.value !== value) editor.value = value;
+    const limit = q.max_length || 20000, error = card.querySelector('.field-error');
+    const validLength = textLength(value) <= limit;
+    if (error.hidden !== validLength) {
+      error.textContent = validLength ? '' : t('text_too_long', { count: limit });
+      error.hidden = validLength;
+      editor.setAttribute('aria-invalid', String(!validLength));
+    }
     const partial = card.querySelector('.partial-hint');
     partial.hidden = !(q.type === 'multi' && state.selected.length && !record);
     if (!partial.hidden) partial.textContent = t('partial_choices', { count: q.min_choices || 1 });
@@ -461,15 +500,7 @@
   }
 
   function flushEditors() {
-    for (const [id, input] of editors) {
-      if (!input.isConnected || view.states[id] !== 'active') continue;
-      const q = byId.get(id), state = ui[id];
-      const previous = q.type === 'text' ? state.text : state.other_text;
-      if (previous === input.value || q.type !== 'text' && !state.other_enabled) continue;
-      if (q.type === 'text') state.text = input.value;
-      else state.other_text = input.value;
-      change(id, answerFromState(q), false);
-    }
+    for (const [id, input] of editors) retainEditor(byId.get(id), input);
   }
 
   function goPage(index) {
@@ -492,7 +523,7 @@
     answers.answers = {}; composition = null;
     for (const input of editors.values()) input.value = '';
     project(); pageIndex = 0; render();
-    dirty = currentState() !== lastExportState; updateSaveState();
+    updateDirty();
     $('reset-dialog').close(); $('notice').textContent = t('reset_complete');
   }
 

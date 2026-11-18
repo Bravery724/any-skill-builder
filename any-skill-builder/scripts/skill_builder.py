@@ -124,7 +124,7 @@ def main(argv=None):
     args = parser().parse_args(argv)
     try:
         name = args.command
-        if name in {"recommend", "render", "brief"}:
+        if name in {"recommend", "render"}:
             if core.decision_list_in_use(args.workspace):
                 core.require(name != "render", "Full Auto does not generate HTML. To let the user answer, run decisions-to-questions "
                              "and import it with set-questions --from-decisions.", "auto_no_html")
@@ -143,8 +143,6 @@ def main(argv=None):
         elif name == "set-questions":
             result = core.set_questions(args.workspace, core.read_json(args.input), presentation_only=args.presentation_only,
                                         rebind_project=args.rebind_project, from_decisions=args.from_decisions)
-            if args.from_decisions:
-                result["question_review"] = enable_review(args.workspace)
         elif name == "set-decisions":
             result = core.set_decisions(args.workspace, core.read_json(args.input))
         elif name == "decisions-to-questions":

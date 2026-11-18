@@ -148,14 +148,19 @@ def _decision_requirements(run, questionnaire):
     except (OSError, ValueError) as exc:
         raise ReviewError(f"Cannot read the decision list's requirements: {exc}", "review_io_error") from exc
     sources = {source["id"] for source in questionnaire["sources"]}
-    carried, used = [], {"goal"}
-    for requirement in decisions.get("requirements", []) if isinstance(decisions, dict) else []:
+    requirements = decisions.get("requirements", []) if isinstance(decisions, dict) else []
+    reserved = {r["id"] for r in requirements if isinstance(r, dict)}
+    carried = []
+    for requirement in requirements:
         if not isinstance(requirement, dict):
             continue
-        rid = requirement["id"] if requirement["id"] not in used else f"decision-{requirement['id']}"
-        if rid in used:
-            continue
-        used.add(rid)
+        rid = requirement["id"]
+        if rid == "goal":
+            rid = "decision-goal"
+            suffix = 2
+            while rid in reserved:
+                rid = f"decision-goal-{suffix}"
+                suffix += 1
         basis = requirement["basis"]
         note = f"Carried over from the Full Auto decision list ({core.DECISIONS_FILE}, requirement {requirement['id']})."
         carried.append({"id": rid, "statement": requirement["statement"],
@@ -335,6 +340,11 @@ def _validate(review, questionnaire, findings):
                     except core.BuilderError as exc:
                         raise _Invalid(answer_path + ".branch_value", str(exc)) from exc
                     records[qid]["branch_value"] = answer["branch_value"]
+                if kind == "recommended" and recommendation and "branch_value" in recommendation:
+                    if "branch_value" in answer:
+                        _require(_same_value(questions[qid], answer["branch_value"], recommendation["branch_value"]),
+                                 answer_path + ".branch_value", "Use the recorded recommendation's branch interpretation.")
+                    records[qid]["branch_value"] = recommendation["branch_value"]
             _references(combination["inapplicable_question_ids"], questions, path + ".inapplicable_question_ids")
             _text(combination["fewer_decisions_reason"], path + ".fewer_decisions_reason", empty=True)
             if combination["status"] != "pending":

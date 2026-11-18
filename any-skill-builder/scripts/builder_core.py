@@ -393,6 +393,8 @@ def validate_questionnaire(data, workspace=None, allow_empty=False, check_asset_
             rec = question["recommendation"]
             require(isinstance(rec, dict), f"Invalid recommendation for {qid}.")
             validate_value(question, rec.get("value"))
+            if "branch_value" in rec or "branch_rationale" in rec:
+                validate_branch_interpretation(question, rec)
             nonempty(rec.get("rationale"), f"Recommendation rationale for {qid}")
             require(isinstance(rec.get("assumptions", []), list) and all(isinstance(v, str) for v in rec.get("assumptions", [])),
                     f"Invalid recommendation assumptions for {qid}.")
@@ -449,9 +451,7 @@ def normalize_record(question, record, actor=None):
         require(isinstance(record["assumptions"], list) and all(isinstance(v, str) for v in record["assumptions"]), "Answer assumptions must be a string list.")
         result["assumptions"] = copy.deepcopy(record["assumptions"])
     if "branch_value" in record:
-        require(isinstance(result.get("value"), dict), "Only a custom answer can carry branch interpretation.")
-        validate_branch_value(question, record["branch_value"], result["value"])
-        nonempty(record.get("branch_rationale"), "Branch interpretation rationale")
+        validate_branch_interpretation(question, record)
         result["branch_value"] = copy.deepcopy(record["branch_value"])
         result["branch_rationale"] = record["branch_rationale"]
     if "user_selected" in record:
@@ -462,6 +462,13 @@ def normalize_record(question, record, actor=None):
         require(set(selected) <= set(final), "AI completion must preserve user selections.")
         result["user_selected"] = copy.deepcopy(selected)
     return result
+
+
+def validate_branch_interpretation(question, record):
+    require(isinstance(record.get("value"), dict), "Only a custom answer can carry branch interpretation.")
+    require("branch_value" in record, f"Missing branch_value for {question['id']}.")
+    validate_branch_value(question, record["branch_value"], record["value"])
+    nonempty(record.get("branch_rationale"), "Branch interpretation rationale")
 
 
 def validate_branch_value(question, value, original):
@@ -507,13 +514,14 @@ def validate_answers(questionnaire, answers):
         normalize_record(by_id[qid], record)
 
 
-def states_for(questionnaire, answers):
+def states_for(questionnaire, answers, *, unresolved_branches=None):
     by_id = {q["id"]: q for q in questionnaire["questions"]}
     records, states = answers["answers"], {}
     def resolve(qid):
         if qid in states:
             return states[qid]
         results = []
+        unclassified = []
         for condition in by_id[qid].get("when", []):
             parent = condition["question_id"]
             pstate, answer = resolve(parent), records.get(parent)
@@ -532,11 +540,14 @@ def states_for(questionnaire, answers):
                         continue
                     if "branch_value" not in answer:
                         results.append("waiting")
+                        unclassified.append(parent)
                         continue
                     value = answer["branch_value"]
                 match = value == condition["equals"] if "equals" in condition else condition["includes"] in (value or [])
                 results.append("active" if match else "inactive")
         states[qid] = "inactive" if "inactive" in results else "waiting" if "waiting" in results else "active"
+        if states[qid] == "waiting" and unresolved_branches is not None:
+            unresolved_branches.update(unclassified)
         return states[qid]
     for qid in by_id:
         resolve(qid)
@@ -544,7 +555,8 @@ def states_for(questionnaire, answers):
 
 
 def make_view(questionnaire, answers):
-    states = states_for(questionnaire, answers)
+    unresolved_branches = set()
+    states = states_for(questionnaire, answers, unresolved_branches=unresolved_branches)
     counts = {"total": len(states), "active": 0, "answered": 0, "unanswered": 0, "waiting": 0, "inactive": 0}
     for qid, state in states.items():
         counts[state] += 1
@@ -556,10 +568,7 @@ def make_view(questionnaire, answers):
             "traversal_complete": complete,
             "ready_to_build": complete and counts["waiting"] == 0,
             "pending_input_ids": sorted(answers.get("pending_inputs", {})),
-            "unresolved_branch_ids": sorted({c["question_id"] for q in questionnaire["questions"]
-                if states[q["id"]] == "waiting" for c in q.get("when", [])
-                if isinstance(answers["answers"].get(c["question_id"], {}).get("value"), dict)
-                and "branch_value" not in answers["answers"][c["question_id"]]})}
+            "unresolved_branch_ids": sorted(unresolved_branches)}
 
 
 def load_workspace(workspace, require_questions=False, check_asset_hash=True):
@@ -570,7 +579,13 @@ def load_workspace(workspace, require_questions=False, check_asset_hash=True):
     return questionnaire, answers
 
 
-WORKFLOW_RECORD_FILES = {"imports.json", "progress.json"}
+WORKFLOW_RECORD_FILES = {"imports.json", "progress.json", "review-policy.json"}
+
+
+def validate_review_policy(policy, questionnaire):
+    require(isinstance(policy, dict) and type(policy.get("schema_version")) is int and policy["schema_version"] == 1
+            and policy.get("run_id") == questionnaire["run_id"] and policy.get("required") is True,
+            "Invalid question review policy or run identity.", "invalid_review_policy")
 
 
 def validate_workflow_records(records, questionnaire, answers):
@@ -578,6 +593,8 @@ def validate_workflow_records(records, questionnaire, answers):
     for name, record in records.items():
         if name == "imports.json":
             require(isinstance(record, list) and all(isinstance(item, dict) for item in record), "Invalid import history.")
+        elif name == "review-policy.json":
+            validate_review_policy(record, questionnaire)
         else:
             require(isinstance(record, dict) and record.get("project_id") == questionnaire["project_id"]
                     and record.get("run_id") == questionnaire["run_id"] and record.get("revision") == questionnaire["revision"]
@@ -649,10 +666,7 @@ def question_review_state(workspace, questionnaire):
     if not path.exists():
         return {"required": False, "status": "legacy", "passed": False,
                 "note": "Structural checks do not establish semantic question quality."}
-    policy = read_json(path)
-    require(isinstance(policy, dict) and type(policy.get("schema_version")) is int and policy["schema_version"] == 1
-            and policy.get("run_id") == questionnaire["run_id"] and policy.get("required") is True,
-            "Invalid question review policy or run identity.", "invalid_review_policy")
+    validate_review_policy(read_json(path), questionnaire)
     if not questionnaire["questions"]:
         return {"required": True, "status": "pending", "passed": False,
                 "note": "Author questions before preparing their review."}
@@ -678,6 +692,7 @@ def status(workspace, require_questions=False, *, include_workflow=False):
                                        "note": "Full Auto decision list in use; its single check is recorded in decisions.json."}
             view["decisions"] = decision_state(workspace, questionnaire)
             view["ready_to_build"] = view["decisions"]["ready"]
+            view["unresolved_branch_ids"] = view["decisions"]["unresolved_branch_ids"]
         else:
             view["question_review"] = question_review_state(workspace, questionnaire)
             if view["question_review"]["required"] and not view["question_review"]["passed"]:
@@ -724,6 +739,40 @@ def without_presentation(question):
     return value
 
 
+def validate_decision_conversion(expected, incoming):
+    """Only display wording may differ from the current decision list's questionnaire."""
+    def fields(original, edited, excluded, location):
+        for key in sorted((original.keys() | edited.keys()) - excluded):
+            require(key in original and key in edited
+                    and json.dumps(original[key], sort_keys=True) == json.dumps(edited[key], sort_keys=True),
+                    f"Conversion changes {location}.{key}. Edit the decision list and export again to change a decision.",
+                    "decision_conversion_mismatch", 409)
+
+    def rows(original, edited, location):
+        ids = [row["id"] for row in original]
+        require(isinstance(edited, list) and all(isinstance(row, dict) for row in edited)
+                and [row.get("id") for row in edited] == ids,
+                f"Conversion must preserve the IDs and order of {location}: {', '.join(ids)}.",
+                "decision_conversion_mismatch", 409)
+        return zip(original, edited)
+
+    fields(expected, incoming, {"locale", "groups", "questions"}, "questionnaire")
+    for original, edited in rows(expected["groups"], incoming.get("groups"), "groups"):
+        fields(original, edited, {"label"}, f"group {original['id']}")
+    for original, edited in rows(expected["questions"], incoming.get("questions"), "questions"):
+        location = f"question {original['id']}"
+        display = {"title", "help", "placeholder"}
+        if "options" in original:
+            for option, edit in rows(original["options"], edited.get("options"), f"{location}.options"):
+                fields(option, edit, {"label", "description"}, f"{location}.options[{option['id']}]")
+                require("description" not in edit or isinstance(edit["description"], str),
+                        f"Option description must be text in {location}.")
+            display.add("options")
+        fields(original, edited, display, location)
+        for key in ("help", "placeholder"):
+            require(key not in edited or isinstance(edited[key], str), f"{location}.{key} must be text.")
+
+
 def set_questions(workspace, incoming, *, presentation_only=None, rebind_project=False, from_decisions=False):
     """Import questions, with explicit opt-ins for cosmetic edits and new-run fixtures."""
     require(type(rebind_project) is bool, "rebind_project must be boolean.")
@@ -766,11 +815,19 @@ def set_questions(workspace, incoming, *, presentation_only=None, rebind_project
             require(decision_list_in_use(root, previous) and data.get("mode") == "questionnaire",
                     "--from-decisions converts a Full Auto decision list into a questionnaire run; use the exported skeleton.",
                     "not_a_decision_conversion", 409)
-            require_convertible_decisions(read_json(root / DECISIONS_FILE))
+            decisions = read_json(root / DECISIONS_FILE)
+            mapped = validate_decisions(decisions, previous, root)["mapped"]
+            require_convertible_decisions(decisions)
+            data.setdefault("locale", mapped["locale"])
+            validate_decision_conversion({**mapped, "mode": "questionnaire"}, data)
             previous = {**previous, "mode": "questionnaire"}
         require(data.get("mode") == previous["mode"],
                 f"Authored questions must preserve the run mode: this run is {previous['mode']!r}, the file has {data.get('mode')!r}. "
                 "Omit mode to use the run's value.", "mode_mismatch")
+        if not from_decisions:
+            require(not decision_list_in_use(root, previous),
+                    "This run uses decisions.json. Export its skeleton and import it with --from-decisions.",
+                    "decision_list_in_use", 409)
         if "locale" not in data and "locale" in previous:
             data["locale"] = copy.deepcopy(previous["locale"])
         require(data.get("revision") == previous["revision"],
@@ -843,7 +900,10 @@ def set_questions(workspace, incoming, *, presentation_only=None, rebind_project
             if states[qid] != "active":
                 archive(answers, qid, "question_not_active")
         validate_answers(data, answers)
-        commit_workspace(root, data, answers)
+        workflow_records = None
+        if from_decisions:
+            workflow_records = {"review-policy.json": {"schema_version": 1, "run_id": data["run_id"], "required": True}}
+        commit_workspace(root, data, answers, workflow_records=workflow_records)
         view = make_view(data, answers)
         view["change_summary"] = {"presentation_only": sorted(cosmetic_updates), "revised": sorted(updated),
                                   "added": sorted(added), "removed": sorted(removed),
@@ -1033,6 +1093,8 @@ def recommend(workspace):
             rec = candidate["recommendation"]
             record = {"status": "answered", "actor": "ai", "value": rec["value"], "rationale": rec["rationale"],
                       "question_version": candidate["version"], "assumptions": rec.get("assumptions", [])}
+            if "branch_value" in rec:
+                record.update(branch_value=rec["branch_value"], branch_rationale=rec["branch_rationale"])
             pending = answers.get("pending_inputs", {}).get(candidate["id"])
             if pending:
                 record["user_selected"] = copy.deepcopy(pending["selected"])
@@ -1079,8 +1141,15 @@ def workflow_position(questionnaire, answers):
             "revision": questionnaire["revision"], "answer_revision": answers["answer_revision"]}
 
 
-def workflow_status(root, questionnaire, answers):
+def checkpoint_position(root, questionnaire, answers):
     position = workflow_position(questionnaire, answers)
+    if decision_list_in_use(root, questionnaire):
+        position["decisions_sha256"] = json_digest(read_json(Path(root) / DECISIONS_FILE))
+    return position
+
+
+def workflow_status(root, questionnaire, answers):
+    position = checkpoint_position(root, questionnaire, answers)
     progress_path = Path(root) / "progress.json"
     progress = read_json(progress_path) if progress_path.exists() else None
     if progress is not None:
@@ -1106,7 +1175,7 @@ def checkpoint(workspace, stage, summary, next_action, remaining=None, *, revisi
         questionnaire, answers = load_workspace(workspace)
         require(revision == questionnaire["revision"] and answer_revision == answers["answer_revision"],
                 "Checkpoint revisions must match the state actually inspected.", "stale_checkpoint", 409)
-        record = {**workflow_position(questionnaire, answers), "stage": stage, "summary": summary,
+        record = {**checkpoint_position(workspace, questionnaire, answers), "stage": stage, "summary": summary,
                   "next_action": next_action, "remaining": remaining or [], "at": timestamp()}
         previous_path = Path(workspace) / "progress.json"
         if previous_path.exists():
@@ -1130,9 +1199,13 @@ def reset_answers(workspace):
         return make_view(questionnaire, answers)
 
 
-def questionnaire_digest(questionnaire):
-    encoded = json.dumps(questionnaire, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+def json_digest(value):
+    encoded = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def questionnaire_digest(questionnaire):
+    return json_digest(questionnaire)
 
 
 class QuestionnaireHTMLParser(HTMLParser):
@@ -1663,6 +1736,10 @@ def decisions_to_questionnaire(decisions, questionnaire, *, mode=None):
             nonempty(item.get("reason"), f"Reason for decision {qid}")
             question["recommendation"] = {"value": item["choice"], "rationale": item["reason"],
                                           "assumptions": item.get("assumptions", [])}
+        for key in ("branch_value", "branch_rationale"):
+            if key in item:
+                require("recommendation" in question, f"Branch interpretation for {qid} needs a custom choice.")
+                question["recommendation"][key] = item[key]
         questions.append(question)
     return {"schema_version": SCHEMA_VERSION, "project_id": questionnaire["project_id"], "run_id": questionnaire["run_id"],
             "revision": questionnaire["revision"], "goal": questionnaire["goal"], "mode": mode or questionnaire["mode"],
@@ -1706,19 +1783,22 @@ def validate_decisions(decisions, questionnaire, workspace=None):
     answers = blank_answers(mapped)
     for question in mapped["questions"]:
         if question.get("recommendation"):
-            answers["answers"][question["id"]] = {"status": "answered", "value": question["recommendation"]["value"]}
-    states = states_for(mapped, answers)
+            answers["answers"][question["id"]] = {**question["recommendation"], "status": "answered"}
+    view = make_view(mapped, answers)
+    states = view["states"]
     unchosen = sorted(qid for qid, state in states.items() if state == "active" and qid not in answers["answers"])
+    waiting = sorted(qid for qid, state in states.items() if state == "waiting")
     pending_checks = [name for name in DECISION_CHECKS if statuses[name] == "pending"]
     failing_checks = [name for name in DECISION_CHECKS if statuses[name] == "needs-revision"]
     notes = []
     if revisions > FULL_AUTO_REVISION_CAP:
         notes.append(f"Recorded {revisions} revisions; Full Auto allows {FULL_AUTO_REVISION_CAP}. "
                      "Record remaining concerns as known limits instead of revising again.")
-    return {"ready": not (unchosen or pending_checks or failing_checks),
-            "counts": {"decisions": len(states), "active": sum(s == "active" for s in states.values()),
-                       "inactive": sum(s == "inactive" for s in states.values())},
+    return {"ready": not (unchosen or waiting or pending_checks or failing_checks),
+            "counts": {"decisions": len(states), "active": view["counts"]["active"],
+                       "inactive": view["counts"]["inactive"], "waiting": len(waiting)},
             "requirements": len(requirements), "unchosen_ids": unchosen, "pending_checks": pending_checks,
+            "waiting_ids": waiting, "unresolved_branch_ids": view["unresolved_branch_ids"],
             "failing_checks": failing_checks, "reviewer": check["reviewer"], "revisions": revisions,
             "known_limits": limits, "notes": notes, "states": states, "mapped": mapped}
 
@@ -1803,48 +1883,45 @@ def source_lines(sources):
     return lines
 
 
-def build_decision_brief(workspace):
-    root = Path(workspace)
-    with workspace_lock(root):
-        recover_workspace(root)
-        questionnaire, _ = load_workspace(root)
-        decisions = read_json(root / DECISIONS_FILE)
-        state = validate_decisions(decisions, questionnaire, root)
-        require(state["ready"], "Choose every active decision and complete the decision check before creating a build brief.",
-                "not_ready", 409)
-        mapped, check = state["mapped"], decisions["check"]
-        lines = ["# Skill build brief", "", f"Project: {questionnaire['project_id']}", f"Run identity: {questionnaire['run_id']}",
-                 "Mode: Full Auto decision list", "", "## Goal", "", questionnaire["goal"], "", "## Fixed requirements", ""]
-        lines += [f"- {r['id']}: {r['statement']} (basis: {r['basis']})" for r in decisions.get("requirements", [])] \
-            or ["- None recorded beyond the goal."]
-        lines += ["", "## Active decisions", ""]
-        if not mapped["questions"]:
-            lines += ["The fixed requirements specify the build in full.", ""]
-        ai_decisions = []
-        for q in mapped["questions"]:
-            if state["states"][q["id"]] != "active":
-                continue
-            ai_decisions.append(q["id"])
-            rec = q["recommendation"]
-            value = rec["value"]
-            selected = value["selected"] if isinstance(value, dict) else value if isinstance(value, list) else [value]
-            lines += [f"### {q['id']} — {q['title']}", "", f"Decision: {q['decision']}", "Choice: " + json.dumps(value, ensure_ascii=False)]
-            if isinstance(value, dict):
-                lines.append("Custom direction: " + value["other"])
-            for option in q.get("options", []):
-                lines.append(f"- ({'chosen' if option['id'] in selected else 'considered'}) {option['label']}: {option['effect']}")
-            lines.append("Reason: " + rec["rationale"])
-            for assumption in rec.get("assumptions", []):
-                lines.append("Assumption to retain or verify: " + assumption)
-            lines += [f"Origin: {q['origin']}; sources: {', '.join(q.get('source_ids', [])) or 'none'}", ""]
-        lines += ["## Decision check", "", f"Reviewer: {check['reviewer']}; revisions: {state['revisions']}"]
-        lines += [f"- {name}: {check[name]['reason']}" for name in DECISION_CHECKS]
-        lines += ["", "Known limits to report:"] + ([f"- {limit}" for limit in state["known_limits"]] or ["- None recorded."])
-        lines += ["", "## Source record", ""] + source_lines(mapped["sources"])
-        lines += build_guidance(ai_decisions)
-        path = root / "build-brief.md"
-        atomic_text(path, "\n".join(lines))
-    return {"event": "brief_created", "path": str(path.resolve())}
+def decision_brief_lines(root, questionnaire):
+    decisions = read_json(root / DECISIONS_FILE)
+    state = validate_decisions(decisions, questionnaire, root)
+    require(state["ready"], "Choose every active decision, resolve waiting branches and complete the decision check before creating a build brief.",
+            "not_ready", 409)
+    mapped, check = state["mapped"], decisions["check"]
+    lines = ["# Skill build brief", "", f"Project: {questionnaire['project_id']}", f"Run identity: {questionnaire['run_id']}",
+             "Mode: Full Auto decision list", "", "## Goal", "", questionnaire["goal"], "", "## Fixed requirements", ""]
+    lines += [f"- {r['id']}: {r['statement']} (basis: {r['basis']})" for r in decisions.get("requirements", [])] \
+        or ["- None recorded beyond the goal."]
+    lines += ["", "## Active decisions", ""]
+    if not mapped["questions"]:
+        lines += ["The fixed requirements specify the build in full.", ""]
+    ai_decisions = []
+    for q in mapped["questions"]:
+        if state["states"][q["id"]] != "active":
+            continue
+        ai_decisions.append(q["id"])
+        rec = q["recommendation"]
+        value = rec["value"]
+        selected = value["selected"] if isinstance(value, dict) else value if isinstance(value, list) else [value]
+        lines += [f"### {q['id']} — {q['title']}", "", f"Decision: {q['decision']}", "Choice: " + json.dumps(value, ensure_ascii=False)]
+        if isinstance(value, dict):
+            lines.append("Custom direction: " + value["other"])
+        if "branch_value" in rec:
+            lines.append("Branch interpretation: " + json.dumps(rec["branch_value"], ensure_ascii=False))
+            lines.append("Branch rationale: " + rec["branch_rationale"])
+        for option in q.get("options", []):
+            lines.append(f"- ({'chosen' if option['id'] in selected else 'considered'}) {option['label']}: {option['effect']}")
+        lines.append("Reason: " + rec["rationale"])
+        for assumption in rec.get("assumptions", []):
+            lines.append("Assumption to retain or verify: " + assumption)
+        lines += [f"Origin: {q['origin']}; sources: {', '.join(q.get('source_ids', [])) or 'none'}", ""]
+    lines += ["## Decision check", "", f"Reviewer: {check['reviewer']}; revisions: {state['revisions']}"]
+    lines += [f"- {name}: {check[name]['reason']}" for name in DECISION_CHECKS]
+    lines += ["", "Known limits to report:"] + ([f"- {limit}" for limit in state["known_limits"]] or ["- None recorded."])
+    lines += ["", "## Source record", ""] + source_lines(mapped["sources"])
+    lines += build_guidance(ai_decisions)
+    return lines
 
 
 def questionnaire_requirement_lines(workspace, review_state):
@@ -1863,10 +1940,7 @@ def questionnaire_requirement_lines(workspace, review_state):
     return lines or ["- None recorded beyond the goal."]
 
 
-def build_brief(workspace):
-    if decision_list_in_use(workspace):
-        return build_decision_brief(workspace)
-    view = status(workspace, True)
+def questionnaire_brief_lines(workspace, view):
     require(view["ready_to_build"], "Resolve all active unanswered questions and custom-answer branches before creating a build brief.", "not_ready", 409)
     questionnaire, envelope = view["questionnaire"], view["answers"]
     lines = ["# Skill build brief", "", f"Project: {questionnaire['project_id']}", f"Run identity: {questionnaire['run_id']}",
@@ -1909,8 +1983,23 @@ def build_brief(workspace):
         lines += [f"- {source['id']}: {source['title']} ({source['status']}, {source.get('accessed_at', 'not verified')})",
                   "  " + source.get("url", source.get("path", "User-provided material")), "  " + source["notes"]]
     lines += build_guidance(ai_decisions)
-    path = Path(workspace) / "build-brief.md"
-    atomic_text(path, "\n".join(lines))
+    return lines
+
+
+def build_brief(workspace):
+    root = Path(workspace)
+    with workspace_lock(root):
+        recover_workspace(root)
+        questionnaire, answers = load_workspace(root)
+        if decision_list_in_use(root, questionnaire):
+            lines = decision_brief_lines(root, questionnaire)
+        else:
+            review = require_question_review(root, questionnaire)
+            view = make_view(questionnaire, answers)
+            view["question_review"] = review
+            lines = questionnaire_brief_lines(root, view)
+        path = root / "build-brief.md"
+        atomic_text(path, "\n".join(lines))
     return {"event": "brief_created", "path": str(path.resolve())}
 
 

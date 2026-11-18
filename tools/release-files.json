@@ -64,6 +64,8 @@
     "examples/weekly-update-questionnaire.json",
     "tests/form_harness.mjs",
     "tests/test_backend.py",
+    "tests/test_browser_roundtrip.mjs",
+    "tests/test_decision_conversion.py",
     "tests/test_delegation.py",
     "tests/test_evaluation.py",
     "tests/test_example.py",

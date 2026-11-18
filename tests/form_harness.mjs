@@ -109,7 +109,10 @@ export function setup(boot = makeBoot(), storage = new Map()) {
   class TextArea extends Element {
     constructor() { super('textarea'); }
     get value() { return this._value || ''; }
-    set value(value) { if (value !== this._value) { this._value = String(value); this.selectionStart = this.selectionEnd = this._value.length; } }
+    set value(value) {
+      const normalized = String(value).replace(/\r\n?/g, '\n');
+      if (normalized !== this._value) { this._value = normalized; this.selectionStart = this.selectionEnd = normalized.length; }
+    }
   }
   const ids = new Map();
   document = {

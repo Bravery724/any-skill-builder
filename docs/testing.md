@@ -1,6 +1,6 @@
 # Testing
 
-Run these commands from the repository root. Runtime and Python tests use the standard library. Form tests use Node's built-in test runner and modules; no package installation or browser download is required.
+Run these commands from the repository root. The runtime and Python tests use the standard library. The form state tests below use Node's built-in test runner and modules.
 
 ```sh
 python -B -m unittest discover -s tests -p "test_*.py"
@@ -12,6 +12,8 @@ python -B tools/check_example.py
 Use Python 3.10+ and Node.js 22+ with the built-in test runner and `Blob`. Prefer a maintained Python 3.13+ release for new installations while retaining a separate minimum-version check.
 
 Python tests use temporary directories. Set `SKILL_BUILDER_TEST_TMPDIR` to an existing writable parent outside the repository and user runs if another drive is preferred. The JavaScript harness does not launch a browser.
+
+The Ubuntu / Python 3.13 CI job also opens the generated HTML offline in installed Google Chrome. It compares saving immediately, moving focus with Tab, and editing before saving. Each case imports the downloaded HTML through the CLI and checks answer authorship, rationale, branch interpretation, and the dependent human answer. To run it locally with Chrome installed, make `playwright-core@1.62.1` available to Node (an existing installation on `NODE_PATH` works), then run `node --test tests/test_browser_roundtrip.mjs`.
 
 ## Runtime and form coverage
 

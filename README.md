@@ -24,7 +24,7 @@ This 82-second narrated walkthrough follows a packing-list skill that checks ite
 
 Use an agent that can load Agent Skills, read and write local files, and run Python 3.10 or later. The Python helper uses the standard library. The builder uses your host agent's model and research tools, so it needs no separate API key.
 
-From your project directory, install v0.5.4 with the Skills CLI (Node.js 22.20+).
+From your project directory, install v0.5.4 with the Skills CLI (Node.js 22.20+). To use the latest questionnaire and Full Auto fixes on `main`, replace `@v0.5.4` with `@main`. [Changes since v0.5.4](CHANGELOG.md#unreleased)
 
 ```sh
 npx skills add Bravery724/any-skill-builder@v0.5.4 --skill any-skill-builder

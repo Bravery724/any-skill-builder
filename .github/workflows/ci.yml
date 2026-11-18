@@ -41,6 +41,14 @@ jobs:
         run: python -B -m unittest discover -s tests -p "test_*.py"
       - name: Run form state and composition checks
         run: node --test tests/test_form.mjs tests/test_form_notes.mjs tests/test_form_actions.mjs
+      - name: Test the offline HTML download and CLI import in Chrome
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.13'
+        env:
+          NODE_PATH: ${{ runner.temp }}/form-browser/node_modules
+          SKILL_BUILDER_TEST_TMPDIR: ${{ runner.temp }}
+        run: |
+          npm install --prefix "$RUNNER_TEMP/form-browser" --ignore-scripts --no-audit --no-fund playwright-core@1.62.1
+          node --test tests/test_browser_roundtrip.mjs
       - name: Check release inputs
         run: python -B tools/check_release.py
       - name: Verify public example evidence and reports

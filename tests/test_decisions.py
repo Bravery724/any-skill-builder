@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 REPOSITORY = Path(__file__).resolve().parents[1]
 SCRIPTS = REPOSITORY / "any-skill-builder/scripts"
@@ -87,7 +88,7 @@ class DecisionListTests(unittest.TestCase):
     def test_checked_decision_list_builds_a_brief_without_a_question_review(self):
         result = self.record(decision_list())
         self.assertTrue(result["ready_to_build"])
-        self.assertEqual(result["decisions"]["counts"], {"decisions": 3, "active": 3, "inactive": 0})
+        self.assertEqual(result["decisions"]["counts"], {"decisions": 3, "active": 3, "inactive": 0, "waiting": 0})
         self.assertEqual(result["question_review"]["status"], "not_applicable")
         status = self.cli("status")
         self.assertTrue(status["ready_to_build"])
@@ -130,7 +131,7 @@ class DecisionListTests(unittest.TestCase):
         spec["check"] = checked
         self.assertTrue(self.record(spec)["ready_to_build"])
         status = self.cli("status")
-        self.assertEqual(status["decisions"]["counts"], {"decisions": 0, "active": 0, "inactive": 0})
+        self.assertEqual(status["decisions"]["counts"], {"decisions": 0, "active": 0, "inactive": 0, "waiting": 0})
         self.assertEqual(status["decisions"]["requirements"], 3)
         self.cli("checkpoint", "--stage", 5, "--summary", "Checked the fixed requirements", "--next-action", "Build and evaluate",
                  "--revision", status["revision"], "--answer-revision", status["answer_revision"])
@@ -168,6 +169,45 @@ class DecisionListTests(unittest.TestCase):
         self.assertNotIn("body-style", brief)
         self.assertIn("AI decisions to review together: empty-staging, body", brief.splitlines())
 
+    def test_conversion_before_brief_lock_uses_the_new_questionnaire_review(self):
+        self.record(decision_list())
+        skeleton = self.parent / "skeleton.json"
+        self.cli("decisions-to-questions", "--skeleton", skeleton)
+        real_lock = core.workspace_lock
+
+        def convert_before_lock(workspace):
+            self.cli("set-questions", "--from-decisions", "--input", skeleton)
+            return real_lock(workspace)
+
+        with patch.object(core, "workspace_lock", side_effect=convert_before_lock):
+            with self.assertRaises(core.BuilderError) as error:
+                core.build_brief(self.root)
+        self.assertEqual(error.exception.code, "question_review_required")
+        self.assertFalse((self.root / "build-brief.md").exists())
+
+    def test_checkpoint_tracks_decision_content_across_reimports(self):
+        data = decision_list()
+        self.record(data)
+        status = self.cli("status")
+        flags = ("--stage", 3, "--summary", "Checked the decisions", "--next-action", "Prepare the brief",
+                 "--revision", status["revision"], "--answer-revision", status["answer_revision"])
+        self.cli("checkpoint", *flags)
+        self.record(dict(reversed(data.items())))
+        self.assertTrue(self.cli("status", "--json")["workflow"]["progress"]["current"])
+        data["decisions"][1]["choice"] = "subject-only"
+        self.record(data)
+        progress = self.cli("status", "--json")["workflow"]["progress"]
+        self.assertFalse(progress["current"])
+        self.assertEqual(progress["record"]["summary"], "Checked the decisions")
+        checkpoint = self.cli("checkpoint", *flags)["checkpoint"]
+        self.assertEqual(len(checkpoint["history"]), 1)
+        self.assertTrue(self.cli("status", "--json")["workflow"]["progress"]["current"])
+        del checkpoint["decisions_sha256"]
+        core.atomic_json(self.root / "progress.json", checkpoint)
+        legacy = self.cli("status", "--json")["workflow"]["progress"]
+        self.assertFalse(legacy["current"])
+        self.assertEqual(legacy["record"], checkpoint)
+
     def test_invalid_decisions_are_rejected_without_replacing_the_stored_list(self):
         self.record(decision_list())
         stored = (self.root / "decisions.json").read_bytes()
@@ -191,6 +231,75 @@ class DecisionListTests(unittest.TestCase):
                 mutate(decisions)
                 self.record(decisions, expected=2)
                 self.assertEqual((self.root / "decisions.json").read_bytes(), stored)
+
+    def test_custom_choice_blocks_brief_until_its_dependents_are_resolved(self):
+        data = decision_list()
+        parent, child = data["decisions"][1:]
+        parent["choice"] = {"other": "Include a short body for breaking changes only", "selected": []}
+        data["decisions"].append({**child, "id": "body-example", "when": [
+            {"question_id": child["id"], "equals": child["choice"]}]})
+        recorded = self.record(data)
+        for response in (recorded, self.cli("status"), self.cli("status", "--json")):
+            self.assertFalse(response["ready_to_build"])
+            self.assertEqual(response["decisions"]["counts"]["waiting"], 2)
+            self.assertEqual(response["decisions"]["waiting_ids"], ["body-example", "body-style"])
+            self.assertEqual(response["decisions"]["unresolved_branch_ids"], ["body"])
+        self.assertEqual(self.cli("brief", expected=2)["error"], "not_ready")
+        self.assertFalse((self.root / "build-brief.md").exists())
+
+        for interpretation, rationale in (("with-body", "The conditional body still needs a writing style."),
+                                          (None, "The custom rule defines its own style.")):
+            with self.subTest(interpretation=interpretation):
+                parent.update(branch_value=interpretation, branch_rationale=rationale)
+                self.assertTrue(self.record(data)["ready_to_build"])
+                self.assertEqual(self.cli("status")["decisions"]["waiting_ids"], [])
+                self.cli("brief")
+                brief = (self.root / "build-brief.md").read_text(encoding="utf-8")
+                self.assertIn("Custom direction: " + parent["choice"]["other"], brief)
+                self.assertIn("Branch interpretation: " + json.dumps(interpretation), brief)
+                self.assertIn("Branch rationale: " + rationale, brief)
+                for qid in ("body-style", "body-example"):
+                    self.assertEqual("### " + qid in brief, interpretation == "with-body")
+
+    def test_explicit_multi_selection_resolves_its_branch_without_classifying_custom_text(self):
+        data = decision_list()
+        first, multi, child = data["decisions"]
+        first["choice"] = {"other": "Report an empty staging area", "selected": []}
+        multi.update(type="multi", choice={"other": "Also include a change type", "selected": ["with-body"]})
+        child["when"] = [{"question_id": multi["id"], "includes": "with-body"},
+                         {"question_id": first["id"], "equals": "stop"}]
+        state = self.record(data)["decisions"]
+        self.assertEqual(state["waiting_ids"], ["body-style"])
+        self.assertEqual(state["unresolved_branch_ids"], [first["id"]])
+
+        first.update(branch_value="stop", branch_rationale="Both choices stop after reporting the condition.")
+        self.assertTrue(self.record(data)["ready_to_build"])
+        child["when"][0]["includes"] = "subject-only"
+        self.assertEqual(self.record(data)["decisions"]["unresolved_branch_ids"], [multi["id"]])
+        multi.update(branch_value=["subject-only"], branch_rationale="The change type also applies to a subject.")
+        self.record(data, expected=2)
+        multi["branch_value"].append("with-body")
+        self.assertTrue(self.record(data)["ready_to_build"])
+        self.cli("brief")
+        brief = (self.root / "build-brief.md").read_text(encoding="utf-8")
+        self.assertIn("### body-style", brief)
+        self.assertIn("Custom direction: " + multi["choice"]["other"], brief)
+
+    def test_invalid_interpretation_rejects_the_update_atomically(self):
+        data = decision_list()
+        self.record(data)
+        saved = (self.root / "decisions.json").read_bytes()
+        custom = {"other": "A short body for breaking changes", "selected": []}
+        for fields in ({"branch_value": None, "branch_rationale": "Ordinary choice."},
+                       {"choice": None, "branch_value": None, "branch_rationale": "No choice."},
+                       {"choice": custom, "branch_rationale": "Missing classification."},
+                       {"choice": custom, "branch_value": None},
+                       {"choice": custom, "branch_value": "alien", "branch_rationale": "Unknown option."}):
+            with self.subTest(fields=fields):
+                changed = copy.deepcopy(data)
+                changed["decisions"][1].update(fields)
+                self.record(changed, expected=2)
+                self.assertEqual((self.root / "decisions.json").read_bytes(), saved)
 
     def test_extra_revisions_are_noted_but_do_not_block(self):
         decisions = decision_list()
@@ -243,9 +352,9 @@ class DecisionListTests(unittest.TestCase):
         self.assertTrue((self.root / "decisions.json").exists())
         self.assertEqual(self.cli("set-decisions", "--input", self.write(decisions), expected=2)["error"], "mode_mismatch")
 
-    def converted_review(self):
+    def converted_review(self, decisions=None):
         """Convert the decision list to a questionnaire and return a passing synthetic review of it."""
-        self.record(decision_list())
+        self.record(decision_list() if decisions is None else decisions)
         skeleton = self.parent / "skeleton.json"
         self.cli("decisions-to-questions", "--skeleton", skeleton)
         self.cli("set-questions", "--input", skeleton, "--from-decisions")
@@ -285,6 +394,50 @@ class DecisionListTests(unittest.TestCase):
         self.assertIn("## Fixed requirements", brief)
         self.assertIn("- staged-only: Write the message from staged changes only (basis: user, user request)", brief)
         self.assertEqual(brief.count("staged-only:"), 1)
+
+    def test_converted_custom_recommendation_applies_its_interpretation_only_to_the_ai_choice(self):
+        data = decision_list()
+        custom = {"other": "Add a short body for breaking changes", "selected": []}
+        rationale = "Breaking changes need the body style."
+        data["decisions"][1].update(choice=custom, branch_value="with-body", branch_rationale=rationale)
+        review = self.converted_review(data)
+        review["combinations"][0]["answers"][1]["value"] = custom
+        different_branch = copy.deepcopy(review)
+        combination = different_branch["combinations"][0]
+        combination["answers"][1].update(branch_value=None, branch_rationale="Assumes no body style applies.")
+        combination["answers"].pop()
+        combination["inapplicable_question_ids"] = ["body-style"]
+        self.assertEqual(self.cli("accept-review", "--input", self.write(different_branch), expected=2)["error"],
+                         "question_review_incomplete")
+        brief = self.brief_after(review)
+        self.assertIn("Branch rationale: " + rationale, brief)
+        self.assertIn("### body-style", brief)
+        self.cli("answer", "--question", "body", "--value-file", self.write({"other": "Use a footer", "selected": []}))
+        self.cli("recommend")
+        state = self.cli("status", "--json")
+        self.assertEqual(state["unresolved_branch_ids"], ["body"])
+        self.assertFalse(state["ready_to_build"])
+        self.assertEqual(state["answers"]["answers"]["body"]["value"]["other"], "Use a footer")
+        self.assertNotIn("branch_value", state["answers"]["answers"]["body"])
+
+    def test_requirement_ids_colliding_with_the_review_goal_all_reach_the_brief(self):
+        data = decision_list()
+        data["requirements"] = [
+            {"id": "decision-goal", "statement": "Keep A", "basis": "user request"},
+            {"id": "goal", "statement": "Keep B", "basis": "git-diff"},
+            {"id": "decision-goal-2", "statement": "Keep C", "basis": "user request"},
+        ]
+        review = self.converted_review(data)
+        carried = review["requirements"][1:]
+        self.assertEqual([r["statement"] for r in carried], ["Keep A", "Keep B", "Keep C"])
+        ids = ["goal", "decision-goal", "decision-goal-3", "decision-goal-2"]
+        self.assertEqual([r["id"] for r in review["requirements"]], ids)
+        self.assertEqual(carried[1]["basis"]["reference"], "git-diff")
+        for row in review["question_reviews"] + review["combinations"]:
+            self.assertEqual(row["requirement_ids"], ids)
+        brief = self.brief_after(review)
+        for requirement in carried:
+            self.assertIn(f"- {requirement['id']}: {requirement['statement']} (basis:", brief)
 
     def test_requirement_released_in_the_review_stays_out_of_the_brief(self):
         review = self.converted_review()

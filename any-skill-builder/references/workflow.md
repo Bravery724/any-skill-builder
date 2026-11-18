@@ -33,7 +33,7 @@ python -B SCRIPT status --workspace RUN
 python -B SCRIPT brief --workspace RUN
 ```
 
-`set-decisions` validates the list with the same structural rules as questions (IDs, sources, option counts, value shapes, conditions) and stores it as `RUN/decisions.json`. It reports `ready_to_build` when every active decision has a choice and the three checks pass. A failing or pending check, or an active decision without a choice, blocks `brief`. Recording a corrected list replaces the previous file; there is no SHA-bound review to redo. The check allows one revision; record anything still open in `known_limits`.
+`set-decisions` validates IDs, sources, options, values, and conditions and stores the list as `RUN/decisions.json`. The run is ready for `brief` when every active decision has a choice, every conditional decision is resolved, and all three checks pass. If `decisions.waiting_ids` lists a dependent decision, use `decisions.unchosen_ids` and `decisions.unresolved_branch_ids` to find its missing choice or custom interpretation. Record the updated list with `set-decisions`. The check allows one revision. Record anything still open in `known_limits`.
 
 Do not run `render`, `recommend`, or the question-review commands for a decision-list run. Briefly explain the consequential decisions and assumptions in chat, then build without an additional blanket approval request.
 
@@ -46,7 +46,13 @@ python -B SCRIPT decisions-to-questions --workspace RUN --skeleton NEW_SKELETON_
 python -B SCRIPT set-questions --workspace RUN --input EDITED_SKELETON_JSON --from-decisions
 ```
 
-The skeleton carries every decision as a question: `question` becomes the title, `affects` the decision, option tradeoffs the effects, and the choice, reason, and assumptions the recommendation. Fixed requirements are printed, and the review template from `prepare` already lists them; keep them there. Add only display text (help, option descriptions where the effect is unclear, group labels) in the conversation's language. Ask a new question only when the user wants to choose something the list recorded as fixed by the request. `--from-decisions` switches the run to questionnaire mode and requires a question review; then follow the ordinary review and render steps below. `decisions.json` stays in the run as the record of the original choices.
+The skeleton maps each decision to a question. The decision's `question` becomes its title, `affects` describes the behavior, and each tradeoff becomes an option's effect. The recorded choice, reason, and assumptions become the recommendation. A recorded branch interpretation accompanies its custom recommendation. The user starts with a blank questionnaire.
+
+You can localize the form controls, group labels, question titles and option labels, and add help, placeholders or option descriptions. During review, compare the edited wording with the original question and tradeoffs in `decisions.json`. The importer checks stable IDs, ordering, effects, evidence, conditions, and recommendations. The reviewer checks that a translation still describes the choice attached to each ID.
+
+If you switch languages, translate the original tradeoffs and recommendation reasons with their meaning intact, record them with `set-decisions`, and export the skeleton again. The form shows those recorded texts alongside its translated labels.
+
+`set-questions --from-decisions` compares the import with the **current** decision list. If the underlying decision needs to change, update it with `set-decisions` and export a fresh skeleton. To reopen a fixed requirement at the user's request, record it as a decision before exporting. The conversion retains `decisions.json`, and `prepare` carries its fixed requirements into the review. Follow the questionnaire review and render steps below.
 
 ## Author and review questions
 
@@ -191,6 +197,8 @@ python -B SCRIPT checkpoint --workspace RUN --stage 4 --revision QUESTION_REVISI
 ```
 
 Add `--remaining "..."` for each known unfinished item. The seven stages are goal, research, question review, answers, build plan, implementation, and verification/delivery. Checkpoints describe observed work, not process liveness or a guarantee of quality.
+
+Full Auto checkpoints also record a digest of the decision list. After a change, `status --json` reports `workflow.progress.current` as false. Re-importing identical decisions preserves a matching checkpoint. Status still shows older Full Auto checkpoints that lack the digest, with `current` set to false. Read the current decisions and save a new checkpoint to confirm progress.
 
 ```text
 python -B SCRIPT brief --workspace RUN

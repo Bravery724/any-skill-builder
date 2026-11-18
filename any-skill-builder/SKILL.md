@@ -80,7 +80,7 @@ Then check the choices once and record the result in the file's `check`:
 
 Use a separate reviewer when one is available and record `separate`, `self`, or `unknown` as it actually was. Revise at most once: fix any choice that fails one of the three checks and put other remaining concerns in `known_limits`. For a vague or high-stakes request (money, legal or medical consequences, actions on the user's accounts), research more widely, prefer a separate reviewer, and mention in your opening line that the user can switch to the questionnaire.
 
-Run `set-decisions --workspace RUN --input FILE`. When it reports `ready_to_build`, run `brief`. Summarize the main choices and assumptions in chat, then continue straight into building and evaluation.
+Run `set-decisions --workspace RUN --input FILE`. If `decisions.unresolved_branch_ids` names a custom choice, keep its original text, record which option its conditions should follow in `branch_value`, and explain why in `branch_rationale`. Submit the list again. When it reports `ready_to_build`, run `brief`. Summarize the main choices and assumptions in chat, then continue straight into building and evaluation.
 
 If the user later wants to answer the questions themselves, convert instead of rewriting: `decisions-to-questions --workspace RUN --skeleton FILE` produces a questionnaire with the same questions, options, choices (as recommendations), reasons, and sources. Add display text only (help, descriptions, group labels), import it with `set-questions --from-decisions`, then review and render as in Questionnaire mode. Older Full Auto runs that already have `questions.json` continue with `recommend`.
 
@@ -98,7 +98,7 @@ Run `set-questions` and `validate`, then follow [references/question-review.md](
 
 Render to `RUN/questionnaire.html` and keep the returned path and run identity in the conversation. Deliver the file and say, in the user's language: answer what matters to you, choose **Save answers** on any page, then come back to chat; AI will decide the blanks.
 
-The bundled form shows the request, honest counts, grouped pages, a page picker, a Recommended badge, and a persistent Save answers button. Every choice question offers **Other — describe**. For image choices, put real candidate images in the run's `assets/` with their provenance before rendering; placeholders are not candidates.
+The form shows what each option changes, including on image cards. Every choice question offers **Other — describe**. For image choices, put real candidate images in the run's `assets/` with their provenance before rendering. Users can move between pages and save their answers from any page.
 
 Save answers downloads a new HTML file containing the answers; the browser chooses the folder and may rename it. There is no server or background connection, and a download does not mean anything was read. After delivering the form, stop until the user asks to continue.
 

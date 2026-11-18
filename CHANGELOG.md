@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Tabbing past a text or Other answer preserves its author, rationale and branch interpretation when the offline form is saved and imported. Editing the answer records the user's new choice.
+- Full Auto reports which decisions are waiting on a custom choice. Record the branch interpretation and its rationale to preserve the original choice and include the applicable decisions in the build brief.
+- Switching from Full Auto to Questionnaire checks the proposed form against the saved decisions. Authors can translate the form while keeping its choices, behavioral effects, recommendations and dependencies intact.
+- Single-choice, multiple-choice and image cards show the behavioral effect beside each option. Repeated wording is shown once.
+
 ## 0.5.4 — 2026-11-18
 
 - Full Auto and Questionnaire build briefs now identify active AI decisions to review together. The builder checks their combined effects against the user's explicit choices and records how it scoped any conflicting default.

@@ -217,10 +217,11 @@ Full Auto records its decisions in `RUN/decisions.json` instead of a questionnai
 | `decisions[].type` | `single` (default), `multi`, or `text`. Image choices need a questionnaire. |
 | `decisions[].options` | At least two genuinely considered alternatives for choice types, each with `id`, `label`, and `tradeoff`. `exclusive`, `min_choices`, and `max_choices` work as in questions. |
 | `decisions[].choice` | A value with the same shape as a questionnaire answer, including `{"other":"...","selected":[]}` for a direction outside the listed options. Required for every active decision. |
+| `decisions[].branch_value`, `branch_rationale` | For a custom choice, record which ordinary options apply to its conditions and explain why. Use one option ID or JSON `null` for single choice. For multi choice, use an array containing every explicitly selected ID and any additional matches. An empty array means no matches. Keep the original `choice` and `reason`. |
 | `decisions[].when` | Optional conditions on other decisions, as in questions. An inactive decision needs no choice. |
 | `check` | The single check. Each of the three items has `status` (`pending`, `pass`, `needs-revision`) and a `reason`. `revisions` counts revision rounds (Full Auto allows one). `known_limits` lists concerns left open, to report at delivery. |
 
-`set-decisions` reports `ready_to_build` only when every active decision has a choice and all three checks pass. A recorded `revisions` above one adds a note; it is not an error.
+`set-decisions` reports `ready_to_build` when every active decision has a choice, every conditional decision is resolved, and all three checks pass. In `set-decisions` and `status`, `decisions.waiting_ids` lists conditional decisions waiting on a parent. `decisions.unchosen_ids` identifies active decisions needing a choice. `decisions.unresolved_branch_ids` identifies active custom choices needing interpretation. The host can record the interpretation and reason in its decision list and run `set-decisions` again. An explicit multi selection already resolves an `includes` condition for that option. A custom choice needs no interpretation when it leaves no condition waiting. A recorded `revisions` above one adds a note.
 
 If the decision list is empty, conversion reports `no_questions_to_convert` and keeps the run in Full Auto. If the user reopens a choice, update the requirements and record the choice with `set-decisions` before converting.
 
@@ -232,6 +233,7 @@ The fields map one to one onto the questionnaire, so `decisions-to-questions` ca
 | `affects` | question `decision` |
 | `options[].tradeoff` | `options[].effect` |
 | `choice`, `reason`, `assumptions` | `recommendation.value`, `.rationale`, `.assumptions` |
+| `branch_value`, `branch_rationale` | Same fields on the recommendation. After conversion, `recommend` applies them when it fills that custom choice. User-entered custom answers keep their own interpretation. |
 | `id`, `type`, `importance`, `origin`, `source_ids`, `when`, `group_id`, `groups`, `sources` | same names |
 | `requirements` | printed by `decisions-to-questions` and copied into the question review's `requirements` by `prepare` |
 

@@ -22,6 +22,29 @@ test('Each choice question has Other, while a text question has one ordinary tex
   goto(env, 'other'); assert.ok(env.other('other'));
 });
 
+for (const type of ['single', 'multi', 'image']) {
+  test(`${type} choices show distinct descriptions and effects beside their controls as literal text`, t => {
+    const boot = makeBoot();
+    const q = boot.view.questionnaire.questions.find(item => item.id === (type === 'multi' ? 'gate' : 'other'));
+    q.type = type;
+    const detail = 'Optional appendix', effect = 'Adds a <strong>summary</strong> to the report.';
+    q.options = [
+      { id: 'a', label: 'Outline', description: detail, effect },
+      { id: 'b', label: 'Dashboard', description: ' Dashboard ', effect: 'Dashboard' },
+      { id: 'c', label: 'Memo', description: 'One page', effect: 'One  page' },
+      { id: 'd', label: 'List', effect },
+    ];
+    const env = envFor(t, boot); goto(env, q.id);
+    const label = id => env.input(q.id, id).closest('label');
+    assert.ok(label('a').textContent.includes(detail));
+    assert.ok(label('a').textContent.includes(effect));
+    assert.equal(label('a').querySelector('strong'), null);
+    assert.equal(label('b').textContent.trim(), 'Dashboard');
+    assert.equal(label('c').textContent.match(/One\s+page/g)?.length, 1);
+    assert.ok(label('d').textContent.includes(effect));
+  });
+}
+
 test('Clearing a selection empties its answer and invalidates dependent answers with history', t => {
   const env = envFor(t);
   env.api.clearAnswer('gate');
@@ -260,6 +283,36 @@ test('A recommendation remains an explicit user choice and does not auto-fill ot
   assert.equal(env.api.answers.answers.gate.actor, 'user');
   assert.equal(env.api.answers.answers.other.value, 'a');
 });
+
+for (const [branch, expectedState] of [['b', 'active'], [null, 'inactive']]) {
+  test(`Using a custom recommendation explicitly makes its dependent question ${expectedState}`, t => {
+    const boot = makeBoot();
+    const recommendation = { value: { other: 'A custom workflow', selected: [] }, rationale: 'Fits this task.',
+      branch_value: branch, branch_rationale: 'Applies the recorded classification.' };
+    boot.view.questionnaire.questions[2].recommendation = recommendation;
+    boot.view.questionnaire.questions[3].when = [{ question_id: 'other', equals: 'b' }];
+    delete boot.view.answers.answers.last;
+    const env = envFor(t, boot);
+    select(env.other('other'));
+    inputValue(env.textarea('other'), recommendation.value.other);
+    assert.equal(env.api.view.states.last, 'waiting');
+    assert.equal(env.api.answers.answers.other.branch_value, undefined);
+
+    env.card('other').querySelector('.evidence').querySelector('button').click();
+    const saved = env.api.snapshot();
+    assert.equal(saved.view.states.last, expectedState);
+    const answer = saved.view.answers.answers.other;
+    assert.equal(answer.actor, 'user');
+    assert.deepEqual(copy(answer.value), recommendation.value);
+    assert.equal(answer.branch_value, branch);
+    assert.equal(answer.branch_rationale, recommendation.branch_rationale);
+
+    inputValue(env.textarea('other'), 'A different workflow');
+    assert.equal(env.api.view.states.last, 'waiting');
+    assert.equal(env.api.answers.answers.other.branch_value, undefined);
+    assert.equal(env.api.answers.answers.other.branch_rationale, undefined);
+  });
+}
 
 test('Invalid embedded answer formats disable save rather than exporting a corrupt snapshot', t => {
   const boot = makeBoot(); boot.view.answers.answers.other.value = 'unknown-option';
