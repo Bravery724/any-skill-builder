@@ -123,12 +123,12 @@ def plan_change(run, key, identifier, *, plan=None, keep=(), keep_cases=()):
         "regression_cases": sorted(guard_cases), "retest_cases": sorted(rerun),
         "design_cases_missing_from_plan": sorted(missing), "coverage_notes": full_reasons + notes,
         "next_steps": [
-            "Snapshot the old runtime. Record the superseding rule through the current decisions or questionnaire workflow. "
-            "Check which conditional choices become active or obsolete, regenerate the brief, "
-            "and update the affected design behavior and runtime files.",
+            "Use skill_builder.py revise-rule --workspace RUN --prepare CHANGE.json with the changed ID. "
+            "Record the rule and its scoped feature/check edits, then use --input CHANGE.json --destination NEXT_RUN. "
+            "Continue in that successor workspace, resolve pending brief items and implement the affected runtime changes.",
             "Inspect the full runtime and suite for missing links before narrowing scope." if full_reasons else
             "Inspect callers, shared files, and co-occurring rules. Add cases for dependencies absent from the map.",
-            "Copy the working plan under a fresh name beside its inputs. Select the retest cases. If they cannot "
+            "Use the successor working plan with its inputs. Select the retest cases. If they cannot "
             "distinguish the new behavior from the old while preserving neighboring invariants, add a case that can. "
             "Change only criteria the new rule supersedes.",
             "For a generated local Python CLI, run run_cli_cases.py --plan NEW_PLAN --skill REVISED_RUNTIME "

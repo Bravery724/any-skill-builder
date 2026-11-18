@@ -26,7 +26,7 @@ When the work starts, tell the user in one or two lines what it involves and rou
 
 To improve an existing skill, read its instructions, resources, known failures, and intended use first. Keep working behavior as the baseline, decide only the material gaps, build the revision in a separate output folder, and keep the skill's name unless the user asks to rename it. Replace an installed original only after verification and with the user's agreement.
 
-For a single rule change in an existing run, start with `python -B scripts/plan_change.py --run RUN --requirement ID` (or `--question ID`). Use the returned files and cases to update the current decision and its implementation. Freeze the new expectation in a fresh iteration and exercise both the change and the behaviors it touches. See [references/build-and-evaluate.md](references/build-and-evaluate.md).
+When a user changes one rule in an existing run, use `skill_builder.py revise-rule` to carry the new choice into a successor workspace's build brief, design, and evaluation plan. Inspect the affected runtime files, implement the change, then verify both the new behavior and the choices that still apply. The [single-rule revision guide](references/build-and-evaluate.md#resume-after-one-rule-changes) covers preparation, application, and comparison with the previous runtime.
 
 ## Show progress
 
@@ -92,7 +92,7 @@ If the user later wants to answer the questions themselves, convert instead of r
 
 Write stable question IDs, groups, sources, conditions, option effects, and recommendations with reasons. Group related questions, ask prerequisites first, and use conditions for branches; the form handles pagination, so keep every important question. Mark important directions `importance: core`; the user is encouraged to answer those, and AI may still decide any blank.
 
-Review the questions for missing or redundant decisions, leading wording, several decisions hidden in one question, unfair alternatives, and options whose stated effects contradict each other. Treat each option's effect as a promise: fix a conflict in the options or conditions themselves, never only in review notes. Record adopted, merged, and dropped candidates with reasons in `RUN/question-review.md`.
+Before reviewing the draft questions, work through a representative input. Where two reasonable choices produce materially different results, identify the question that lets the user choose or the evidence that already settles it. Add a specific question for a consequential gap. If the input leaves no such choice, explain why. Check the resulting questions for redundancy, leading wording, combined decisions, and contradictory effects. Record adopted, merged, and dropped candidates with reasons in `RUN/question-review.md`.
 
 Run `set-questions` and `validate`, then follow [references/question-review.md](references/question-review.md) to prepare, complete, check, and accept the review. `render`, `recommend`, and `brief` require a current accepted review; any edit to `questions.json` makes it stale. Revise at most once after the first review. If findings remain, fix those about fixed requirements or private facts, mark the others `accepted` with a reason, and tell the user about them when you deliver the form.
 

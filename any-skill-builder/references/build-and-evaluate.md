@@ -88,7 +88,7 @@ When one feature implements several rules, add `requirement_ids` and `question_i
 
 ### Resume after one rule changes
 
-From the installed builder folder, run the read-only planner with the stable ID and any neighboring invariants the user singled out.
+Use the stable ID of the existing rule or answer. The read-only planner can include neighboring invariants the user singled out.
 
 ```text
 python -B scripts/plan_change.py --run RUN --requirement conflict --keep-requirement latest
@@ -99,7 +99,45 @@ Use `--keep-question ID` for a neighboring decision. Repeat the keep options as 
 
 Read the JSON as an edit and retest checklist. Inspect the named feature rules and files, the cases tracing the change, and the regression cases for other features sharing those files. Keep every criterion of a selected case, including its unaffected assertions. Feature-only links retain all cases whose coverage is uncertain. A missing or inconsistent inventory broadens the plan to the full suite. Reconcile unmatched IDs, newly active branches, public examples and unmapped dependencies against the actual runtime before narrowing. File sharing and declared IDs cannot establish semantic coverage.
 
-Snapshot the old runtime before editing. Update the authoritative rule using the run's [decision or questionnaire workflow](workflow.md), regenerate the brief, and fix the implementation and design mapping. Copy the working plan next to its inputs under a fresh name, preserve prior grades, and revise only the expectations superseded by the request. Include a case where the old and new rules yield different outputs and one showing the neighboring behavior still holds. One input can demonstrate both.
+From the installed builder folder, prepare one revision form. Use `--question ID` for a questionnaire answer or Full Auto choice. Use `--requirement ID` for a fixed requirement in the Full Auto list or the accepted questionnaire review.
+
+```text
+python -B scripts/skill_builder.py revise-rule --workspace RUN --requirement conflict --prepare CHANGE.json
+```
+
+Read the selected features and checks. The preparation output lists every working-plan case in `case_features`, with its current feature owners, and lists its checks in `checks`. Inspect the inputs and expectations of cases that exercise the rule, including cases whose links are missing. Put the user's new rule in the generated form once, identify its source in `basis`, and select exact clauses or expectations to change. Keep the generated target, plan path, and fingerprint. For example, these are the editable fields of a form for a cancellation rule.
+
+```json
+{
+  "rule": "At the greatest revision, a cancellation removes the ID from both output lists.",
+  "basis": "User's follow-up about same-revision cancellations",
+  "source_replace": "Send a cancellation tied with a reservation to review.",
+  "feature_edits": [
+    {"id": "merge", "replace": "Send a cancellation tied with a reservation to review.",
+     "add_evaluation_ids": ["cancellation"]}
+  ],
+  "check_edits": [
+    {"case": "handoff", "id": "status", "replace": "A tied cancellation sends the ID to review."},
+    {"case": "cancellation", "id": "result", "expected": {"ready": [], "review": []}}
+  ]
+}
+```
+
+- For a fixed requirement, `source_replace` replaces one exact clause and preserves the rest of the statement. Omit it to supersede the entire statement. For a questionnaire or Full Auto decision, text answers use the rule directly. Choice questions default to a custom answer, retaining existing multi-select options. Supply `value` for an explicit option ID or list. Use `branch_value` when a custom answer has a known branch interpretation.
+- Each feature edit replaces a unique clause. Use `append: true` where the feature lacks an explicit clause, or `keep: true` where a linked feature's existing behavior still applies. For a historical feature missing its rule tag, select the actual feature ID and verify its files and evaluation IDs. Apply records this explicit link.
+- When an existing case also exercises the affected feature, put its missing ID in that feature edit's `add_evaluation_ids`, then name its specific checks in `check_edits`. The example links the previously unowned `cancellation` case and revises its expected result in the same form. If the case already has other owners, affirm the exact set listed in `case_features` with an entry such as `{"id":"combined","shared_with":["format"]}`. Both features retain their links. Apply adds the changed rule to the selected checks and to any existing case-level list of that kind. A legacy case with incomplete tags can still be traced through its checks.
+- Select checks by both case ID and check ID, including older untagged checks in the selected feature's mapped cases. A review check replaces only the named clause with the rule. Add `expected` when a particular input needs a more specific review criterion. For a deterministic check, supply its actual revised `expected` value, including JSON types or literal text. A `json_file_equals` edit creates a separate expected fixture for the selected check. Use `expected_json` with its exact JSON text for high-precision decimals. Other checks can still use the old fixture. An existing process exit or byte-count check uses a JSON number. Inspect the native CLI case's required exit and stdout checks together whenever its success or error path changes.
+- Keep executor prompts and test inputs free of grading keys. Include a case where the old and new behavior diverge and one that exercises a neighboring invariant. If the suite needs a new case, check kind, CLI invocation or fixture input, author it in the successor's working plan before evaluation. If no existing check can express the change, first prepare a working copy of the predecessor plan beside its inputs, add a discriminating case with the original expectation, map it in a working copy of the design, and prepare the form there. A new requirement without an existing source ID needs the [normal decision or questionnaire workflow](workflow.md).
+
+```text
+python -B scripts/skill_builder.py revise-rule --workspace RUN --input CHANGE.json --destination NEXT_RUN
+```
+
+Continue in **NEXT_RUN**. Its `answers.json`, `decisions.json` or `question-review.json` carries the revision. Its `build-brief.md`, `design.json`, and `plan/plan.json` reflect the same change. The original workspace retains the earlier runtime, completed evaluations and historical records. The successor contains a working copy of the selected skill, its declared evaluation data and current builder records. Use the returned baseline and candidate paths. Keep source material referenced by the predecessor available for inspection.
+
+Resolve every item in `pending_brief_items` before building. For Full Auto, review the three pending judgments in the successor's `decisions.json` and submit the updated list with `set-decisions`. For a revised questionnaire requirement, review the affected entries in the successor's `question-review.json` and use `accept-review`. A fresh review prepared from the successor's `questions.json` includes its current fixed requirements. Use this template to migrate a schema 1 review, then complete the judgments and decision coverage before accepting it. Resolve newly active decisions or branches through the normal answer workflow. Run `brief` to produce the approved build brief after these gates pass. Use a newly rendered form when editing successor answers.
+
+Implement the indicated runtime edits in the successor. The publication receipt records pending implementation and evaluation. Prior grades describe their original snapshot. Reapplying an identical form to its published destination returns the same successor. If the predecessor's choices, current design, runtime or evaluation data changed during authoring, prepare a fresh form.
 
 For a fully specified generated local Python CLI, run `python -B scripts/run_cli_cases.py --plan NEW_PLAN --skill REVISED_RUNTIME --baseline-skill OLD_RUNTIME --out NEW_ITERATION`. Inspect the paired check outcomes and both variants' evidence for the changed behavior and preserved invariants. For host-run tasks, use `prepare_evaluation.py` with the same arguments and execute both task packets on the same selected inputs. Record what remains untested and preserve earlier iterations. See the [evaluation procedure](evaluation.md).
 

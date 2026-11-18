@@ -130,6 +130,8 @@ Absence means unanswered. Active records identify their author as `user` or `ai`
 
 The helper increments `answer_revision` when it accepts a change. Saved HTML carries its original baseline revision; it must not invent a newer revision. Imported files must match the run, project, question revision, and accepted answer baseline. Explicit clears and resets must remain clears, not be resurrected from browser storage or an older export.
 
+A `revise-rule` successor carries a `rule_revision` record in its questionnaire and the same ID as `workspace_revision_id` in its answer envelope and active Full Auto decision list. The questionnaire fingerprint binds accepted reviews to this successor. Authored review templates carry its fixed requirements, including their evidence. The normal answer, review and decision imports reject stale predecessor submissions even when the visible questions and answer revision are identical.
+
 For clearly unusable custom/text input, `resolve-input` retains the raw input and rationale in history before allowing the unresolved part to be decided by AI. Meaningful ordinary selections remain protected. This command requires host judgment; it is not an automatic language or content filter.
 
 ## Saved HTML

@@ -112,6 +112,63 @@ class ReviewPolicyTests(unittest.TestCase):
         brief = self.cli("brief")
         self.assertIn("workflow", Path(brief["path"]).read_text(encoding="utf-8"))
 
+    def test_unmapped_input_contrast_blocks_render_until_the_choice_is_visible(self):
+        self.answer("workflow", "draft")
+        before = (self.root / "answers.json").read_bytes()
+        review_path = self.completed_review()
+        record = core.read_json(review_path)
+        contrast = {"sample": "Example notes: Monday and Wednesday both report the same warehouse opening.",
+                    "outcomes": ["One line credits both notes for the opening.", "Two dated entries each report the opening."]}
+        record["decision_coverage"]["comparisons"].append(contrast)
+        record["findings"] = [{"id": "grouping", "area": "options", "status": "resolved", "question_ids": [],
+                               "description": "The form never asks how to group repeated updates.",
+                               "resolution": "Reviewer marked the issue resolved."}]
+        core.atomic_json(review_path, record)
+        error = self.cli("accept-review", "--input", review_path, expected=2)
+        self.assertIn("No question or fixed requirement", error["message"])
+        self.assert_blocked()
+        self.assertEqual((self.root / "answers.json").read_bytes(), before)
+
+        questions = core.read_json(self.root / "questions.json")
+        added = {"id": "group-repeats", "group_id": questions["groups"][0]["id"], "type": "single",
+                 "origin": "proposal", "version": 1,
+                 "title": "How should repeated updates about one event appear?",
+                 "decision": "Choose the entry unit for repeated mentions.",
+                 "options": [{"id": "merge", "label": "One entry per event", "effect": "Credit both dated notes in one entry."},
+                             {"id": "dated", "label": "One entry per mention", "effect": "Write two separately dated entries."}]}
+        questions["questions"].append(added)
+        source = self.parent / "revised.json"
+        core.atomic_json(source, questions)
+        self.cli("set-questions", "--input", source)
+        revised = self.completed_review()
+        record = core.read_json(revised)
+        record["decision_coverage"]["comparisons"].append(dict(contrast, question_id="group-repeats"))
+        for scenario, value in zip(record["combinations"], ("merge", "dated")):
+            scenario["answers"].append({"question_id": "group-repeats", "value": value})
+        core.atomic_json(revised, record)
+        self.cli("accept-review", "--input", revised)
+        boot = core.read_saved_html(self.cli("render")["path"], require_saved=False)
+        visible = boot["view"]["questionnaire"]["questions"][-1]
+        self.assertEqual([option["label"] for option in visible["options"]], ["One entry per event", "One entry per mention"])
+        self.assertEqual(boot["view"]["answers"]["answers"]["workflow"]["value"], "draft")
+
+    def test_stored_version_one_review_still_renders_but_cannot_replace_a_fresh_review(self):
+        path = self.completed_review()
+        record = core.read_json(path)
+        record["schema_version"] = 1
+        del record["decision_coverage"]
+        core.atomic_json(path, record)
+        self.assertEqual(self.cli("accept-review", "--input", path, expected=2)["error"], "question_review_incomplete")
+        stored = self.root / "question-review.json"
+        core.atomic_json(stored, record)
+        historical = stored.read_bytes()
+        self.assertTrue(self.cli("status", "--json")["question_review"]["passed"])
+        self.cli("render")
+        self.assertEqual(stored.read_bytes(), historical)
+        questions = self.root / "questions.json"
+        questions.write_bytes(questions.read_bytes() + b"\n")
+        self.assertEqual(self.cli("status", "--json")["question_review"]["status"], "stale")
+
     def test_brief_lists_the_reviews_fixed_requirements(self):
         self.accept()
         self.cli("recommend")

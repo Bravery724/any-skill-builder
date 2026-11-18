@@ -37,6 +37,11 @@ def completed_example_review(questions_path, review_path):
     record = reviews.prepare(questions_path, review_path)
     record["status"] = "pass"
     record["reviewer"] = {"identity": "Test fixture reviewer", "relationship": "self"}
+    record["decision_coverage"]["comparisons"] = [{
+        "sample": "Example: Tuesday notes say the release shipped. Wednesday's tracker says approval is pending.",
+        "outcomes": ["Draft: release status is disputed; approval may still be pending.",
+                     "Before drafting, ask the release owner to confirm its current status."],
+        "question_id": "workflow"}]
     for row in record["question_reviews"]:
         row.update(status="pass", reason="Both working styles preserve a factual update; output sections use supplied evidence.")
     record["combinations"][0].update(
@@ -103,6 +108,45 @@ class QuestionReviewTests(unittest.TestCase):
         report = self.checked(self.completed())
         self.assertTrue(report["passed"], report)
         self.assertEqual(report["findings"], [])
+
+    def test_comparison_requires_distinct_outcomes_an_input_and_a_real_disposition(self):
+        original = self.completed()
+        for change in ({"outcomes": ["A draft"]}, {"outcomes": ["A draft", " A draft "]},
+                       {"sample": "  "}, {"question_id": "unknown"}, {"outcomes": [[], "ask before drafting"]},
+                       {"requirement_id": "goal", "reason": "Use both mappings."}):
+            with self.subTest(change=change):
+                record = copy.deepcopy(original)
+                record["decision_coverage"]["comparisons"][0].update(change)
+                self.assertEqual(self.checked(record)["status"], "invalid")
+        original["decision_coverage"]["no_material_difference"] = "All results are the same."
+        self.assertEqual(self.checked(original)["status"], "invalid")
+
+    def test_settled_or_explicitly_delegated_policy_cites_requirement_and_reason(self):
+        record = self.completed()
+        comparison = record["decision_coverage"]["comparisons"][0]
+        del comparison["question_id"]
+        comparison.update(requirement_id="unconfirmed", reason="The user delegated handling of conflicting updates.")
+        self.assertFalse(self.checked(record)["passed"])
+        record["requirements"].append({
+            "id": "unconfirmed", "statement": "Allow the builder to decide how to handle an unconfirmed release.",
+            "basis": {"kind": "user", "reference": "original request",
+                      "evidence": "You decide what to do when release notes conflict."}})
+        for row in record["question_reviews"] + record["combinations"]:
+            row["requirement_ids"].append("unconfirmed")
+        comparison["reason"] += " Draft with a visible caveat to meet the update deadline."
+        self.assertTrue(self.checked(record)["passed"])
+        comparison["reason"] = ""
+        self.assertFalse(self.checked(record)["passed"])
+
+    def test_no_material_difference_needs_an_explanation_and_no_fabricated_sample(self):
+        record = self.completed()
+        coverage = record["decision_coverage"]
+        coverage["comparisons"] = []
+        self.assertFalse(self.checked(record)["passed"])
+        coverage["no_material_difference"] = "The supplied task fixes the row unit and exact output for each source record."
+        self.assertTrue(self.checked(record)["passed"])
+        del record["decision_coverage"]
+        self.assertFalse(self.checked(record)["passed"])
 
     def test_any_questionnaire_byte_change_stales_review(self):
         record = self.completed()
@@ -288,6 +332,9 @@ class QuestionReviewTests(unittest.TestCase):
         core.atomic_json(self.questions_path, self.questionnaire)
         record = self.template()
         record.update(status="pass", reviewer={"identity": "Test reviewer", "relationship": "separate"})
+        record["decision_coverage"]["comparisons"] = [
+            {"sample": "Example: the notes give two launch dates.", "outcomes": ["Flag both.", "Ask which date is current."],
+             "question_id": "workflow"}]
         for row in record["question_reviews"] + [record["localization"], record["fair_alternatives"], record["unknown_private_facts"]]:
             row.update(status="pass", reason="Both supplied options remain supported by the single decision.")
         self.assertFalse(self.checked(record)["passed"])

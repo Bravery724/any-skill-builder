@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Before a new questionnaire is accepted, its review traces choices that change a sample result to the question or evidence that resolves each choice.
+- Apply a single revised rule to a successor workspace and regenerate its build brief, design behavior, and evaluation plan. The previous run remains available for comparison.
+- Added workshop regressions for counting distinct participants across repeated cards and marking unassigned actions with the user's requested wording.
 - Plan single-rule changes from the existing feature, file and evaluation records. The planner lists relevant cases and flags missing coverage.
 - Run a generated Python CLI against predeclared inputs and expected JSON in one command. The evidence records actual output, exit codes and file hashes.
 - For choices that are hard to judge from labels, questionnaires can show one realistic input and the outcomes of choosing different options.

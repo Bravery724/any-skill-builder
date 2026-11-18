@@ -62,6 +62,8 @@ Review useful decision coverage and answer-to-behavior mapping as well as final 
 
 The [field-preservation regressions](../tests/fixtures/field-preservation/README.md) exercise two previously observed handoff errors. Use the supplied plan to test a newly built skill for speaker attribution and recipient identity after contact details are masked. The calibration outputs include plausible drafts with the correct words attached to the wrong people.
 
+The [workshop handoff regressions](../tests/fixtures/workshop-handoff/README.md) use participant cards and team decisions. They check who contributed each opinion before IDs are removed and which confirmed actions need the exact missing-owner label.
+
 For the [execution loop](../any-skill-builder/references/evaluation.md), test iteration preparation from outside the source directory, preserved skill/input snapshots, pending records, and refusal to reuse an existing destination. Executor packets must not disclose grading checks or expected answers. Check execution-provenance records, evidence-backed critiques, repeated-operation observations, and helper-validation references; missing reviews must not become passing results. Existing schema-1 examples without optional loop records must reproduce their historical reports unchanged.
 
 Exercise a realistic host task separately from these unit checks. Keep the author, executor, and reviewer roles explicit, preserve actual outputs, and record why any correction or helper extraction was warranted. A synthetic fixture proves record handling, not independent model performance.

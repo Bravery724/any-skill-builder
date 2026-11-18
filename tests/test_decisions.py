@@ -362,6 +362,10 @@ class DecisionListTests(unittest.TestCase):
         self.prepared = copy.deepcopy(review)
         review["status"] = "pass"
         review["reviewer"] = {"identity": "Test fixture reviewer", "relationship": "self"}
+        review["decision_coverage"]["comparisons"] = [
+            {"sample": "Example staged diff renames an option and updates the matching usage text.",
+             "outcomes": ["One subject line summarizes the rename.", "The subject includes a body explaining the usage update."],
+             "question_id": "body"}]
         for row in review["question_reviews"]:
             row.update(status="pass", reason="Every option reads staged changes only.")
         review["combinations"][0].update(status="pass", reason="Recommended choices keep staged-only input.", answers=[

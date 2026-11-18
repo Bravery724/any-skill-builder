@@ -138,7 +138,7 @@ def visible_fields(questionnaire):
     return fields, originals
 
 
-def _decision_requirements(run, questionnaire):
+def converted_requirements(run, questionnaire):
     """Fixed requirements from a Full Auto decision list that this questionnaire run was converted from."""
     path = Path(run) / core.DECISIONS_FILE
     if questionnaire.get("mode") != "questionnaire" or not path.exists():
@@ -179,7 +179,7 @@ def prepare(questions_path, out_path):
     question_ids = [question["id"] for question in questions]
     fields, _ = visible_fields(questionnaire)
     review = {
-        "schema_version": 1,
+        "schema_version": 2,
         "questions_sha256": digest,
         "status": "pending",
         "reviewer": {"identity": "", "relationship": "unknown"},
@@ -189,6 +189,7 @@ def prepare(questions_path, out_path):
             {"question_id": question["id"], "option_ids": [option["id"] for option in question.get("options", [])],
              "requirement_ids": ["goal"], "status": "pending", "reason": ""}
             for question in questions],
+        "decision_coverage": {"comparisons": [], "no_material_difference": ""},
         "combinations": [
             {"kind": kind, "answers": [], "inapplicable_question_ids": [], "fewer_decisions_reason": "",
              "requirement_ids": ["goal"], "status": "pending", "reason": ""}
@@ -200,7 +201,9 @@ def prepare(questions_path, out_path):
         "unknown_private_facts": {"question_ids": question_ids, "status": "pending", "reason": ""},
         "findings": [],
     }
-    carried = _decision_requirements(Path(questions_path).parent, questionnaire)
+    revision = questionnaire.get("rule_revision", {})
+    carried = (revision["requirements"] if "requirements" in revision
+               else converted_requirements(Path(questions_path).parent, questionnaire))
     if carried:
         review["requirements"] += carried
         ids = [requirement["id"] for requirement in carried]
@@ -223,12 +226,59 @@ def _same_value(question, left, right):
     return False
 
 
-def _validate(review, questionnaire, findings):
-    _object(review, {"schema_version", "questions_sha256", "status", "reviewer", "requirements", "question_reviews",
-                     "combinations", "no_combinations_reason", "localization", "fair_alternatives",
-                     "unknown_private_facts", "findings"}, "review")
-    _require(type(review["schema_version"]) is int and review["schema_version"] == 1,
-             "schema_version", "Unsupported review schema.")
+def _decision_coverage(coverage, questions, requirements, review_status, findings):
+    path = "decision_coverage"
+    _object(coverage, {"comparisons", "no_material_difference"}, path)
+    comparisons = coverage["comparisons"]
+    _list(comparisons, path + ".comparisons")
+    explanation = coverage["no_material_difference"]
+    _text(explanation, path + ".no_material_difference", empty=True)
+    if not comparisons:
+        if review_status != "pending" and not explanation.strip():
+            findings.append({"code": "needs-revision", "path": path,
+                             "message": "Compare outcomes on a realistic input, or explain why no material difference is possible."})
+        return
+    _require(not explanation.strip(), path + ".no_material_difference",
+             "Clear this explanation when comparisons have different outcomes.")
+    for index, comparison in enumerate(comparisons):
+        row = f"{path}.comparisons[{index}]"
+        _require(isinstance(comparison, dict), row, "Must be a comparison object.")
+        fields = {"sample", "outcomes"}
+        keys = set(comparison)
+        _require(keys in (fields, fields | {"question_id"}, fields | {"requirement_id", "reason"}), row,
+                 "Use sample and outcomes, then map to question_id or to requirement_id with a reason.")
+        _text(comparison["sample"], row + ".sample")
+        outcomes = comparison["outcomes"]
+        _list(outcomes, row + ".outcomes")
+        _require(len(outcomes) >= 2, row + ".outcomes", "Show at least two outcomes on the same input.")
+        for outcome in outcomes:
+            _text(outcome, row + ".outcomes")
+        _require(len({outcome.strip() for outcome in outcomes}) == len(outcomes), row + ".outcomes",
+                 "The outcomes must differ.")
+        if "question_id" in comparison:
+            question_id = comparison["question_id"]
+            _id(question_id, row + ".question_id")
+            _require(question_id in questions, row + ".question_id", "Unknown question ID.")
+        elif "requirement_id" in comparison:
+            requirement_id = comparison["requirement_id"]
+            _id(requirement_id, row + ".requirement_id")
+            _require(requirement_id in requirements, row + ".requirement_id", "Unknown requirement ID.")
+            _text(comparison["reason"], row + ".reason")
+        else:
+            findings.append({"code": "needs-revision", "path": row,
+                             "message": "No question or fixed requirement accounts for these different outcomes."})
+
+
+def _validate(review, questionnaire, findings, *, allow_legacy):
+    _require(isinstance(review, dict), "review", "Must be an object.")
+    version = review.get("schema_version")
+    _require(type(version) is int and (version == 2 or (allow_legacy and version == 1)),
+             "schema_version", "Prepare a current review with decision coverage for this questionnaire.")
+    fields = {"schema_version", "questions_sha256", "status", "reviewer", "requirements", "question_reviews",
+              "combinations", "no_combinations_reason", "localization", "fair_alternatives", "unknown_private_facts", "findings"}
+    if version == 2:
+        fields.add("decision_coverage")
+    _object(review, fields, "review")
     _require(isinstance(review["questions_sha256"], str)
              and re.fullmatch(r"[0-9a-f]{64}", review["questions_sha256"]),
              "questions_sha256", "Must be a lowercase SHA256 digest.")
@@ -273,6 +323,11 @@ def _validate(review, questionnaire, findings):
         elif basis["kind"] == "source":
             _require(basis["reference"] in sources, path + ".basis.reference", "Unknown source ID.")
     _require(len(goal_ids) == 1, "requirements", "Exactly one original goal invariant is required.")
+    for fixed in questionnaire.get("rule_revision", {}).get("requirements", []):
+        _require(fixed in review["requirements"], "requirements",
+                 f"Preserve the current fixed requirement {fixed['id']} and its basis from this maintenance revision.")
+    if version == 2:
+        _decision_coverage(review["decision_coverage"], questions, requirements, review["status"], findings)
 
     def applicable(value, path):
         _references(value, requirements, path, exact=True, nonempty=True)
@@ -403,8 +458,8 @@ def _validate(review, questionnaire, findings):
             findings.append({"code": "accepted_finding", "path": path, "message": finding["description"]})
 
 
-def check(questions_path, review_path):
-    """Return a nonpassing report for missing, stale, pending, or invalid reviews."""
+def checked_record(questions_path, review_path, *, allow_legacy=False):
+    """Return the report and the exact record inspected for atomic acceptance."""
     questionnaire, digest = _questions(questions_path)
     report = {"schema_version": 1, "status": "invalid", "passed": False, "questions_sha256": digest,
               "review_path": str(Path(review_path).resolve()), "findings": [], "limitations": LIMITATION}
@@ -414,12 +469,12 @@ def check(questions_path, review_path):
     except FileNotFoundError:
         report["status"] = "missing"
         findings.append({"code": "missing", "path": "review", "message": "Question review file is missing."})
-        return report
+        return report, None
     except (OSError, UnicodeError, ValueError) as exc:
         findings.append({"code": "invalid", "path": "review", "message": f"Cannot read review: {exc}"})
-        return report
+        return report, None
     try:
-        _validate(review, questionnaire, findings)
+        _validate(review, questionnaire, findings, allow_legacy=allow_legacy)
     except _Invalid as exc:
         findings.append({"code": "invalid", "path": exc.path, "message": exc.message})
     if isinstance(review, dict) and review.get("questions_sha256") != digest:
@@ -435,6 +490,12 @@ def check(questions_path, review_path):
         report["status"] = "pending"
     else:
         report.update(status="pass", passed=True)
+    return report, review
+
+
+def check(questions_path, review_path, *, allow_legacy=False):
+    """Return a nonpassing report for missing, stale, pending, or invalid reviews."""
+    report, _ = checked_record(questions_path, review_path, allow_legacy=allow_legacy)
     return report
 
 

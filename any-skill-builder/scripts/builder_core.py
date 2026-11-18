@@ -301,6 +301,19 @@ def validate_questionnaire(data, workspace=None, allow_empty=False, check_asset_
     valid_id(data.get("project_id"), "project_id")
     if "run_id" in data:
         valid_run_id(data["run_id"])
+    if "rule_revision" in data:
+        revision = data["rule_revision"]
+        require(isinstance(revision, dict) and set(revision) <= {"id", "requirements", "auto_rules"},
+                "Invalid maintenance revision.")
+        valid_run_id(revision.get("id"))
+        fixed = revision.get("requirements", [])
+        require(isinstance(fixed, list) and all(isinstance(row, dict) and isinstance(row.get("basis"), dict)
+                and isinstance(row.get("id"), str) and isinstance(row.get("statement"), str) for row in fixed),
+                "Invalid fixed requirements in maintenance revision.")
+        families = revision.get("auto_rules", {})
+        require(isinstance(families, dict) and set(families) <= {"decisions", "requirements"}
+                and all(isinstance(records, dict) and all(isinstance(row, dict) for row in records.values())
+                        for records in families.values()), "Invalid Full Auto rules in maintenance revision.")
     positive_integer(data.get("revision"), "revision")
     nonempty(data.get("goal"), "goal")
     require(data.get("mode") in MODES, "Mode must be questionnaire or auto. Legacy user/hybrid runs must be copied and explicitly converted; keep the original files.", "legacy_mode")
@@ -499,6 +512,11 @@ def validate_pending_inputs(questionnaire, pending):
 def validate_answers(questionnaire, answers):
     require(isinstance(answers, dict) and answers.get("schema_version") == SCHEMA_VERSION, "Unsupported answer schema.")
     valid_run_id(questionnaire.get("run_id"))
+    if "workspace_revision_id" in answers:
+        valid_run_id(answers["workspace_revision_id"])
+    if "rule_revision" in questionnaire:
+        require(answers.get("workspace_revision_id") == questionnaire["rule_revision"]["id"],
+                "Answers belong to another maintenance revision.", "wrong_revision_workspace", 409)
     require(answers.get("run_id") == questionnaire["run_id"], "Answers belong to another run or lack its immutable run_id.", "wrong_run", 409)
     require(answers.get("project_id") == questionnaire["project_id"], "Answers belong to a different project.", "wrong_project", 409)
     require(answers.get("revision") == questionnaire["revision"], "Answers use a different questionnaire revision.", "stale_revision", 409)
@@ -671,7 +689,7 @@ def question_review_state(workspace, questionnaire):
         return {"required": True, "status": "pending", "passed": False,
                 "note": "Author questions before preparing their review."}
     import review_questions
-    return {"required": True, **review_questions.check(root / "questions.json", root / "question-review.json")}
+    return {"required": True, **review_questions.check(root / "questions.json", root / "question-review.json", allow_legacy=True)}
 
 
 def require_question_review(workspace, questionnaire):
@@ -811,6 +829,13 @@ def set_questions(workspace, incoming, *, presentation_only=None, rebind_project
                 f"Questionnaire belongs to another run: this run's run_id is {previous['run_id']!r}, the file has {data.get('run_id')!r}. "
                 "Omit run_id in authored questions.", "wrong_run", 409)
         data["run_id"] = previous["run_id"]
+        if "rule_revision" in previous:
+            require("rule_revision" not in data and "run_id" not in incoming
+                    or data.get("rule_revision") == previous["rule_revision"],
+                    "Use questions from this maintenance revision.", "wrong_revision_workspace", 409)
+            data["rule_revision"] = copy.deepcopy(previous["rule_revision"])
+        else:
+            require("rule_revision" not in data, "These questions belong to a maintenance revision.", "wrong_revision_workspace", 409)
         if from_decisions:
             require(decision_list_in_use(root, previous) and data.get("mode") == "questionnaire",
                     "--from-decisions converts a Full Auto decision list into a questionnaire run; use the exported skeleton.",
@@ -820,6 +845,9 @@ def set_questions(workspace, incoming, *, presentation_only=None, rebind_project
             require_convertible_decisions(decisions)
             data.setdefault("locale", mapped["locale"])
             validate_decision_conversion({**mapped, "mode": "questionnaire"}, data)
+            if "rule_revision" in data:
+                import review_questions
+                data["rule_revision"]["requirements"] = review_questions.converted_requirements(root, data)
             previous = {**previous, "mode": "questionnaire"}
         require(data.get("mode") == previous["mode"],
                 f"Authored questions must preserve the run mode: this run is {previous['mode']!r}, the file has {data.get('mode')!r}. "
@@ -916,6 +944,8 @@ def set_questions(workspace, incoming, *, presentation_only=None, rebind_project
 def verify_version(questionnaire, answers, payload):
     require(isinstance(payload, dict), "Request must be an object.")
     require(payload.get("run_id") == questionnaire["run_id"], "Wrong or missing run identity.", "wrong_run", 409)
+    require(payload.get("workspace_revision_id") == answers.get("workspace_revision_id"),
+            "This answer file belongs to a different maintenance revision.", "wrong_revision_workspace", 409)
     require(payload.get("project_id") == questionnaire["project_id"], "Wrong project.", "wrong_project", 409)
     require(payload.get("revision") == questionnaire["revision"], "Questions changed; reload before applying answers.", "stale_revision", 409)
     require(payload.get("base_answer_revision") == answers["answer_revision"], "Answers changed in another session; preserve your draft and reload.", "stale_answers", 409)
@@ -1110,6 +1140,7 @@ def recommend(workspace):
 def answer_envelope_version(incoming):
     require(isinstance(incoming, dict), "Imported answers must be an object.")
     return {"project_id": incoming.get("project_id"), "run_id": incoming.get("run_id"),
+            "workspace_revision_id": incoming.get("workspace_revision_id"),
             "revision": incoming.get("revision"), "base_answer_revision": incoming.get("answer_revision")}
 
 
@@ -1389,6 +1420,8 @@ def import_answers(workspace, incoming):
             require(questionnaire["mode"] == "questionnaire", "Saved HTML cannot change a Full Auto run.")
             supplied = boot["view"]["questionnaire"]
             require(supplied["run_id"] == questionnaire["run_id"], "Saved HTML belongs to another run.", "wrong_run", 409)
+            require(boot["view"]["answers"].get("workspace_revision_id") == answers.get("workspace_revision_id"),
+                    "This saved form belongs to a different maintenance revision.", "wrong_revision_workspace", 409)
             require(supplied["project_id"] == questionnaire["project_id"], "Saved HTML belongs to another project.", "wrong_project", 409)
             require(supplied["revision"] == questionnaire["revision"], "Saved HTML uses an older questionnaire revision.", "stale_revision", 409)
             require(boot["questionnaire_sha256"] == questionnaire_digest(questionnaire),
@@ -1449,7 +1482,8 @@ def resume(workspace, input_path=None):
     for file in sorted(candidates):
         try:
             boot = read_saved_html(file, require_saved=False)
-            if boot["view"]["questionnaire"]["run_id"] != view["questionnaire"]["run_id"]:
+            if (boot["view"]["questionnaire"]["run_id"] != view["questionnaire"]["run_id"]
+                    or boot["view"]["answers"].get("workspace_revision_id") != view["answers"].get("workspace_revision_id")):
                 continue
             if boot.get("saved_at") is None:
                 continue
@@ -1542,6 +1576,8 @@ def restore_html(workspace, input_path):
     incoming["pending_inputs"] = drafts
     files = embedded_assets(boot, questionnaire)
     restored = blank_answers(questionnaire)
+    if "workspace_revision_id" in incoming:
+        restored["workspace_revision_id"] = incoming["workspace_revision_id"]
     restored["answer_revision"] = boot["base_answer_revision"]
     restored["history"] = restored_history(incoming.get("history", []))
     # Preserve declared actor/rationale provenance when restoring a whole snapshot.
@@ -1733,6 +1769,7 @@ def decisions_to_questionnaire(decisions, questionnaire, *, mode=None):
         elif "max_length" in item:
             question["max_length"] = item["max_length"]
         if item.get("choice") is not None:
+            require(item.get("choice_actor", "ai") in ("ai", "user"), f"Invalid choice actor in decision {qid}.")
             nonempty(item.get("reason"), f"Reason for decision {qid}")
             question["recommendation"] = {"value": item["choice"], "rationale": item["reason"],
                                           "assumptions": item.get("assumptions", [])}
@@ -1741,15 +1778,21 @@ def decisions_to_questionnaire(decisions, questionnaire, *, mode=None):
                 require("recommendation" in question, f"Branch interpretation for {qid} needs a custom choice.")
                 question["recommendation"][key] = item[key]
         questions.append(question)
-    return {"schema_version": SCHEMA_VERSION, "project_id": questionnaire["project_id"], "run_id": questionnaire["run_id"],
+    mapped = {"schema_version": SCHEMA_VERSION, "project_id": questionnaire["project_id"], "run_id": questionnaire["run_id"],
             "revision": questionnaire["revision"], "goal": questionnaire["goal"], "mode": mode or questionnaire["mode"],
             "locale": locale, "groups": copy.deepcopy(groups), "sources": copy.deepcopy(decisions.get("sources", [])),
             "questions": questions}
+    if "rule_revision" in questionnaire:
+        mapped["rule_revision"] = copy.deepcopy(questionnaire["rule_revision"])
+    return mapped
 
 
 def validate_decisions(decisions, questionnaire, workspace=None):
     """Check a decision list's structure and its single check, and report whether it can drive a build."""
     mapped = decisions_to_questionnaire(decisions, questionnaire)
+    revision = questionnaire.get("rule_revision", {})
+    require(decisions.get("workspace_revision_id") == revision.get("id"),
+            "Use decisions.json from this maintenance revision.", "wrong_revision_workspace", 409)
     validate_questionnaire(mapped, workspace, allow_empty=not mapped["questions"])
     require(all(q["type"] != "image" for q in mapped["questions"]),
             "Image choices need a questionnaire; Full Auto decisions use single, multi, or text.")
@@ -1764,6 +1807,13 @@ def validate_decisions(decisions, questionnaire, workspace=None):
         requirement_ids.add(requirement["id"])
         nonempty(requirement.get("statement"), f"Requirement statement {requirement['id']}")
         nonempty(requirement.get("basis"), f"Requirement basis {requirement['id']}")
+    for family, protected in revision.get("auto_rules", {}).items():
+        records = {row["id"]: row for row in decisions.get(family, [])}
+        for ident, expected in protected.items():
+            require(ident in records and all(key in records[ident] and records[ident][key] == value
+                                            for key, value in expected.items()),
+                    f"The submitted {family} would undo the revised rule {ident}. Use the current decision list.",
+                    "revised_rule_mismatch", 409)
     check = decisions.get("check")
     require(isinstance(check, dict), "check must be an object.")
     require(check.get("reviewer") in {"self", "separate", "unknown"}, "check.reviewer must be self, separate, or unknown.")
@@ -1883,10 +1933,10 @@ def source_lines(sources):
     return lines
 
 
-def decision_brief_lines(root, questionnaire):
+def decision_brief_lines(root, questionnaire, *, draft=False):
     decisions = read_json(root / DECISIONS_FILE)
     state = validate_decisions(decisions, questionnaire, root)
-    require(state["ready"], "Choose every active decision, resolve waiting branches and complete the decision check before creating a build brief.",
+    require(state["ready"] or draft, "Choose every active decision, resolve waiting branches and complete the decision check before creating a build brief.",
             "not_ready", 409)
     mapped, check = state["mapped"], decisions["check"]
     lines = ["# Skill build brief", "", f"Project: {questionnaire['project_id']}", f"Run identity: {questionnaire['run_id']}",
@@ -1897,14 +1947,21 @@ def decision_brief_lines(root, questionnaire):
     if not mapped["questions"]:
         lines += ["The fixed requirements specify the build in full.", ""]
     ai_decisions = []
+    actors = {item["id"]: item.get("choice_actor", "ai") for item in decisions["decisions"]}
     for q in mapped["questions"]:
         if state["states"][q["id"]] != "active":
             continue
-        ai_decisions.append(q["id"])
-        rec = q["recommendation"]
+        if actors[q["id"]] == "ai":
+            ai_decisions.append(q["id"])
+        rec = q.get("recommendation")
+        if rec is None:
+            lines.append(f"- {q['id']}: awaiting a choice")
+            continue
         value = rec["value"]
         selected = value["selected"] if isinstance(value, dict) else value if isinstance(value, list) else [value]
         lines += [f"### {q['id']} — {q['title']}", "", f"Decision: {q['decision']}", "Choice: " + json.dumps(value, ensure_ascii=False)]
+        if actors[q["id"]] == "user":
+            lines.append("Choice supplied by the user.")
         if isinstance(value, dict):
             lines.append("Custom direction: " + value["other"])
         if "branch_value" in rec:
@@ -1917,14 +1974,14 @@ def decision_brief_lines(root, questionnaire):
             lines.append("Assumption to retain or verify: " + assumption)
         lines += [f"Origin: {q['origin']}; sources: {', '.join(q.get('source_ids', [])) or 'none'}", ""]
     lines += ["## Decision check", "", f"Reviewer: {check['reviewer']}; revisions: {state['revisions']}"]
-    lines += [f"- {name}: {check[name]['reason']}" for name in DECISION_CHECKS]
+    lines += [f"- {name}: {check[name].get('reason') or check[name]['status']}" for name in DECISION_CHECKS]
     lines += ["", "Known limits to report:"] + ([f"- {limit}" for limit in state["known_limits"]] or ["- None recorded."])
     lines += ["", "## Source record", ""] + source_lines(mapped["sources"])
     lines += build_guidance(ai_decisions)
     return lines
 
 
-def questionnaire_requirement_lines(workspace, review_state):
+def questionnaire_requirement_lines(workspace, review_state, *, draft=False):
     """Fixed requirements for a questionnaire brief, from the accepted question review.
 
     The review is the only source. In a run converted from a decision list, `prepare` already copies that list's
@@ -1932,7 +1989,7 @@ def questionnaire_requirement_lines(workspace, review_state):
     """
     lines = []
     review_path = Path(workspace) / "question-review.json"
-    if review_state.get("passed") and review_path.exists():
+    if (review_state.get("passed") or draft) and review_path.exists():
         for requirement in read_json(review_path).get("requirements", []):
             basis = requirement["basis"]
             if basis["kind"] != "goal":
@@ -1940,19 +1997,22 @@ def questionnaire_requirement_lines(workspace, review_state):
     return lines or ["- None recorded beyond the goal."]
 
 
-def questionnaire_brief_lines(workspace, view):
-    require(view["ready_to_build"], "Resolve all active unanswered questions and custom-answer branches before creating a build brief.", "not_ready", 409)
+def questionnaire_brief_lines(workspace, view, *, draft=False):
+    require(view["ready_to_build"] or draft, "Resolve all active unanswered questions and custom-answer branches before creating a build brief.", "not_ready", 409)
     questionnaire, envelope = view["questionnaire"], view["answers"]
     lines = ["# Skill build brief", "", f"Project: {questionnaire['project_id']}", f"Run identity: {questionnaire['run_id']}",
              f"Questionnaire revision: {questionnaire['revision']}; answer revision: {envelope['answer_revision']}",
              "", "## Goal", "", questionnaire["goal"], "", "## Fixed requirements", ""]
-    lines += questionnaire_requirement_lines(workspace, view["question_review"])
+    lines += questionnaire_requirement_lines(workspace, view["question_review"], draft=draft)
     lines += ["", "## Active decisions", ""]
     ai_decisions = []
     for q in questionnaire["questions"]:
         if view["states"][q["id"]] != "active":
             continue
-        answer = envelope["answers"][q["id"]]
+        answer = envelope["answers"].get(q["id"])
+        if answer is None:
+            lines.append(f"- {q['id']}: awaiting an answer")
+            continue
         if answer["actor"] == "ai":
             ai_decisions.append(q["id"])
         lines += [f"### {q['id']} — {q['title']}", "", f"Decision: {q['decision']}",

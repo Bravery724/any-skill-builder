@@ -6,6 +6,12 @@ Use this reference when researching a subject, writing and reviewing questions, 
 
 Start from the user's goal and existing prompt. Map the decisions that determine success: purpose, audience/use situation, available inputs, methods, scope/depth, outputs, constraints, exceptional conditions, and evaluation. Adapt this map to the actual subject. Do not turn a generic checklist into mandatory questions.
 
+Before drafting the form, take a short realistic input the finished skill could receive. Prefer supplied material; label a small invented example as illustrative. Try doing the task two plausible ways while holding the input and fixed requirements steady. Write the two snippets a user would receive, or name the different actions the skill would take. Look for decisions the task itself forced you to make. Starting from the options you already intend to offer can hide precisely those decisions.
+
+For example, consider a request to index oral-history recordings. In a sample transcript, the speaker recalls a factory closure at 04:10 and returns to the same event at 19:42. One index has a single “Factory closure” entry with both timestamps. Another has two entries, each taking the reader to a separate mention. Both fit “make a searchable index.” A question about table versus bullet format leaves this decision open. Ask “When a topic recurs, should readers find one entry per topic or one per mention?” If the request already specifies one entry per mention, carry that rule forward. If the user explicitly delegated grouping, record that instruction and the rule the builder chose.
+
+Try the draft against the example. Keep the answers to the existing questions fixed. If you can still produce two materially different results a reasonable user might prefer, find where a user can actually choose between them. Revise or add a targeted question when the difference is unresolved. Its visible options, or a focused text prompt, must let the user express the difference. A general style card, the built-in Other box, and an unanswered recommendation do not establish that the user delegated this particular policy. Check another decision when it can vary independently on the evidence. Stop when further variants have the same practical effect, follow an explicit instruction, or lack support in the task. There is no comparison quota and a fully specified task needs no invented preference.
+
 Include three kinds of discovery when useful:
 
 - Clarification: which real task should the skill perform and under what conditions?

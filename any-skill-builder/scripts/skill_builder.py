@@ -40,10 +40,10 @@ def accept_review(workspace, input_path):
     with core.workspace_lock(root):
         core.recover_workspace(root)
         questionnaire, _ = core.load_workspace(root, True)
-        report = review_questions.check(root / "questions.json", input_path)
+        report, record = review_questions.checked_record(root / "questions.json", input_path)
         core.require(report["passed"], "Question review did not pass: " + json.dumps(report, ensure_ascii=False),
                      "question_review_incomplete", 409)
-        core.atomic_json(root / "question-review.json", core.read_json(input_path))
+        core.atomic_json(root / "question-review.json", record)
         core.atomic_json(root / "review-policy.json", {"schema_version": 1, "run_id": questionnaire["run_id"], "required": True})
     return {"recorded": True, "review": report,
             "note": "Recorded judgments and coverage were checked. No model ran and semantic correctness is not certified."}
@@ -117,6 +117,16 @@ def parser():
             sub.add_argument("--rationale", required=name != "answer", default="")
     sub = commands.add_parser("check-skill", help="Structural checks, not a behavioral evaluation")
     sub.add_argument("--path", required=True)
+    sub = commands.add_parser("revise-rule", help="Prepare or apply one change to a completed builder run")
+    sub.add_argument("--workspace", required=True, type=Path)
+    action = sub.add_mutually_exclusive_group(required=True)
+    action.add_argument("--prepare", type=Path, metavar="CHANGE.json", help="Create a change form for the current run")
+    action.add_argument("--input", type=Path, metavar="CHANGE.json", help="Apply a completed change form")
+    target = sub.add_mutually_exclusive_group()
+    target.add_argument("--question", metavar="ID")
+    target.add_argument("--requirement", metavar="ID")
+    sub.add_argument("--plan", type=Path, help="Current working evaluation plan, if ambiguous or outside the run")
+    sub.add_argument("--destination", type=Path, help="Fresh successor workspace to publish")
     return cli
 
 
@@ -192,6 +202,9 @@ def main(argv=None):
                                      revision=args.revision, answer_revision=args.answer_revision)
         elif name == "brief":
             result = core.build_brief(args.workspace)
+        elif name == "revise-rule":
+            import revise_rule
+            result = revise_rule.run(args)
         elif name == "check-skill":
             result = core.check_skill(args.path)
         else:

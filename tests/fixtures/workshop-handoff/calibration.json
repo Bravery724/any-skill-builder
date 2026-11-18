@@ -1,0 +1,97 @@
+[
+  {
+    "check": "count-by-theme", "controls": ["pottery-first"], "status": "fail",
+    "reason": "The vague plural omits the two people who reported the glaze queue.",
+    "quote": "회전 작업대에서는 여러 참가자가 유약을 찾느라 오래 기다렸다."
+  },
+  {
+    "check": "count-by-theme", "controls": ["pottery-revised"], "status": "pass",
+    "reason": "Two people are connected to the glaze queue.",
+    "quote": "회전 작업대에서 유약을 찾는 줄이 길었다(2명)."
+  },
+  {
+    "check": "owner-on-action", "controls": ["pottery-first"], "status": "fail",
+    "reason": "The action has a paraphrased owner note instead of the required literal.",
+    "quote": "다음 주에 회전 작업대의 유약 병에 번호를 붙이기로 했다. 담당자는 아직 정해지지 않았다."
+  },
+  {
+    "check": "owner-on-action", "controls": ["pottery-revised"], "status": "pass",
+    "reason": "Bottle numbering carries the exact owner label.",
+    "quote": "다음 주에 회전 작업대의 유약 병마다 번호를 붙이기로 했다. 담당 미정."
+  },
+  {
+    "check": "count-by-theme", "controls": ["woodwork-first"], "status": "pass",
+    "reason": "The ruler shortage affects three people. Five is explicitly the card count.",
+    "quote": "초록 작업대에서 자를 찾느라 수업이 지체됐다. 참가자 3명이 이 문제를 카드 5장에 남겼다."
+  },
+  {
+    "check": "count-by-theme", "controls": ["woodwork-revised"], "status": "pass",
+    "reason": "Three people are connected to the shortage at the named station.",
+    "quote": "초록 작업대에서는 자를 찾는 데 시간이 걸려 수업이 늦어졌다(3명)."
+  },
+  {
+    "check": "owner-on-action", "controls": ["woodwork-first"], "status": "fail",
+    "reason": "The drawer entry gives a later assignment meeting and omits the specified label.",
+    "quote": "방마다 자 전용 서랍을 두기로 했다. 서랍 설치 담당자는 다음 회의에서 정하기로 했다."
+  },
+  {
+    "check": "owner-on-action", "controls": ["woodwork-revised"], "status": "pass",
+    "reason": "The unassigned drawer action uses the exact label.",
+    "quote": "방마다 자 전용 서랍을 두기로 했다. 담당 미정이며 다음 회의에서 배정하기로 했다."
+  },
+  {
+    "check": "count-by-theme", "controls": ["dyeing-correct", "dyeing-misplaced"], "status": "pass",
+    "reason": "The counts for the three source themes are two, three, and one. Contributors can recur in different themes.",
+    "quote": "달 작업대 물통 대기 2명, 별 작업대 집게 부족 3명. 별 작업대의 작은 장갑 부족은 한 명의 의견이었다."
+  },
+  {
+    "check": "count-by-theme", "controls": ["dyeing-card-counts"], "status": "fail",
+    "reason": "Repeated cards inflated each of the three headcounts.",
+    "quote": "달 작업대 물통 대기 3명, 별 작업대 집게 부족 4명. 별 작업대의 작은 장갑 부족은 두 명의 의견이었다."
+  },
+  {
+    "check": "count-by-theme", "controls": ["dyeing-swapped"], "status": "fail",
+    "reason": "The counts for the water container and clip shortage traded places.",
+    "quote": "달 작업대 물통 대기 3명, 별 작업대 집게 부족 2명."
+  },
+  {
+    "check": "owner-on-action", "controls": ["dyeing-correct", "dyeing-card-counts", "dyeing-swapped"], "status": "pass",
+    "reason": "Marking the water container carries the literal and no invented assignee.",
+    "quote": "물통 눈금 표시(담당 미정)."
+  },
+  {
+    "check": "owner-on-action", "controls": ["dyeing-misplaced"], "status": "fail",
+    "reason": "The label belongs to the water-container action but is on other entries.",
+    "quote": "물통에 눈금을 표시한다. 다음 수업 전 집게 수량 점검(담당 미정)."
+  },
+  {
+    "check": "assigned-action", "controls": ["dyeing-correct", "dyeing-card-counts", "dyeing-swapped"], "status": "pass",
+    "reason": "The materials team retains the scheduled clip check.",
+    "quote": "재료팀은 다음 수업 전에 집게 수량을 점검한다."
+  },
+  {
+    "check": "assigned-action", "controls": ["dyeing-misplaced"], "status": "fail",
+    "reason": "The memo omits the materials team assigned to this check.",
+    "quote": "다음 수업 전 집게 수량 점검(담당 미정)."
+  },
+  {
+    "check": "delegated-action", "controls": ["dyeing-correct", "dyeing-card-counts", "dyeing-swapped"], "status": "pass",
+    "reason": "The reception team retains the job of selecting the caller.",
+    "quote": "접수팀은 견적을 문의할 사람을 선정한다."
+  },
+  {
+    "check": "delegated-action", "controls": ["dyeing-misplaced"], "status": "fail",
+    "reason": "The selection task already has a responsible team, although the future caller is unknown.",
+    "quote": "견적 문의자 선정(담당 미정)."
+  },
+  {
+    "check": "proposal-status", "controls": ["dyeing-correct", "dyeing-card-counts", "dyeing-swapped"], "status": "pass",
+    "reason": "Printing tickets remains a proposal with no implementation commitment or fallback.",
+    "quote": "제안 · 번호표 인쇄는 아직 논의 중이다."
+  },
+  {
+    "check": "proposal-status", "controls": ["dyeing-misplaced"], "status": "fail",
+    "reason": "The proposal was promoted to an unassigned next action.",
+    "quote": "다음 조치 · 번호표 인쇄(담당 미정)."
+  }
+]

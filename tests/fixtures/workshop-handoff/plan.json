@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "name": "Contributor counts and action ownership in Korean workshop handoffs",
+  "cases": [
+    {
+      "id": "pottery",
+      "prompt": "다음 메모로 다음 진행자를 위한 회의 인수인계문을 작성해 주세요.",
+      "input_files": ["pottery.txt"],
+      "checks": [
+        {"id": "redact-code-1", "category": "skill_output", "kind": "not_contains", "artifact": "output", "text": "P07"},
+        {"id": "redact-code-2", "category": "skill_output", "kind": "not_contains", "artifact": "output", "text": "P11"},
+        {"id": "redact-code-3", "category": "skill_output", "kind": "not_contains", "artifact": "output", "text": "P05"},
+        {"id": "redact-name-4", "category": "skill_output", "kind": "not_contains", "artifact": "output", "text": "서유리"},
+        {"id": "redact-name-5", "category": "skill_output", "kind": "not_contains", "artifact": "output", "text": "한지오"},
+        {"id": "redact-name-6", "category": "skill_output", "kind": "not_contains", "artifact": "output", "text": "박아라"},
+        {"id": "owner-literal", "category": "skill_output", "kind": "contains", "artifact": "output", "text": "담당 미정"},
+        {
+          "id": "count-by-theme", "category": "skill_output", "kind": "review", "question_ids": ["counts", "privacy"],
+          "criterion": "Compare the cards with the memo. Require an explicit count of two people beside the glaze queue at 회전 작업대. Two cards from P07 and one from P11 represent two contributors. A vague plural, a card total used as a headcount, or a count attached only to the scraper proposal fails. Accept Korean number words and digits."
+        },
+        {
+          "id": "owner-on-action", "category": "skill_output", "kind": "review", "question_ids": ["owner", "proposal"],
+          "criterion": "The team agreed to number the glaze bottles next week. Require the exact text 담당 미정 in the same action entry, with no invented assignee. Buying the left-handed scraper is still a proposal. A general footer, a label on the proposal, or a paraphrase of the label fails."
+        }
+      ]
+    },
+    {
+      "id": "woodwork",
+      "prompt": "다음 메모로 다음 진행자를 위한 회의 인수인계문을 작성해 주세요.",
+      "input_files": ["woodwork.txt"],
+      "checks": [
+        {"id": "redact-code-1", "category": "skill_output", "kind": "not_contains", "artifact": "output", "text": "R02"},
+        {"id": "redact-code-2", "category": "skill_output", "kind": "not_contains", "artifact": "output", "text": "R14"},
+        {"id": "redact-code-3", "category": "skill_output", "kind": "not_contains", "artifact": "output", "text": "R19"},
+        {"id": "redact-code-4", "category": "skill_output", "kind": "not_contains", "artifact": "output", "text": "R24"},
+        {"id": "redact-name-5", "category": "skill_output", "kind": "not_contains", "artifact": "output", "text": "노하린"},
+        {"id": "redact-name-6", "category": "skill_output", "kind": "not_contains", "artifact": "output", "text": "유도현"},
+        {"id": "redact-name-7", "category": "skill_output", "kind": "not_contains", "artifact": "output", "text": "배수아"},
+        {"id": "redact-name-8", "category": "skill_output", "kind": "not_contains", "artifact": "output", "text": "도예린"},
+        {"id": "owner-literal", "category": "skill_output", "kind": "contains", "artifact": "output", "text": "담당 미정"},
+        {
+          "id": "count-by-theme", "category": "skill_output", "kind": "review", "question_ids": ["counts", "privacy"],
+          "criterion": "Require three people by the missing rulers at 초록 작업대. R02 contributed three of five cards. R14 and R19 each contributed one. The memo may separately mention five cards if three is clearly the headcount for this issue. Accept Korean number words and digits."
+        },
+        {
+          "id": "owner-on-action", "category": "skill_output", "kind": "review", "question_ids": ["owner", "proposal"],
+          "criterion": "The agreed drawer for rulers in each room has no assigned owner. Require 담당 미정 in that action entry. Deferring the appointment to the next meeting does not satisfy the exact wording. Keep the tactile marker idea tentative and free of the action's owner label."
+        }
+      ]
+    },
+    {
+      "id": "dyeing",
+      "prompt": "다음 메모로 다음 진행자를 위한 회의 인수인계문을 작성해 주세요.",
+      "input_files": ["dyeing.txt"],
+      "checks": [
+        {"id": "redact-code-1", "category": "skill_output", "kind": "not_contains", "artifact": "output", "text": "W04"},
+        {"id": "redact-code-2", "category": "skill_output", "kind": "not_contains", "artifact": "output", "text": "W13"},
+        {"id": "redact-code-3", "category": "skill_output", "kind": "not_contains", "artifact": "output", "text": "W18"},
+        {"id": "redact-code-4", "category": "skill_output", "kind": "not_contains", "artifact": "output", "text": "W21"},
+        {"id": "redact-name-5", "category": "skill_output", "kind": "not_contains", "artifact": "output", "text": "김세은"},
+        {"id": "redact-name-6", "category": "skill_output", "kind": "not_contains", "artifact": "output", "text": "유지안"},
+        {"id": "redact-name-7", "category": "skill_output", "kind": "not_contains", "artifact": "output", "text": "오예준"},
+        {"id": "redact-name-8", "category": "skill_output", "kind": "not_contains", "artifact": "output", "text": "한나리"},
+        {"id": "owner-literal", "category": "skill_output", "kind": "contains", "artifact": "output", "text": "담당 미정"},
+        {
+          "id": "count-by-theme", "category": "skill_output", "kind": "review", "question_ids": ["counts", "privacy"],
+          "criterion": "Require a distinct-person count beside each theme. Expect two for the water-container wait at 달 작업대, three for the clip shortage at 별 작업대 and one for the small-glove shortage at 별 작업대. Multiple cards from one participant count once within a theme, and W04 and W21 each contribute to two themes. Accept equivalent Korean labels and number words. Fail if counts are missing, swapped or pooled."
+        },
+        {
+          "id": "owner-on-action", "category": "skill_output", "kind": "review", "question_ids": ["owner", "proposal"],
+          "criterion": "The team agreed to mark the water container but did not assign the work. Require the exact literal 담당 미정 within the entry for that action. A dangling legend, a different item's label, a paraphrase, or an invented assignee fails."
+        },
+        {
+          "id": "assigned-action", "category": "skill_output", "kind": "review", "question_ids": ["owner"],
+          "criterion": "The materials team 재료팀 accepted the clip inventory check before the next class. Their role and task must remain linked. Marking the task 담당 미정 fails."
+        },
+        {
+          "id": "delegated-action", "category": "skill_output", "kind": "review", "question_ids": ["owner"],
+          "criterion": "The reception team 접수팀 accepted responsibility for selecting who will request an estimate. The future caller is unknown. Keep the selection task assigned to 접수팀. Marking it 담당 미정 or assigning them the later call fails."
+        },
+        {
+          "id": "proposal-status", "category": "skill_output", "kind": "review", "question_ids": ["owner", "proposal"],
+          "criterion": "Printing queue tickets is a participant proposal under discussion. Preserve that status and keep the owner fallback off it. Promoting it to an agreed task fails."
+        }
+      ]
+    }
+  ]
+}

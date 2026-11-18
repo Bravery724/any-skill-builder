@@ -53,6 +53,8 @@ You can write either request in your own language. The questionnaire follows the
 
 You can also give the builder an **existing skill folder** and an example of a result you want to improve. It builds the revision separately so you can compare it with the original. [More example requests](docs/usage.md)
 
+On `main`, questionnaire review starts with a sample input. If one person submits three cards, counting cards gives three while counting contributors gives one. The builder checks whether the form asks which result you need. If you change a rule later, one revision updates the current build brief, design, and test plan together. [Question review](any-skill-builder/references/question-review.md) · [Changing a rule](any-skill-builder/references/build-and-evaluate.md#resume-after-one-rule-changes)
+
 ## A weekly update from conflicting notes
 
 The repository includes a finished skill, its design choices, and the drafts it produced from fictional project notes. One choice changed how the writer handled uncertainty. When asked *“What should happen when the notes leave a material gap?”*, the recorded choice was *“Draft now and mark what is uncertain.”* [Questionnaire](examples/complete/questionnaire.json) · [Recorded choices](examples/complete/decisions.json)
